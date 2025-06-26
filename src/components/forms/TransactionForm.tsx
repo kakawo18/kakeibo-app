@@ -1,0 +1,239 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Modal,
+  Button,
+  Select,
+  NumberInput,
+  Stack,
+  Group,
+  SegmentedControl,
+  Textarea,
+} from '@mantine/core';
+import { DateInput } from '@mantine/dates';
+import { useForm } from '@mantine/form';
+import { useTransactions } from '@/hooks/useTransactions';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
+
+interface TransactionFormProps {
+  opened: boolean;
+  onClose: () => void;
+  editingTransaction?: Transaction | null;
+}
+
+export const TransactionForm: React.FC<TransactionFormProps> = ({
+  opened,
+  onClose,
+  editingTransaction,
+}) => {
+  const { addTransaction, updateTransaction } = useTransactions();
+  const [loading, setLoading] = useState(false);
+
+  const form = useForm({
+    initialValues: {
+      type: 'expense' as 'income' | 'expense',
+      amount: 0,
+      category: '',
+      subcategory: '',
+      paymentMethod: '',
+      date: new Date(),
+      description: '',
+    },
+  });
+
+  // editingTransactionが変更された時にフォーム値を更新
+  useEffect(() => {
+    if (editingTransaction) {
+      form.setValues({
+        type: editingTransaction.type,
+        amount: editingTransaction.amount,
+        category: editingTransaction.category,
+        subcategory: editingTransaction.subcategory || '',
+        paymentMethod: editingTransaction.paymentMethod || '',
+        date: editingTransaction.date,
+        description: editingTransaction.description || '',
+      });
+    } else {
+      // 新規作成時はフォームをリセット
+      form.setValues({
+        type: 'expense',
+        amount: 0,
+        category: '',
+        subcategory: '',
+        paymentMethod: '',
+        date: new Date(),
+        description: '',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTransaction]);
+
+  const categories = form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  const selectedCategory = categories.find(cat => cat.name === form.values.category);
+  const subcategories = selectedCategory?.subcategories || [];
+
+  const handleSubmit = async (values: {
+    type: 'income' | 'expense';
+    amount: number;
+    category: string;
+    subcategory?: string;
+    paymentMethod?: string;
+    date: Date;
+    description?: string;
+  }) => {
+    setLoading(true);
+    try {
+      // カード取引タイプの判定
+      let transactionType: 'normal' | 'card_payment' | 'card_withdrawal' = 'normal';
+      let affectsExpense = true;
+      let affectsBalance = true;
+
+      if (values.category === 'カード引き落とし') {
+        // カード引き落としの場合
+        transactionType = 'card_withdrawal';
+        affectsExpense = false;
+        affectsBalance = true;
+      } else if (values.paymentMethod && values.paymentMethod !== '現金') {
+        // カード支払いの場合
+        transactionType = 'card_payment';
+        affectsExpense = true;
+        affectsBalance = false;
+      }
+
+      const transactionData: {
+        type: 'income' | 'expense';
+        amount: number;
+        category: string;
+        date: Date;
+        transactionType: 'normal' | 'card_payment' | 'card_withdrawal';
+        affectsExpense: boolean;
+        affectsBalance: boolean;
+        subcategory?: string;
+        paymentMethod?: string;
+        description?: string;
+      } = {
+        type: values.type as 'income' | 'expense',
+        amount: Math.floor(values.amount), // 小数点切り捨て
+        category: values.category,
+        date: values.date,
+        transactionType,
+        affectsExpense,
+        affectsBalance,
+      };
+
+      // 空文字列でない場合のみ追加
+      if (values.subcategory && values.subcategory.trim()) {
+        transactionData.subcategory = values.subcategory.trim();
+      }
+      if (values.paymentMethod && values.paymentMethod.trim()) {
+        transactionData.paymentMethod = values.paymentMethod.trim();
+      }
+      if (values.description && values.description.trim()) {
+        transactionData.description = values.description.trim();
+      }
+
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, transactionData);
+      } else {
+        await addTransaction(transactionData);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error saving transaction:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCategoryChange = (category: string | null) => {
+    form.setFieldValue('category', category || '');
+    form.setFieldValue('subcategory', '');
+  };
+
+  const handleClose = () => {
+    // モーダルが閉じられた時のクリーンアップ処理は useEffect で処理
+    onClose();
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={handleClose}
+      title={editingTransaction ? '取引を編集' : '新しい取引を追加'}
+      size="md"
+    >
+      <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Stack>
+          <SegmentedControl
+            data={[
+              { label: '支出', value: 'expense' },
+              { label: '収入', value: 'income' },
+            ]}
+            {...form.getInputProps('type')}
+            onChange={(value) => {
+              form.setFieldValue('type', value as 'income' | 'expense');
+              form.setFieldValue('category', '');
+              form.setFieldValue('subcategory', '');
+            }}
+          />
+
+          <NumberInput
+            label="金額"
+            placeholder="金額を入力"
+            min={0}
+            required
+            {...form.getInputProps('amount')}
+          />
+
+          <Select
+            label="カテゴリ"
+            placeholder="カテゴリを選択"
+            data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
+            required
+            value={form.values.category}
+            onChange={handleCategoryChange}
+          />
+
+          {subcategories.length > 0 && (
+            <Select
+              label="サブカテゴリ"
+              placeholder="サブカテゴリを選択（任意）"
+              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              {...form.getInputProps('subcategory')}
+            />
+          )}
+
+          <Select
+            label="支払方法"
+            placeholder="支払方法を選択（任意）"
+            data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+            {...form.getInputProps('paymentMethod')}
+          />
+
+          <DateInput
+            label="日付"
+            required
+            {...form.getInputProps('date')}
+          />
+
+          <Textarea
+            label="メモ（任意）"
+            placeholder="メモを入力"
+            {...form.getInputProps('description')}
+          />
+
+          <Group justify="flex-end">
+            <Button variant="light" onClick={handleClose}>
+              キャンセル
+            </Button>
+            <Button type="submit" loading={loading}>
+              {editingTransaction ? '更新' : '追加'}
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
+  );
+};
