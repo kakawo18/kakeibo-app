@@ -211,6 +211,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       size={isMobile ? 'full' : 'lg'}
       fullScreen={isMobile}
       radius={isMobile ? 0 : undefined}
+      styles={{
+        body: {
+          padding: isMobile ? '16px' : undefined,
+        },
+        content: {
+          maxWidth: isMobile ? '100vw' : undefined,
+        }
+      }}
     >
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack>
@@ -233,6 +241,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             min={0}
             required
             {...form.getInputProps('amount')}
+            styles={{
+              input: {
+                fontSize: isMobile ? '16px' : undefined,
+                padding: isMobile ? '12px' : undefined,
+                minHeight: isMobile ? '48px' : undefined,
+              },
+              label: {
+                fontSize: isMobile ? '14px' : undefined,
+                fontWeight: 500,
+              }
+            }}
           />
 
           <Select

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select } from '@mantine/core';
+import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
@@ -99,7 +99,7 @@ export function DashboardContent() {
   }
 
   return (
-    <Container size="xl" py="xl">
+    <Container size="xl" py="xl" style={{ paddingBottom: isMobile ? '100px' : undefined }}>
       <Stack>
         <Group justify="space-between">
           <Group gap={isMobile ? "xs" : "md"}>
@@ -126,30 +126,32 @@ export function DashboardContent() {
               <IconChevronRight size={14} />
             </ActionIcon>
           </Group>
-          <Group gap={isMobile ? "xs" : "md"}>
-            <Button
-              leftSection={<IconPlus size={14} />}
-              onClick={() => setTransactionFormOpened(true)}
-              size={isMobile ? "sm" : "md"}
-            >
-              {isMobile ? '追加' : '取引を追加'}
-            </Button>
-            <Menu shadow="md" width={isMobile ? 180 : 200}>
-              <Menu.Target>
-                <ActionIcon variant="light" size={isMobile ? "md" : "lg"}>
-                  <IconDots size={14} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconFileImport size={14} />}
-                  onClick={() => setCsvModalOpened(true)}
-                >
-                  CSV インポート/エクスポート
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
+          {!isMobile && (
+            <Group gap={isMobile ? "xs" : "md"}>
+              <Button
+                leftSection={<IconPlus size={14} />}
+                onClick={() => setTransactionFormOpened(true)}
+                size={isMobile ? "sm" : "md"}
+              >
+                {isMobile ? '追加' : '取引を追加'}
+              </Button>
+              <Menu shadow="md" width={isMobile ? 180 : 200}>
+                <Menu.Target>
+                  <ActionIcon variant="light" size={isMobile ? "md" : "lg"}>
+                    <IconDots size={14} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconFileImport size={14} />}
+                    onClick={() => setCsvModalOpened(true)}
+                  >
+                    CSV インポート/エクスポート
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </Group>
+          )}
         </Group>
 
         <Grid>
@@ -301,6 +303,51 @@ export function DashboardContent() {
           opened={csvModalOpened}
           onClose={() => setCsvModalOpened(false)}
         />
+
+        {/* モバイル用フローティングアクションボタン */}
+        {isMobile && (
+          <Affix position={{ bottom: 20, right: 20 }}>
+            <Group gap="xs">
+              <Menu shadow="md" width={180}>
+                <Menu.Target>
+                  <ActionIcon 
+                    variant="light" 
+                    size="xl"
+                    style={{ 
+                      backgroundColor: 'var(--mantine-color-gray-1)',
+                      border: '1px solid var(--mantine-color-gray-3)',
+                      borderRadius: '50%',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                    }}
+                  >
+                    <IconDots size={20} />
+                  </ActionIcon>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<IconFileImport size={14} />}
+                    onClick={() => setCsvModalOpened(true)}
+                  >
+                    CSV インポート/エクスポート
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={() => setTransactionFormOpened(true)}
+                size="md"
+                style={{
+                  borderRadius: '25px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  paddingLeft: '16px',
+                  paddingRight: '20px'
+                }}
+              >
+                追加
+              </Button>
+            </Group>
+          </Affix>
+        )}
       </Stack>
     </Container>
   );
