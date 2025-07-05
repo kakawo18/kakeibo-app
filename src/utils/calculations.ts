@@ -100,6 +100,38 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   return sortedData;
 };
 
+// カテゴリ別カラーパレット
+const CATEGORY_COLORS = {
+  // 収入カテゴリ
+  '給与': '#10B981',
+  'ボーナス': '#059669',
+  'その他': '#047857',
+  
+  // 支出カテゴリ
+  '食費': '#EF4444',
+  '飲み会費': '#DC2626',
+  '電気代': '#F59E0B',
+  'ガス代': '#D97706',
+  '光熱費': '#F59E0B',
+  '交通費': '#3B82F6',
+  '趣味代': '#8B5CF6',
+  '旅行代': '#EC4899',
+  '医療費': '#06B6D4',
+  '家賃': '#F97316',
+  '投資': '#84CC16',
+  '固定費': '#F97316',
+  '三井住友カード': '#6B7280',
+  '三菱UFJカード': '#6B7280',
+  'amazonカード': '#6B7280',
+  'EPOSカード': '#6B7280',
+  '楽天カード': '#6B7280',
+  'カード引き落とし': '#6B7280',
+} as const;
+
+export const getCategoryColor = (categoryName: string): string => {
+  return CATEGORY_COLORS[categoryName as keyof typeof CATEGORY_COLORS] || '#9CA3AF';
+};
+
 export const calculateCategoryChartData = (transactions: Transaction[], type: 'income' | 'expense'): ChartData[] => {
   const categoryMap = new Map<string, number>();
   let total = 0;
@@ -117,6 +149,7 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
       name,
       value,
       percentage: total > 0 ? Math.round((value / total) * 100) : 0,
+      color: getCategoryColor(name),
     }))
     .sort((a, b) => b.value - a.value);
 };
@@ -141,4 +174,48 @@ export const calculatePreviousMonthComparison = (
   });
 
   return comparison;
+};
+
+export const calculateMonthlyComparison = (
+  currentData: MonthlyData,
+  previousData: MonthlyData | undefined
+): {
+  income: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+  expense: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+  balance: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+} => {
+  const calculateTrend = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 'up' : 'same';
+    const percentage = ((current - previous) / previous) * 100;
+    if (percentage > 0) return 'up';
+    if (percentage < 0) return 'down';
+    return 'same';
+  };
+
+  const calculatePercentage = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  const prevIncome = previousData?.income || 0;
+  const prevExpense = previousData?.expense || 0;
+  const prevBalance = previousData?.balance || 0;
+
+  return {
+    income: {
+      value: currentData.income,
+      percentage: calculatePercentage(currentData.income, prevIncome),
+      trend: calculateTrend(currentData.income, prevIncome)
+    },
+    expense: {
+      value: currentData.expense,
+      percentage: calculatePercentage(currentData.expense, prevExpense),
+      trend: calculateTrend(currentData.expense, prevExpense)
+    },
+    balance: {
+      value: currentData.balance,
+      percentage: calculatePercentage(currentData.balance, prevBalance),
+      trend: calculateTrend(currentData.balance, prevBalance)
+    }
+  };
 };
