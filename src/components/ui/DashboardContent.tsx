@@ -155,15 +155,15 @@ export function DashboardContent() {
         </Group>
 
         <Grid>
-          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-            <Card withBorder p="md">
+          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
+            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
               <Group>
                 <ActionIcon size="lg" color="green" variant="light">
                   <IconTrendingUp size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size="sm" c="dimmed">収入</Text>
-                  <Text size="xl" fw={700} c="green">
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">収入</Text>
+                  <Text size={isMobile ? "lg" : "xl"} fw={700} c="green">
                     ¥{(selectedMonthData?.income || 0).toLocaleString()}
                   </Text>
                 </div>
@@ -171,15 +171,15 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-            <Card withBorder p="md">
+          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
+            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
               <Group>
                 <ActionIcon size="lg" color="red" variant="light">
                   <IconTrendingDown size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size="sm" c="dimmed">支出</Text>
-                  <Text size="xl" fw={700} c="red">
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出</Text>
+                  <Text size={isMobile ? "lg" : "xl"} fw={700} c="red">
                     ¥{(selectedMonthData?.expense || 0).toLocaleString()}
                   </Text>
                 </div>
@@ -187,8 +187,8 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-            <Card withBorder p="md">
+          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
+            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
               <Group>
                 <ActionIcon 
                   size="lg" 
@@ -198,10 +198,10 @@ export function DashboardContent() {
                   <IconWallet size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size="sm" c="dimmed">支出収支</Text>
-                  <Text size="xs" c="dimmed">カード支払い含む</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出収支</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード支払い含む</Text>
                   <Text 
-                    size="xl" 
+                    size={isMobile ? "lg" : "xl"} 
                     fw={700} 
                     c={(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'blue' : 'red'}
                   >
@@ -212,8 +212,8 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-            <Card withBorder p="md">
+          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
+            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
               <Group>
                 <ActionIcon 
                   size="lg" 
@@ -223,10 +223,10 @@ export function DashboardContent() {
                   <IconWallet size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size="sm" c="dimmed">実残高</Text>
-                  <Text size="xs" c="dimmed">引き落とし反映</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">実残高</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">引き落とし反映</Text>
                   <Text 
-                    size="xl" 
+                    size={isMobile ? "lg" : "xl"} 
                     fw={700} 
                     c={(selectedMonthData?.balance || 0) >= 0 ? 'blue' : 'red'}
                   >
@@ -237,8 +237,8 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
-            <Card withBorder p="md">
+          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
+            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
               <Group>
                 <ActionIcon 
                   size="lg" 
@@ -248,10 +248,10 @@ export function DashboardContent() {
                   <IconTrendingUp size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size="sm" c="dimmed">カード支払い</Text>
-                  <Text size="xs" c="dimmed">5社カード合計</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">カード支払い</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">5社カード合計</Text>
                   <Text 
-                    size="xl" 
+                    size={isMobile ? "lg" : "xl"} 
                     fw={700} 
                     c="orange"
                   >

@@ -54,8 +54,8 @@ export const PieChart: React.FC<PieChartProps> = ({
           data={chartData}
           mx="auto"
           size={300}
-          withLabelsLine
-          labelsPosition="outside"
+          withLabels
+          labelsPosition="inside"
           labelsType="percent"
           withTooltip
         />
@@ -65,17 +65,19 @@ export const PieChart: React.FC<PieChartProps> = ({
             <Group key={item.name} justify="space-between">
               <Group gap="xs">
                 <Badge 
-                  color={color} 
-                  variant="filled"
+                  variant="outline"
                   style={{ 
-                    backgroundColor: `var(--mantine-color-${color}-${Math.min(9, index + 1)})` 
+                    borderColor: `var(--mantine-color-${color}-${Math.min(9, index + 1)})`,
+                    color: '#000',
+                    backgroundColor: 'transparent',
+                    fontWeight: 600
                   }}
                 >
                   {item.percentage}%
                 </Badge>
-                <Text size="sm">{item.name}</Text>
+                <Text size="sm" fw={500} c="#000">{item.name}</Text>
               </Group>
-              <Text size="sm" fw={500}>
+              <Text size="sm" fw={500} c="#000">
                 ¥{item.value.toLocaleString()}
               </Text>
             </Group>
