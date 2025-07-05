@@ -2,16 +2,16 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix } from '@mantine/core';
+import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { PieChart } from '@/components/charts/PieChart';
 import { LineChart } from '@/components/charts/LineChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
-import { calculateMonthlyData, calculateCategoryChartData } from '@/utils/calculations';
+import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent } from '@/utils/dateUtils';
 import { Transaction } from '@/types';
 
@@ -34,6 +34,16 @@ export function DashboardContent() {
     monthlyData.find(data => data.month === selectedMonth), 
     [monthlyData, selectedMonth]
   );
+
+  const previousMonthData = useMemo(() => {
+    const previousMonth = getPreviousMonthFromCurrent(selectedMonth);
+    return monthlyData.find(data => data.month === previousMonth);
+  }, [monthlyData, selectedMonth]);
+
+  const monthlyComparison = useMemo(() => {
+    if (!selectedMonthData) return null;
+    return calculateMonthlyComparison(selectedMonthData, previousMonthData);
+  }, [selectedMonthData, previousMonthData]);
 
   const selectedMonthTransactions = useMemo(() => 
     transactions.filter(t => t.date.toISOString().startsWith(selectedMonth)),
@@ -89,6 +99,38 @@ export function DashboardContent() {
   };
 
   const monthOptions = getMonthOptions();
+
+  // トレンドアイコンとバッジを表示するコンポーネント
+  const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
+    const getTrendColor = (trend: 'up' | 'down' | 'same') => {
+      switch (trend) {
+        case 'up': return 'red';
+        case 'down': return 'green';
+        case 'same': return 'gray';
+      }
+    };
+
+    const getTrendIcon = (trend: 'up' | 'down' | 'same') => {
+      switch (trend) {
+        case 'up': return <IconArrowUpRight size={12} />;
+        case 'down': return <IconArrowDownRight size={12} />;
+        case 'same': return <IconMinus size={12} />;
+      }
+    };
+
+    if (percentage === 0) return null;
+
+    return (
+      <Badge 
+        variant="light" 
+        color={getTrendColor(trend)}
+        leftSection={getTrendIcon(trend)}
+        size="xs"
+      >
+        {Math.abs(percentage)}%
+      </Badge>
+    );
+  };
 
   if (transactionsLoading) {
     return (
@@ -162,7 +204,15 @@ export function DashboardContent() {
                   <IconTrendingUp size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">収入</Text>
+                  <Group gap="xs" align="center">
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">収入</Text>
+                    {monthlyComparison && (
+                      <TrendIndicator 
+                        trend={monthlyComparison.income.trend} 
+                        percentage={monthlyComparison.income.percentage} 
+                      />
+                    )}
+                  </Group>
                   <Text size={isMobile ? "lg" : "xl"} fw={700} c="green">
                     ¥{(selectedMonthData?.income || 0).toLocaleString()}
                   </Text>
@@ -178,7 +228,15 @@ export function DashboardContent() {
                   <IconTrendingDown size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出</Text>
+                  <Group gap="xs" align="center">
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出</Text>
+                    {monthlyComparison && (
+                      <TrendIndicator 
+                        trend={monthlyComparison.expense.trend} 
+                        percentage={monthlyComparison.expense.percentage} 
+                      />
+                    )}
+                  </Group>
                   <Text size={isMobile ? "lg" : "xl"} fw={700} c="red">
                     ¥{(selectedMonthData?.expense || 0).toLocaleString()}
                   </Text>
@@ -223,7 +281,15 @@ export function DashboardContent() {
                   <IconWallet size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">実残高</Text>
+                  <Group gap="xs" align="center">
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">実残高</Text>
+                    {monthlyComparison && (
+                      <TrendIndicator 
+                        trend={monthlyComparison.balance.trend} 
+                        percentage={monthlyComparison.balance.percentage} 
+                      />
+                    )}
+                  </Group>
                   <Text size={isMobile ? "xs" : "xs"} c="dimmed">引き落とし反映</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
@@ -306,7 +372,7 @@ export function DashboardContent() {
 
         {/* モバイル用フローティングアクションボタン */}
         {isMobile && (
-          <Affix position={{ bottom: 20, right: 20 }}>
+          <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
             <Group gap="xs">
               <Menu shadow="md" width={180}>
                 <Menu.Target>
@@ -317,7 +383,9 @@ export function DashboardContent() {
                       backgroundColor: 'var(--mantine-color-gray-1)',
                       border: '1px solid var(--mantine-color-gray-3)',
                       borderRadius: '50%',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      opacity: transactionFormOpened ? 0.3 : 1,
+                      pointerEvents: transactionFormOpened ? 'none' : 'auto'
                     }}
                   >
                     <IconDots size={20} />
@@ -340,7 +408,9 @@ export function DashboardContent() {
                   borderRadius: '25px',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                   paddingLeft: '16px',
-                  paddingRight: '20px'
+                  paddingRight: '20px',
+                  opacity: transactionFormOpened ? 0.3 : 1,
+                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
                 }}
               >
                 追加

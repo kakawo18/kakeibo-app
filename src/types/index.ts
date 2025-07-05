@@ -48,6 +48,7 @@ export interface ChartData {
   name: string;
   value: number;
   percentage: number;
+  color?: string;
 }
 
 export const PAYMENT_METHODS = [
