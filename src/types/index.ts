@@ -28,7 +28,6 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: '趣味代' },
   { name: '旅行代' },
   { name: '医療費' },
-  { name: 'カード引き落とし', subcategories: ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'] },
   { name: 'その他' },
 ];
 

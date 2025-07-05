@@ -50,6 +50,16 @@ export function DashboardContent() {
     [selectedMonthTransactions]
   );
 
+  const cardPaymentTotal = useMemo(() => {
+    const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
+    return selectedMonthTransactions
+      .filter(t => 
+        t.type === 'expense' && 
+        cardMethods.includes(t.paymentMethod || '')
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [selectedMonthTransactions]);
+
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setTransactionFormOpened(true);
@@ -219,6 +229,31 @@ export function DashboardContent() {
                     c={(selectedMonthData?.balance || 0) >= 0 ? 'blue' : 'red'}
                   >
                     ¥{(selectedMonthData?.balance || 0).toLocaleString()}
+                  </Text>
+                </div>
+              </Group>
+            </Card>
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
+            <Card withBorder p="md">
+              <Group>
+                <ActionIcon 
+                  size="lg" 
+                  color="orange"
+                  variant="light"
+                >
+                  <IconTrendingUp size={20} />
+                </ActionIcon>
+                <div>
+                  <Text size="sm" c="dimmed">カード支払い</Text>
+                  <Text size="xs" c="dimmed">5社カード合計</Text>
+                  <Text 
+                    size="xl" 
+                    fw={700} 
+                    c="orange"
+                  >
+                    ¥{cardPaymentTotal.toLocaleString()}
                   </Text>
                 </div>
               </Group>
