@@ -645,6 +645,260 @@ export interface ChartData {
 
 この更新により、家計簿アプリは視覚的に美しく、使いやすく、情報豊富なアプリケーションに生まれ変わりました。
 
+### 2025-07-05 Update: v1.4.0 総合改善アップデート - カレンダー・取引修正・UI/UX向上
+
+#### 概要
+家計簿アプリの使い勝手を大幅に向上させる包括的なアップデート。モバイル体験の改善、データ整合性の確保、視覚的な改善を実施。
+
+#### 実装内容
+
+##### 1. スマートフォンカレンダー操作性の大幅改善
+
+**問題**: スマートフォンでの日付選択時の操作性不良
+- 縦画面での数字見切れ
+- 横画面表示時のバグ
+- タップ領域の不適切なサイズ
+
+**解決策**:
+```typescript
+// フルスクリーンモバイルカレンダーの実装
+export const MobileCalendar: React.FC<MobileCalendarProps> = ({
+  opened, onClose, value, onChange
+}) => {
+  const isLandscape = useMediaQuery('(orientation: landscape)');
+  const isSmallScreen = useMediaQuery('(max-width: 480px)');
+  
+  // レスポンシブレイアウト対応
+  return (
+    <Modal opened={opened} onClose={onClose} fullScreen>
+      {isLandscape ? (
+        // 横画面: サイドバー + カレンダー
+        <HorizontalLayout />
+      ) : (
+        // 縦画面: 縦積みレイアウト
+        <VerticalLayout />
+      )}
+    </Modal>
+  );
+}
+```
+
+**実装機能**:
+- **フルスクリーンカレンダー**: 画面全体を使用した見やすい表示
+- **大きなタップ領域**: 48px以上のタッチフレンドリーなセル
+- **クイック選択**: 「今日」「昨日」「一昨日」ボタン
+- **年月ナビゲーション**: 素早い年・月移動
+- **レスポンシブ対応**: 縦画面・横画面で最適化されたレイアウト
+- **視覚的改善**: 今日・選択日のハイライト、週末の色分け
+
+##### 2. 取引履歴修正機能の根本的な修正
+
+**問題**: 取引編集時にデータが正しく反映されない致命的なバグ
+
+**根本原因**:
+```typescript
+// 問題のあった updateTransaction 関数
+const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+  const updateData = { ...updates }; // undefined フィールドがそのまま送信
+  await updateDoc(docRef, updateData); // Firestore エラーの原因
+};
+```
+
+**解決策**:
+```typescript
+// 共通データクリーニング関数の実装
+const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransactionData => {
+  const cleaned: CleanTransactionData = {};
+  
+  // undefined除外 + 型安全な処理
+  if (transaction.type !== undefined) cleaned.type = transaction.type;
+  if (transaction.amount !== undefined) cleaned.amount = transaction.amount;
+  // ... 他のフィールドも同様に処理
+  
+  // 空文字列フィルタリング
+  if (transaction.subcategory && transaction.subcategory.trim()) {
+    cleaned.subcategory = transaction.subcategory.trim();
+  }
+  
+  return cleaned;
+};
+
+// 修正された updateTransaction 関数
+const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
+  const cleanedData = cleanTransactionData(updates);
+  const updateData = {
+    ...cleanedData,
+    updatedAt: Timestamp.fromDate(new Date()),
+  };
+  
+  await updateDoc(docRef, updateData);
+};
+```
+
+**改善効果**:
+- **データ整合性**: undefined値によるFirestoreエラーを完全に排除
+- **型安全性**: TypeScript型定義による厳密なデータ検証
+- **一貫性**: addTransaction と updateTransaction で同じデータ処理ロジック
+- **エラーハンドリング**: 包括的なエラー捕捉と適切なログ出力
+
+##### 3. ダッシュボードアイコン・色彩設計の改善
+
+**問題**: アイコンと色の重複により項目の識別が困難
+
+**Before**:
+```
+収入:     🔼 green  - IconTrendingUp
+支出:     🔽 red    - IconTrendingDown  
+今月収支: 💰 blue   - IconWallet
+実残高:   💰 blue   - IconWallet        ← 重複
+カード:   🔼 orange - IconTrendingUp     ← 重複
+```
+
+**After**:
+```
+収入:     🔼 green  - IconTrendingUp
+支出:     🔽 red    - IconTrendingDown
+今月収支: 💰 blue   - IconWallet
+実残高:   🏦 teal   - IconBuildingBank  ← 銀行口座を表現
+カード:   💳 violet - IconCreditCard    ← クレジットカードを表現
+```
+
+**実装**:
+```typescript
+// 新しいアイコンのインポート
+import { 
+  IconCreditCard,    // カード支払い用
+  IconBuildingBank   // 実残高（銀行口座）用
+} from '@tabler/icons-react';
+
+// 色彩の分離
+const iconColors = {
+  income: 'green',      // 成長・プラス
+  expense: 'red',       // 注意・マイナス
+  balance: 'blue',      // 情報・中立
+  realBalance: 'teal',  // 安定・資産
+  cardPayment: 'violet' // 特別・クレジット
+};
+```
+
+##### 4. 円グラフ表示の最適化
+
+**改善**: タップ時の情報表示を使いやすく調整
+
+**最終仕様**:
+- **円グラフ上**: 割合（%）表示でバランス把握
+- **下部サマリー**: 割合（%）+ カテゴリ名 + 金額で詳細情報
+- **ツールチップ**: タップ時に % 表示
+- **バッジ**: カテゴリカラーで塗りつぶし、円グラフとの対応明確
+
+```typescript
+// 理想的な表示形式
+円グラフ: [タップ] → "15%" 
+サマリー: "🟢 15% 食費  ¥15,000"
+```
+
+#### 技術的改善
+
+##### モバイルファーストの設計哲学
+```typescript
+// レスポンシブ対応の例
+const isMobile = useMediaQuery('(max-width: 768px)');
+const isLandscape = useMediaQuery('(orientation: landscape)');
+
+// 条件分岐でのレイアウト最適化
+{isMobile ? (
+  <MobileOptimizedComponent />
+) : (
+  <DesktopComponent />
+)}
+```
+
+##### 型安全性の徹底
+```typescript
+// 明確な型定義
+interface CleanTransactionData {
+  type?: 'income' | 'expense';
+  amount?: number;
+  // ... 他のフィールド
+}
+
+// 型ガードによる安全性確保
+if (!data.type || !data.amount || !data.category) {
+  console.warn('Incomplete transaction data:', doc.id);
+  return;
+}
+```
+
+##### パフォーマンス最適化
+```typescript
+// useMemo による計算の最適化
+const chartData = useMemo(() => 
+  data?.map(item => ({
+    name: item.name,
+    value: item.value,
+    percentage: item.percentage,
+    color: item.color
+  })) || [],
+  [data, color]
+);
+```
+
+#### 品質保証とテスト
+
+**自動化テスト**:
+- ✅ TypeScript: 型エラー 0件
+- ✅ ESLint: 警告 0件
+- ✅ Build: 正常完了
+- ✅ Performance: Bundle size 最適化
+
+**手動テスト**:
+- ✅ モバイル操作性: iPhone/Android テスト完了
+- ✅ 取引編集機能: データ反映確認
+- ✅ レスポンシブ: 縦画面・横画面動作確認
+- ✅ アクセシビリティ: タップ領域・色コントラスト確認
+
+#### ユーザー体験の向上
+
+**操作性の改善**:
+- 📱 **モバイル**: フルスクリーンカレンダーで快適な日付選択
+- ⚡ **効率性**: クイック選択で1タップ日付選択
+- 🎯 **精度**: 大きなタップ領域で誤操作防止
+
+**情報の見やすさ**:
+- 🎨 **視認性**: 5色分離で項目識別が瞬時
+- 📊 **情報量**: 円グラフで%と金額の両方提供
+- 🏦 **直感性**: アイコンで機能が一目瞭然
+
+**データの信頼性**:
+- 💾 **確実な保存**: 取引編集が確実に反映
+- 🔄 **リアルタイム**: Firestore連携で即座に更新
+- 🛡️ **データ整合性**: undefined値エラーの完全排除
+
+#### 開発効率とメンテナンス性
+
+**コード品質**:
+- 🧹 **DRY原則**: 共通ヘルパー関数で重複排除
+- 🏗️ **モジュール化**: コンポーネントの責務分離
+- 📝 **型安全性**: TypeScript活用で実行時エラー防止
+
+**保守性**:
+- 📚 **ドキュメント**: 包括的な技術文書整備
+- 🔍 **デバッグ**: 詳細なエラーログ出力
+- 🎛️ **設定管理**: 環境別設定の適切な管理
+
+#### バージョン管理
+
+**Git管理**:
+- **ブランチ**: `testbranch` での開発・テスト
+- **タグ付け**: `v1.4.0` 安定版
+- **コミット**: 機能別の詳細なコミット履歴
+
+**デプロイ戦略**:
+- 段階的リリース: テスト → ステージング → 本番
+- ロールバック準備: 前バージョンタグでの即座復旧可能
+
+この v1.4.0 アップデートにより、家計簿アプリは実用性・信頼性・使いやすさの全ての面で大幅に向上し、日常的に使いたくなる完成度の高いアプリケーションに進化しました。
+
 ## Development Notes
 
 ### Type Safety
