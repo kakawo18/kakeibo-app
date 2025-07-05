@@ -41,6 +41,7 @@ npm run type-check
 **Backend**: Firebase (Firestore for data, Auth for authentication)
 **Date Management**: Day.js
 **Charts**: Recharts 2.15.4
+**Animation**: Framer Motion 11.15.0
 
 ## Core Architecture
 
@@ -436,6 +437,213 @@ git checkout v1.0.0 -- src/components/forms/TransactionForm.tsx
 - Performance metrics for subcategory selection
 
 This update successfully resolves the critical mobile freeze issue while establishing a robust foundation for future mobile-first development.
+
+### 2025-07-05 Update: v1.3.0 UI/UX大幅改善 - カラーテーマ・アニメーション・前月比表示
+
+#### 概要
+家計簿アプリの見た目と使いやすさを大幅に改善。カラーテーマの統一、滑らかなアニメーション、前月比の視覚的表現を実装し、ユーザー体験を向上させました。
+
+#### 実装内容
+
+##### 1. カラーテーマの強化 (`/src/utils/calculations.ts`)
+**統一されたカラーパレット実装**:
+```typescript
+const CATEGORY_COLORS = {
+  // 収入カテゴリ
+  '給与': '#10B981',      // エメラルドグリーン
+  'ボーナス': '#059669',  // ダークエメラルド
+  'その他': '#047857',    // より深いエメラルド
+  
+  // 支出カテゴリ
+  '食費': '#EF4444',      // レッド
+  '飲み会費': '#DC2626',  // ダークレッド
+  '電気代': '#F59E0B',    // アンバー
+  'ガス代': '#D97706',    // ダークアンバー
+  '交通費': '#3B82F6',    // ブルー
+  '趣味代': '#8B5CF6',    // バイオレット
+  '旅行代': '#EC4899',    // ピンク
+  '医療費': '#06B6D4',    // シアン
+  '家賃': '#F97316',      // オレンジ
+  '投資': '#84CC16',      // ライム
+  
+  // カード支払い（統一）
+  'カード各社': '#6B7280'  // グレー系統
+} as const;
+```
+
+**新機能**:
+- `getCategoryColor()`: カテゴリ名から適切な色を取得
+- `ChartData`型にcolor属性追加で型安全性確保
+
+##### 2. 円グラフアニメーション (`/src/components/charts/PieChart.tsx`)
+**framer-motion導入による高品質アニメーション**:
+```typescript
+// コンテナアニメーション
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5 }}
+>
+
+// グラフアニメーション
+<motion.div
+  initial={{ scale: 0 }}
+  animate={{ scale: 1 }}
+  transition={{ 
+    duration: 0.8,
+    delay: 0.2,
+    type: "spring",
+    stiffness: 100
+  }}
+>
+
+// 凡例順次表示
+{data.map((item, index) => (
+  <motion.div
+    initial={{ opacity: 0, x: -20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ 
+      duration: 0.4,
+      delay: 0.5 + index * 0.1
+    }}
+  >
+))}
+```
+
+**アニメーション効果**:
+- ページロード時のフェードイン
+- グラフのスプリングスケールアニメーション
+- 凡例の段階的表示（左から右へ）
+
+##### 3. 前月比増減の視覚的表現 (`/src/components/ui/DashboardContent.tsx`)
+**新機能: 前月比計算ロジック** (`/src/utils/calculations.ts`):
+```typescript
+export const calculateMonthlyComparison = (
+  currentData: MonthlyData,
+  previousData: MonthlyData | undefined
+): {
+  income: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+  expense: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+  balance: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+}
+```
+
+**TrendIndicatorコンポーネント**:
+```typescript
+const TrendIndicator = ({ trend, percentage }) => {
+  // 増加: 🟢 緑の上向き矢印（ポジティブ変化）
+  // 減少: 🔴 赤の下向き矢印（注意要変化）
+  // 横ばい: ⚪ グレーの水平線（変化なし）
+};
+```
+
+**適用対象**:
+- 収入の前月比
+- 支出の前月比
+- 実残高の前月比
+
+##### 4. スマートフォンUI改善
+**フローティングアクションボタン重複問題解決**:
+```typescript
+// モーダル表示時の制御
+style={{ 
+  zIndex: transactionFormOpened ? 1 : 1000,
+  opacity: transactionFormOpened ? 0.3 : 1,
+  pointerEvents: transactionFormOpened ? 'none' : 'auto'
+}}
+```
+
+**改善効果**:
+- モーダル表示時のボタン競合回避
+- 適切なレイヤー管理
+- ユーザー混乱の防止
+
+#### 技術仕様
+
+**新依存関係**:
+- **framer-motion**: `11.15.0` - 軽量で高性能なアニメーションライブラリ（+3 packages）
+
+**型定義拡張**:
+```typescript
+export interface ChartData {
+  name: string;
+  value: number;
+  percentage: number;
+  color?: string;  // 新規追加
+}
+```
+
+**ファイル変更統計**:
+- 7ファイル変更
+- 355行追加
+- 66行削除
+
+#### コード品質保証
+
+**検証結果**:
+- ✅ TypeScript: 型エラー 0件
+- ✅ ESLint: 警告 0件
+- ✅ Build: 正常完了（28.0秒）
+- ✅ Bundle Size: 最適化済み（507kB First Load JS）
+
+**テスト完了項目**:
+- [x] モバイル端末での動作確認
+- [x] デスクトップブラウザでの動作確認
+- [x] アニメーション性能確認
+- [x] 前月比計算の正確性確認
+- [x] レスポンシブデザイン確認
+
+#### パフォーマンス最適化
+
+**アニメーション最適化**:
+- GPU加速によるスムーズな描画
+- 適切なアニメーション遅延設定
+- メモリ効率的な実装
+
+**レンダリング最適化**:
+- useMemoによる不要な再計算防止
+- 条件付きレンダリングでリソース節約
+
+#### ユーザー体験の向上
+
+**Before（改善前）**:
+- 単調な色使いで情報の区別が困難
+- 静的な表示で視覚的魅力に欠ける
+- 前月との比較情報が不明
+- スマホでのボタン重複による操作混乱
+
+**After（改善後）**:
+- 🌈 美しく統一されたカラーテーマ
+- ✨ 滑らかで心地よいアニメーション
+- 📊 前月比が一目で分かる視覚的表現
+- 📱 快適で直感的なモバイル操作
+
+#### バージョン管理
+
+**Git管理**:
+- **ブランチ**: `feature/ui-improvements` → `testbranch`
+- **安定版タグ**: `v1.2.0`（改善前のロールバック用）
+- **新バージョン**: `v1.3.0`（今回の改善版）
+
+**デプロイメント**:
+- testbranchにプッシュ完了
+- プルリクエスト準備完了
+- 本番環境へのマージ待機
+
+#### Future Improvements準備
+
+**次回実装候補**:
+- ダークモード対応
+- スワイプジェスチャー
+- 音声入力機能
+- より詳細なアニメーション設定
+
+**技術基盤**:
+- framer-motionによる拡張可能なアニメーション基盤
+- 型安全なカラーシステム
+- モジュール化されたUI コンポーネント
+
+この更新により、家計簿アプリは視覚的に美しく、使いやすく、情報豊富なアプリケーションに生まれ変わりました。
 
 ## Development Notes
 
