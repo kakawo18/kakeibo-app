@@ -14,6 +14,7 @@ import {
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
+import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/hooks/useTransactions';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
 
@@ -30,6 +31,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const { addTransaction, updateTransaction } = useTransactions();
   const [loading, setLoading] = useState(false);
+  
+  // モバイル表示判定
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const form = useForm({
     initialValues: {
@@ -204,7 +208,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       opened={opened}
       onClose={handleClose}
       title={editingTransaction ? '取引を編集' : '新しい取引を追加'}
-      size="md"
+      size={isMobile ? 'full' : 'lg'}
+      fullScreen={isMobile}
+      radius={isMobile ? 0 : undefined}
     >
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack>

@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
@@ -19,6 +20,9 @@ export function DashboardContent() {
   const [transactionFormOpened, setTransactionFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
+  
+  // モバイル表示判定
+  const isMobile = useMediaQuery('(max-width: 768px)');
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -88,40 +92,42 @@ export function DashboardContent() {
     <Container size="xl" py="xl">
       <Stack>
         <Group justify="space-between">
-          <Group>
+          <Group gap={isMobile ? "xs" : "md"}>
             <ActionIcon
               variant="light"
-              size="lg"
+              size={isMobile ? "md" : "lg"}
               onClick={handlePreviousMonth}
             >
-              <IconChevronLeft size={16} />
+              <IconChevronLeft size={14} />
             </ActionIcon>
             <Select
               data={monthOptions}
               value={selectedMonth}
               onChange={handleMonthChange}
               searchable
-              w={200}
+              w={isMobile ? 140 : 200}
+              size={isMobile ? "sm" : "md"}
             />
             <ActionIcon
               variant="light"
-              size="lg"
+              size={isMobile ? "md" : "lg"}
               onClick={handleNextMonth}
             >
-              <IconChevronRight size={16} />
+              <IconChevronRight size={14} />
             </ActionIcon>
           </Group>
-          <Group>
+          <Group gap={isMobile ? "xs" : "md"}>
             <Button
-              leftSection={<IconPlus size={16} />}
+              leftSection={<IconPlus size={14} />}
               onClick={() => setTransactionFormOpened(true)}
+              size={isMobile ? "sm" : "md"}
             >
-              取引を追加
+              {isMobile ? '追加' : '取引を追加'}
             </Button>
-            <Menu shadow="md" width={200}>
+            <Menu shadow="md" width={isMobile ? 180 : 200}>
               <Menu.Target>
-                <ActionIcon variant="light" size="lg">
-                  <IconDots size={16} />
+                <ActionIcon variant="light" size={isMobile ? "md" : "lg"}>
+                  <IconDots size={14} />
                 </ActionIcon>
               </Menu.Target>
               <Menu.Dropdown>
@@ -137,7 +143,7 @@ export function DashboardContent() {
         </Group>
 
         <Grid>
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
             <Card withBorder p="md">
               <Group>
                 <ActionIcon size="lg" color="green" variant="light">
@@ -153,7 +159,7 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
             <Card withBorder p="md">
               <Group>
                 <ActionIcon size="lg" color="red" variant="light">
@@ -169,7 +175,7 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
             <Card withBorder p="md">
               <Group>
                 <ActionIcon 
@@ -194,7 +200,7 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, md: 3 }}>
+          <Grid.Col span={{ base: 6, sm: 6, md: 3 }}>
             <Card withBorder p="md">
               <Group>
                 <ActionIcon 
