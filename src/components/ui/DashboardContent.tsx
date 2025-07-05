@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -275,10 +275,10 @@ export function DashboardContent() {
               <Group>
                 <ActionIcon 
                   size="lg" 
-                  color={(selectedMonthData?.balance || 0) >= 0 ? 'blue' : 'red'}
+                  color={(selectedMonthData?.balance || 0) >= 0 ? 'teal' : 'red'}
                   variant="light"
                 >
-                  <IconWallet size={20} />
+                  <IconBuildingBank size={20} />
                 </ActionIcon>
                 <div>
                   <Group gap="xs" align="center">
@@ -290,11 +290,11 @@ export function DashboardContent() {
                       />
                     )}
                   </Group>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード引き落とし反映</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード料金反映</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
                     fw={700} 
-                    c={(selectedMonthData?.balance || 0) >= 0 ? 'blue' : 'red'}
+                    c={(selectedMonthData?.balance || 0) >= 0 ? 'teal' : 'red'}
                   >
                     ¥{(selectedMonthData?.balance || 0).toLocaleString()}
                   </Text>
@@ -308,10 +308,10 @@ export function DashboardContent() {
               <Group>
                 <ActionIcon 
                   size="lg" 
-                  color="orange"
+                  color="violet"
                   variant="light"
                 >
-                  <IconTrendingUp size={20} />
+                  <IconCreditCard size={20} />
                 </ActionIcon>
                 <div>
                   <Text size={isMobile ? "xs" : "sm"} c="dimmed">カード支払い</Text>
@@ -319,7 +319,7 @@ export function DashboardContent() {
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
                     fw={700} 
-                    c="orange"
+                    c="violet"
                   >
                     ¥{cardPaymentTotal.toLocaleString()}
                   </Text>

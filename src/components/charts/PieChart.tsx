@@ -23,6 +23,7 @@ export const PieChart: React.FC<PieChartProps> = ({
     data?.map((item, index) => ({
       name: item.name,
       value: item.value,
+      percentage: item.percentage,
       color: item.color || `${color}.${Math.min(9, index + 1)}`,
     })) || [],
     [data, color]
@@ -74,6 +75,11 @@ export const PieChart: React.FC<PieChartProps> = ({
               labelsPosition="inside"
               labelsType="percent"
               withTooltip
+              tooltipDataSource="segment"
+              valueFormatter={(value: number) => {
+                const item = chartData.find(d => d.value === value);
+                return item ? `${item.percentage}%` : `${Math.round(value)}%`;
+              }}
               startAngle={90}
               endAngle={450}
               strokeWidth={2}
@@ -94,11 +100,10 @@ export const PieChart: React.FC<PieChartProps> = ({
                 <Group justify="space-between">
                   <Group gap="xs">
                     <Badge 
-                      variant="outline"
+                      variant="filled"
                       style={{ 
-                        borderColor: item.color || `var(--mantine-color-${color}-${Math.min(9, index + 1)})`,
-                        color: '#000',
-                        backgroundColor: 'transparent',
+                        backgroundColor: item.color || `var(--mantine-color-${color}-${Math.min(9, index + 1)})`,
+                        color: 'white',
                         fontWeight: 600
                       }}
                     >
