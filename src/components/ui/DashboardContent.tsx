@@ -104,8 +104,8 @@ export function DashboardContent() {
   const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
     const getTrendColor = (trend: 'up' | 'down' | 'same') => {
       switch (trend) {
-        case 'up': return 'red';
-        case 'down': return 'green';
+        case 'up': return 'green';
+        case 'down': return 'red';
         case 'same': return 'gray';
       }
     };
