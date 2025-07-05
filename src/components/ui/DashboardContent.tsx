@@ -104,8 +104,8 @@ export function DashboardContent() {
   const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
     const getTrendColor = (trend: 'up' | 'down' | 'same') => {
       switch (trend) {
-        case 'up': return 'red';
-        case 'down': return 'green';
+        case 'up': return 'green';
+        case 'down': return 'red';
         case 'same': return 'gray';
       }
     };
@@ -256,7 +256,7 @@ export function DashboardContent() {
                   <IconWallet size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出収支</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">今月の収支</Text>
                   <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード支払い含む</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
@@ -290,7 +290,7 @@ export function DashboardContent() {
                       />
                     )}
                   </Group>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">引き落とし反映</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード引き落とし反映</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
                     fw={700} 
