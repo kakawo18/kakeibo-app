@@ -107,9 +107,7 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
   transactions
     .filter((t) => t.type === type)
     .forEach((transaction) => {
-      const category = transaction.category === 'その他' 
-        ? 'その他' 
-        : (transaction.subcategory || transaction.category);
+      const category = transaction.subcategory || transaction.category;
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
       total += transaction.amount;
     });
