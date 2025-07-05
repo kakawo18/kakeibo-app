@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal,
   Button,
@@ -12,6 +12,7 @@ import {
   Box,
   SimpleGrid,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 
@@ -30,6 +31,16 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState(value);
   const [selectedDate, setSelectedDate] = useState(value);
+  
+  // レスポンシブ対応
+  const isLandscape = useMediaQuery('(orientation: landscape)');
+  const isSmallScreen = useMediaQuery('(max-width: 480px)');
+  
+  // propsが変更された時にselectedDateを更新
+  useEffect(() => {
+    setSelectedDate(value);
+    setCurrentDate(value);
+  }, [value]);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -132,15 +143,22 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
       radius={0}
       styles={{
         body: {
-          padding: '16px',
+          padding: isLandscape ? '12px' : '16px',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
         },
         content: {
           height: '100vh',
+          width: '100vw',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
+        },
+        header: {
+          padding: isLandscape ? '12px 16px' : '16px',
+          flexShrink: 0,
         },
       }}
     >
@@ -148,102 +166,277 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        style={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: isLandscape ? 'row' : 'column',
+          overflow: 'hidden'
+        }}
       >
-        <Stack style={{ flex: 1 }}>
-          {/* クイック選択ボタン */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-          >
-            <Group gap="xs" style={{ marginBottom: '16px' }}>
-              <Button
-                variant="light"
-                size="sm"
-                onClick={() => handleQuickSelect(0)}
-                style={{ flex: 1 }}
+        {isLandscape ? (
+          // 横画面レイアウト
+          <>
+            {/* 左側: クイック選択とナビゲーション */}
+            <Box style={{ 
+              width: '200px', 
+              padding: '16px 12px', 
+              borderRight: '1px solid var(--mantine-color-gray-3)',
+              flexShrink: 0
+            }}>
+              <Stack gap="md">
+                {/* クイック選択ボタン */}
+                <Stack gap="xs">
+                  <Text size="sm" fw={600} c="dimmed">クイック選択</Text>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => handleQuickSelect(0)}
+                    fullWidth
+                  >
+                    今日
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => handleQuickSelect(1)}
+                    fullWidth
+                  >
+                    昨日
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => handleQuickSelect(2)}
+                    fullWidth
+                  >
+                    一昨日
+                  </Button>
+                </Stack>
+                
+                {/* 年月選択 */}
+                <Stack gap="xs">
+                  <Text size="sm" fw={600} c="dimmed">年月選択</Text>
+                  <Select
+                    data={generateYearOptions()}
+                    value={currentDate.getFullYear().toString()}
+                    onChange={handleYearChange}
+                    size="xs"
+                  />
+                  <Group gap="xs">
+                    <ActionIcon
+                      variant="light"
+                      size="sm"
+                      onClick={() => handleMonthChange('prev')}
+                    >
+                      <IconChevronLeft size={16} />
+                    </ActionIcon>
+                    <Text size="sm" fw={600} style={{ flex: 1, textAlign: 'center' }}>
+                      {monthNames[currentDate.getMonth()]}
+                    </Text>
+                    <ActionIcon
+                      variant="light"
+                      size="sm"
+                      onClick={() => handleMonthChange('next')}
+                    >
+                      <IconChevronRight size={16} />
+                    </ActionIcon>
+                  </Group>
+                </Stack>
+              </Stack>
+            </Box>
+            
+            {/* 右側: カレンダー */}
+            <Box style={{ flex: 1, padding: '16px 12px', overflow: 'hidden' }}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.4, delay: 0.3 }}
+                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
               >
-                今日
-              </Button>
-              <Button
-                variant="light"
-                size="sm"
-                onClick={() => handleQuickSelect(1)}
-                style={{ flex: 1 }}
-              >
-                昨日
-              </Button>
-              <Button
-                variant="light"
-                size="sm"
-                onClick={() => handleQuickSelect(2)}
-                style={{ flex: 1 }}
-              >
-                一昨日
-              </Button>
-            </Group>
-          </motion.div>
+                <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  {/* 曜日ヘッダー */}
+                  <SimpleGrid cols={7} spacing={4} style={{ marginBottom: '8px', flexShrink: 0 }}>
+                    {weekdays.map((day, index) => (
+                      <Box
+                        key={day}
+                        style={{
+                          textAlign: 'center',
+                          padding: '4px 2px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          color: index === 0 || index === 6 ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)',
+                          minHeight: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {day}
+                      </Box>
+                    ))}
+                  </SimpleGrid>
 
-          {/* 年月選択 */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <Group justify="space-between" style={{ marginBottom: '16px' }}>
-              <ActionIcon
-                variant="light"
-                size="lg"
-                onClick={() => handleMonthChange('prev')}
-                style={{ minWidth: '44px', minHeight: '44px' }}
-              >
-                <IconChevronLeft size={20} />
-              </ActionIcon>
-              
-              <Group gap="sm">
-                <Select
-                  data={generateYearOptions()}
-                  value={currentDate.getFullYear().toString()}
-                  onChange={handleYearChange}
-                  size="sm"
-                  style={{ width: '80px' }}
-                />
-                <Text size="lg" fw={600}>
-                  {monthNames[currentDate.getMonth()]}
-                </Text>
+                  {/* カレンダーグリッド */}
+                  <SimpleGrid cols={7} spacing={4} style={{ flex: 1 }}>
+                    {calendarDays.map((date, index) => {
+                      const today = isToday(date);
+                      const selected = isSelected(date);
+                      const currentMonth = isCurrentMonth(date);
+                      const weekend = isWeekend(date);
+
+                      return (
+                        <Box
+                          key={index}
+                          onClick={() => handleDateSelect(date)}
+                          style={{
+                            aspectRatio: '1',
+                            width: '100%',
+                            maxWidth: '40px',
+                            minHeight: '36px',
+                            fontSize: '13px',
+                            fontWeight: selected ? 700 : 500,
+                            borderRadius: '4px',
+                            border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
+                            color: !currentMonth 
+                              ? 'var(--mantine-color-gray-4)' 
+                              : weekend 
+                                ? 'var(--mantine-color-red-6)' 
+                                : selected 
+                                  ? 'white' 
+                                  : 'var(--mantine-color-gray-8)',
+                            backgroundColor: selected 
+                              ? 'var(--mantine-color-blue-6)' 
+                              : today 
+                                ? 'var(--mantine-color-blue-0)' 
+                                : 'transparent',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            opacity: currentMonth ? 1 : 0.6,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            userSelect: 'none',
+                            margin: '0 auto',
+                          }}
+                        >
+                          {date.getDate()}
+                        </Box>
+                      );
+                    })}
+                  </SimpleGrid>
+                </Box>
+              </motion.div>
+            </Box>
+          </>
+        ) : (
+          // 縦画面レイアウト（元のデザイン）
+          <Stack style={{ flex: 1, overflow: 'hidden' }}>
+            {/* クイック選択ボタン */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              style={{ flexShrink: 0 }}
+            >
+              <Group gap="xs" style={{ marginBottom: isSmallScreen ? '12px' : '16px' }}>
+                <Button
+                  variant="light"
+                  size={isSmallScreen ? "xs" : "sm"}
+                  onClick={() => handleQuickSelect(0)}
+                  style={{ flex: 1 }}
+                >
+                  今日
+                </Button>
+                <Button
+                  variant="light"
+                  size={isSmallScreen ? "xs" : "sm"}
+                  onClick={() => handleQuickSelect(1)}
+                  style={{ flex: 1 }}
+                >
+                  昨日
+                </Button>
+                <Button
+                  variant="light"
+                  size={isSmallScreen ? "xs" : "sm"}
+                  onClick={() => handleQuickSelect(2)}
+                  style={{ flex: 1 }}
+                >
+                  一昨日
+                </Button>
               </Group>
-              
-              <ActionIcon
-                variant="light"
-                size="lg"
-                onClick={() => handleMonthChange('next')}
-                style={{ minWidth: '44px', minHeight: '44px' }}
-              >
-                <IconChevronRight size={20} />
-              </ActionIcon>
-            </Group>
-          </motion.div>
+            </motion.div>
+
+            {/* 年月選択 */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              style={{ flexShrink: 0 }}
+            >
+              <Group justify="space-between" style={{ marginBottom: isSmallScreen ? '12px' : '16px' }}>
+                <ActionIcon
+                  variant="light"
+                  size={isSmallScreen ? "md" : "lg"}
+                  onClick={() => handleMonthChange('prev')}
+                  style={{ minWidth: '40px', minHeight: '40px' }}
+                >
+                  <IconChevronLeft size={18} />
+                </ActionIcon>
+                
+                <Group gap="sm">
+                  <Select
+                    data={generateYearOptions()}
+                    value={currentDate.getFullYear().toString()}
+                    onChange={handleYearChange}
+                    size={isSmallScreen ? "xs" : "sm"}
+                    style={{ width: isSmallScreen ? '70px' : '80px' }}
+                  />
+                  <Text size={isSmallScreen ? "md" : "lg"} fw={600}>
+                    {monthNames[currentDate.getMonth()]}
+                  </Text>
+                </Group>
+                
+                <ActionIcon
+                  variant="light"
+                  size={isSmallScreen ? "md" : "lg"}
+                  onClick={() => handleMonthChange('next')}
+                  style={{ minWidth: '40px', minHeight: '40px' }}
+                >
+                  <IconChevronRight size={18} />
+                </ActionIcon>
+              </Group>
+            </motion.div>
 
           {/* カスタムカレンダー */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, delay: 0.3 }}
-            style={{ flex: 1 }}
+            style={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: 'column',
+              minHeight: '0',
+              overflow: 'hidden'
+            }}
           >
-            <Box style={{ padding: '8px 0' }}>
+            <Box style={{ padding: '4px 0', width: '100%' }}>
               {/* 曜日ヘッダー */}
-              <SimpleGrid cols={7} spacing="xs" style={{ marginBottom: '8px' }}>
+              <SimpleGrid cols={7} spacing={2} style={{ marginBottom: '4px', width: '100%' }}>
                 {weekdays.map((day, index) => (
                   <Box
                     key={day}
                     style={{
                       textAlign: 'center',
-                      padding: '8px 4px',
-                      fontSize: '14px',
+                      padding: '4px 2px',
+                      fontSize: '12px',
                       fontWeight: 600,
                       color: index === 0 || index === 6 ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)',
+                      minHeight: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
                     {day}
@@ -252,7 +445,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
               </SimpleGrid>
 
               {/* カレンダーグリッド */}
-              <SimpleGrid cols={7} spacing="xs">
+              <SimpleGrid cols={7} spacing={2} style={{ width: '100%' }}>
                 {calendarDays.map((date, index) => {
                   const today = isToday(date);
                   const selected = isSelected(date);
@@ -260,17 +453,18 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                   const weekend = isWeekend(date);
 
                   return (
-                    <Button
+                    <Box
                       key={index}
-                      variant={selected ? 'filled' : 'subtle'}
-                      color={selected ? 'blue' : 'gray'}
                       onClick={() => handleDateSelect(date)}
                       style={{
-                        height: '48px',
-                        fontSize: '16px',
+                        aspectRatio: '1',
+                        width: '100%',
+                        maxWidth: '44px',
+                        minHeight: '40px',
+                        fontSize: '14px',
                         fontWeight: selected ? 700 : 500,
-                        borderRadius: '8px',
-                        border: today ? '2px solid var(--mantine-color-blue-5)' : 'none',
+                        borderRadius: '6px',
+                        border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
                         color: !currentMonth 
                           ? 'var(--mantine-color-gray-4)' 
                           : weekend 
@@ -283,45 +477,61 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                           : today 
                             ? 'var(--mantine-color-blue-0)' 
                             : 'transparent',
-                        transform: selected ? 'scale(1.05)' : 'scale(1)',
+                        cursor: 'pointer',
                         transition: 'all 0.2s ease',
                         opacity: currentMonth ? 1 : 0.6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        userSelect: 'none',
+                        margin: '0 auto',
+                        '&:hover': {
+                          backgroundColor: selected 
+                            ? 'var(--mantine-color-blue-7)' 
+                            : 'var(--mantine-color-gray-1)',
+                        },
+                        '&:active': {
+                          transform: 'scale(0.95)',
+                        },
                       }}
                     >
                       {date.getDate()}
-                    </Button>
+                    </Box>
                   );
                 })}
               </SimpleGrid>
             </Box>
           </motion.div>
 
-          {/* 選択した日付の表示 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.4 }}
-          >
-            <Box
-              style={{
-                backgroundColor: 'var(--mantine-color-blue-0)',
-                padding: '12px',
-                borderRadius: '8px',
-                marginTop: '16px',
-              }}
+            {/* 選択した日付の表示 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+              style={{ flexShrink: 0 }}
             >
-              <Text size="sm" c="dimmed">選択した日付</Text>
-              <Text size="lg" fw={600} c="blue">
-                {selectedDate.toLocaleDateString('ja-JP', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'long',
-                })}
-              </Text>
-            </Box>
-          </motion.div>
-        </Stack>
+              <Box
+                style={{
+                  backgroundColor: 'var(--mantine-color-blue-0)',
+                  padding: isSmallScreen ? '8px' : '12px',
+                  borderRadius: '8px',
+                  marginTop: isSmallScreen ? '8px' : '16px',
+                }}
+              >
+                <Text size="xs" c="dimmed">選択した日付</Text>
+                <Text size={isSmallScreen ? "md" : "lg"} fw={600} c="blue">
+                  {selectedDate.toLocaleDateString('ja-JP', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'long',
+                  })}
+                </Text>
+              </Box>
+            </motion.div>
+          </Stack>
+        )}
       </motion.div>
     </Modal>
   );

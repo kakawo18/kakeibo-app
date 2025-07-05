@@ -17,6 +17,61 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Transaction } from '@/types';
 
+// Firestore用のクリーンなトランザクションデータの型定義
+interface CleanTransactionData {
+  type?: 'income' | 'expense';
+  amount?: number;
+  category?: string;
+  date?: Timestamp;
+  transactionType?: 'normal' | 'card_payment' | 'card_withdrawal';
+  affectsExpense?: boolean;
+  affectsBalance?: boolean;
+  subcategory?: string;
+  paymentMethod?: string;
+  description?: string;
+}
+
+// トランザクションデータをFirestore用にクリーニングするヘルパー関数
+const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransactionData => {
+  const cleaned: CleanTransactionData = {};
+
+  // 基本フィールドの処理
+  if (transaction.type !== undefined) {
+    cleaned.type = transaction.type;
+  }
+  if (transaction.amount !== undefined) {
+    cleaned.amount = transaction.amount;
+  }
+  if (transaction.category !== undefined) {
+    cleaned.category = transaction.category;
+  }
+  if (transaction.date !== undefined) {
+    cleaned.date = Timestamp.fromDate(transaction.date instanceof Date ? transaction.date : new Date(transaction.date));
+  }
+  if (transaction.transactionType !== undefined) {
+    cleaned.transactionType = transaction.transactionType;
+  }
+  if (transaction.affectsExpense !== undefined) {
+    cleaned.affectsExpense = transaction.affectsExpense;
+  }
+  if (transaction.affectsBalance !== undefined) {
+    cleaned.affectsBalance = transaction.affectsBalance;
+  }
+
+  // オプショナルフィールドの処理（値がある場合のみ追加、空文字列は除外）
+  if (transaction.subcategory && transaction.subcategory.trim()) {
+    cleaned.subcategory = transaction.subcategory.trim();
+  }
+  if (transaction.paymentMethod && transaction.paymentMethod.trim()) {
+    cleaned.paymentMethod = transaction.paymentMethod.trim();
+  }
+  if (transaction.description && transaction.description.trim()) {
+    cleaned.description = transaction.description.trim();
+  }
+
+  return cleaned;
+};
+
 export const useTransactions = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,34 +90,47 @@ export const useTransactions = () => {
       orderBy('date', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const transactionList: Transaction[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        try {
-          transactionList.push({
-            id: doc.id,
-            userId: data.userId,
-            type: data.type,
-            amount: data.amount,
-            category: data.category,
-            subcategory: data.subcategory || undefined,
-            paymentMethod: data.paymentMethod || undefined,
-            transactionType: data.transactionType || 'normal',
-            affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
-            affectsBalance: data.affectsBalance !== undefined ? data.affectsBalance : true,
-            date: data.date?.toDate() || new Date(),
-            description: data.description || undefined,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          } as Transaction);
-        } catch (error) {
-          console.error('Error processing transaction data:', error, data);
-        }
-      });
-      setTransactions(transactionList);
-      setLoading(false);
-    });
+    const unsubscribe = onSnapshot(
+      q, 
+      (snapshot) => {
+        const transactionList: Transaction[] = [];
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          try {
+            // データの型安全性を確保
+            if (!data.type || !data.amount || !data.category || !data.date) {
+              console.warn('Incomplete transaction data:', doc.id, data);
+              return;
+            }
+
+            transactionList.push({
+              id: doc.id,
+              userId: data.userId,
+              type: data.type,
+              amount: Number(data.amount),
+              category: data.category,
+              subcategory: data.subcategory || undefined,
+              paymentMethod: data.paymentMethod || undefined,
+              transactionType: data.transactionType || 'normal',
+              affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
+              affectsBalance: data.affectsBalance !== undefined ? data.affectsBalance : true,
+              date: data.date?.toDate() || new Date(),
+              description: data.description || undefined,
+              createdAt: data.createdAt?.toDate() || new Date(),
+              updatedAt: data.updatedAt?.toDate() || new Date(),
+            } as Transaction);
+          } catch (error) {
+            console.error('Error processing transaction data:', error, data);
+          }
+        });
+        setTransactions(transactionList);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error listening to transactions:', error);
+        setLoading(false);
+      }
+    );
 
     return unsubscribe;
   }, [user]);
@@ -72,62 +140,61 @@ export const useTransactions = () => {
 
     const now = new Date();
     
-    // undefinedフィールドを除外
-    const cleanedTransaction: {
-      type: 'income' | 'expense';
-      amount: number;
-      category: string;
-      date: Timestamp;
-      transactionType: 'normal' | 'card_payment' | 'card_withdrawal';
-      affectsExpense: boolean;
-      affectsBalance: boolean;
-      userId: string;
-      createdAt: Timestamp;
-      updatedAt: Timestamp;
-      subcategory?: string;
-      paymentMethod?: string;
-      description?: string;
-    } = {
-      type: transaction.type,
-      amount: transaction.amount,
-      category: transaction.category,
-      date: Timestamp.fromDate(transaction.date instanceof Date ? transaction.date : new Date(transaction.date)),
+    // 共通ヘルパー関数を使用してデータをクリーニング
+    const cleanedData = cleanTransactionData({
+      ...transaction,
       transactionType: transaction.transactionType || 'normal',
       affectsExpense: transaction.affectsExpense !== undefined ? transaction.affectsExpense : true,
       affectsBalance: transaction.affectsBalance !== undefined ? transaction.affectsBalance : true,
+    });
+
+    // 新規作成用の追加フィールド
+    const transactionData = {
+      ...cleanedData,
       userId: user.uid,
       createdAt: Timestamp.fromDate(now),
       updatedAt: Timestamp.fromDate(now),
     };
 
-    // subcategory、paymentMethod、descriptionは値がある場合のみ追加
-    if (transaction.subcategory) {
-      cleanedTransaction.subcategory = transaction.subcategory;
+    try {
+      await addDoc(collection(db, 'transactions'), transactionData);
+    } catch (error) {
+      console.error('Error adding transaction:', error);
+      throw error;
     }
-    if (transaction.paymentMethod) {
-      cleanedTransaction.paymentMethod = transaction.paymentMethod;
-    }
-    if (transaction.description) {
-      cleanedTransaction.description = transaction.description;
-    }
-
-    await addDoc(collection(db, 'transactions'), cleanedTransaction);
   };
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
-    const docRef = doc(db, 'transactions', id);
-    const updateData = { ...updates };
-    
-    if (updates.date) {
-      (updateData as Record<string, unknown>).date = Timestamp.fromDate(updates.date instanceof Date ? updates.date : new Date(updates.date));
-    }
-    (updateData as Record<string, unknown>).updatedAt = Timestamp.fromDate(new Date());
+    if (!user) return;
 
-    await updateDoc(docRef, updateData);
+    const docRef = doc(db, 'transactions', id);
+    
+    // 共通ヘルパー関数を使用してデータをクリーニング
+    const cleanedData = cleanTransactionData(updates);
+    
+    // 更新用の追加フィールド
+    const updateData = {
+      ...cleanedData,
+      updatedAt: Timestamp.fromDate(new Date()),
+    };
+
+    try {
+      await updateDoc(docRef, updateData);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      throw error;
+    }
   };
 
   const deleteTransaction = async (id: string) => {
-    await deleteDoc(doc(db, 'transactions', id));
+    if (!user) return;
+    
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      throw error;
+    }
   };
 
   return {
