@@ -10,7 +10,10 @@ import {
   Stack,
   Paper,
   Button,
+  Card,
+  Box,
 } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { IconEdit, IconTrash, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { Transaction } from '@/types';
@@ -25,6 +28,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   const { deleteTransaction } = useTransactions();
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // モバイル表示判定
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const sortedTransactions = [...transactions].sort((a, b) => {
     let comparison = 0;
@@ -80,7 +86,82 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
           </Group>
         </Group>
 
-        <Table striped highlightOnHover>
+        {/* モバイル表示: カードレイアウト */}
+        {isMobile ? (
+          <Stack>
+            {sortedTransactions.map((transaction) => (
+              <Card key={transaction.id} withBorder p="md">
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text fw={500} size="sm">{formatDate(transaction.date)}</Text>
+                    <Group gap="xs">
+                      <ActionIcon
+                        variant="light"
+                        color="blue"
+                        size="sm"
+                        onClick={() => onEditTransaction(transaction)}
+                      >
+                        <IconEdit size={14} />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="light"
+                        color="red"
+                        size="sm"
+                        onClick={() => handleDelete(transaction.id)}
+                      >
+                        <IconTrash size={14} />
+                      </ActionIcon>
+                    </Group>
+                  </Group>
+                  
+                  <Group justify="space-between">
+                    <Box>
+                      <Group gap="xs">
+                        <Badge color={transaction.type === 'income' ? 'green' : 'red'} size="sm">
+                          {transaction.type === 'income' ? '収入' : '支出'}
+                        </Badge>
+                        {transaction.transactionType === 'card_payment' && (
+                          <Badge variant="light" color="blue" size="xs">
+                            カード支払い
+                          </Badge>
+                        )}
+                        {transaction.transactionType === 'card_withdrawal' && (
+                          <Badge variant="light" color="orange" size="xs">
+                            カード引き落とし
+                          </Badge>
+                        )}
+                      </Group>
+                      <Text size="sm" mt={4}>{transaction.category}</Text>
+                      {transaction.subcategory && (
+                        <Text size="xs" c="dimmed">{transaction.subcategory}</Text>
+                      )}
+                      {transaction.paymentMethod && (
+                        <Text size="xs" c="dimmed">{transaction.paymentMethod}</Text>
+                      )}
+                    </Box>
+                    
+                    <Text 
+                      c={transaction.type === 'income' ? 'green' : 'red'}
+                      fw={600}
+                      size="lg"
+                    >
+                      {transaction.type === 'income' ? '+' : '-'}
+                      ¥{transaction.amount.toLocaleString()}
+                    </Text>
+                  </Group>
+                  
+                  {transaction.description && (
+                    <Text size="xs" c="dimmed" mt={4}>
+                      {transaction.description}
+                    </Text>
+                  )}
+                </Stack>
+              </Card>
+            ))}
+          </Stack>
+        ) : (
+          /* デスクトップ表示: テーブルレイアウト */
+          <Table striped highlightOnHover>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>日付</Table.Th>
@@ -162,6 +243,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
             ))}
           </Table.Tbody>
         </Table>
+        )}
 
         {transactions.length === 0 && (
           <Text ta="center" c="dimmed" py="xl">
