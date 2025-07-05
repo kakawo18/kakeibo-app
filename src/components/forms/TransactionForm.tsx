@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Button,
@@ -13,6 +13,7 @@ import {
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
+import { notifications } from '@mantine/notifications';
 import { useTransactions } from '@/hooks/useTransactions';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
 
@@ -69,9 +70,18 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTransaction]);
 
-  const categories = form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-  const selectedCategory = categories.find(cat => cat.name === form.values.category);
-  const subcategories = selectedCategory?.subcategories || [];
+  // パフォーマンス最適化: カテゴリ関連の計算をメモ化
+  const categories = useMemo(() => {
+    return form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  }, [form.values.type]);
+
+  const selectedCategory = useMemo(() => {
+    return categories.find(cat => cat.name === form.values.category);
+  }, [categories, form.values.category]);
+
+  const subcategories = useMemo(() => {
+    return selectedCategory?.subcategories || [];
+  }, [selectedCategory]);
 
   const handleSubmit = async (values: {
     type: 'income' | 'expense';
@@ -82,6 +92,24 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     date: Date;
     description?: string;
   }) => {
+    // フォームバリデーション
+    if (!values.amount || values.amount <= 0) {
+      notifications.show({
+        title: '入力エラー',
+        message: '正しい金額を入力してください',
+        color: 'red',
+      });
+      return;
+    }
+    
+    if (!values.category || values.category.trim() === '') {
+      notifications.show({
+        title: '入力エラー',
+        message: 'カテゴリを選択してください',
+        color: 'red',
+      });
+      return;
+    }
     setLoading(true);
     try {
       // カード取引タイプの判定
@@ -140,8 +168,22 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       }
 
       onClose();
+      
+      // 成功通知
+      notifications.show({
+        title: '成功',
+        message: editingTransaction ? '取引を更新しました' : '取引を追加しました',
+        color: 'green',
+      });
     } catch (error) {
       console.error('Error saving transaction:', error);
+      
+      // エラー通知
+      notifications.show({
+        title: 'エラー',
+        message: '取引の保存に失敗しました。もう一度お試しください。',
+        color: 'red',
+      });
     } finally {
       setLoading(false);
     }
