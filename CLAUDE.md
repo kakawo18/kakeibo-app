@@ -278,6 +278,165 @@ runningBalance = runningBalance + monthIncome - monthCashExpense - previousMonth
 - Fixed React Hook dependency warnings and violations
 - Optimized component re-rendering with proper memoization
 
+### 2025-07-05 Update: v1.1.0 Mobile Optimization & Performance Enhancement
+
+#### Mobile Freeze Issue Resolution
+**Problem Solved**: Smartphone users experienced app freeze when selecting subcategories during transaction entry.
+
+**Root Cause Analysis**:
+1. **Performance Bottleneck**: Heavy calculations in `TransactionForm.tsx:72-74` executed on every render
+2. **React 19 Compatibility**: Potential compatibility issues with Mantine 8.1.1
+3. **Form State Management**: Competition between `useForm` and `useEffect` state updates
+4. **Mobile UI/UX**: Lack of mobile-optimized interface design
+
+#### Solutions Implemented
+
+##### 1. Performance Optimization with useMemo
+**File**: `/src/components/forms/TransactionForm.tsx`
+```typescript
+// Before: Heavy calculations on every render
+const categories = form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+const selectedCategory = categories.find(cat => cat.name === form.values.category);
+const subcategories = selectedCategory?.subcategories || [];
+
+// After: Memoized calculations
+const categories = useMemo(() => {
+  return form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+}, [form.values.type]);
+
+const selectedCategory = useMemo(() => {
+  return categories.find(cat => cat.name === form.values.category);
+}, [categories, form.values.category]);
+
+const subcategories = useMemo(() => {
+  return selectedCategory?.subcategories || [];
+}, [selectedCategory]);
+```
+
+##### 2. Enhanced Error Handling & User Notifications
+```typescript
+// Success notification
+notifications.show({
+  title: '成功',
+  message: editingTransaction ? '取引を更新しました' : '取引を追加しました',
+  color: 'green',
+});
+
+// Error notification with user-friendly messages
+notifications.show({
+  title: 'エラー',
+  message: '取引の保存に失敗しました。もう一度お試しください。',
+  color: 'red',
+});
+```
+
+##### 3. Form Validation Enhancement
+```typescript
+// Input validation with immediate feedback
+if (!values.amount || values.amount <= 0) {
+  notifications.show({
+    title: '入力エラー',
+    message: '正しい金額を入力してください',
+    color: 'red',
+  });
+  return;
+}
+```
+
+##### 4. Mobile-First Responsive Design
+
+**TransactionForm Mobile Optimization**:
+```typescript
+const isMobile = useMediaQuery('(max-width: 768px)');
+
+<Modal
+  size={isMobile ? 'full' : 'lg'}
+  fullScreen={isMobile}
+  radius={isMobile ? 0 : undefined}
+>
+```
+
+**TransactionList Responsive Layout**:
+- **Mobile**: Card-based layout for better touch interaction
+- **Desktop**: Traditional table layout for data density
+- **Automatic switching**: Based on screen size detection
+
+**DashboardContent Mobile Optimization**:
+- Compact month navigation controls
+- Optimized button sizes and spacing
+- 2x2 grid layout for summary cards on mobile
+
+#### Technical Implementation Details
+
+**Files Modified**:
+- `/src/components/forms/TransactionForm.tsx`: Performance optimization + mobile UI
+- `/src/components/ui/TransactionList.tsx`: Responsive table/card layout
+- `/src/components/ui/DashboardContent.tsx`: Mobile-optimized controls
+
+**Quality Assurance**:
+- ✅ TypeScript: Zero type errors
+- ✅ ESLint: Zero warnings or errors  
+- ✅ Build: Successful production build
+- ✅ Testing: Manual verification on mobile and desktop
+
+#### Version Management Strategy
+**Safe Deployment Process**:
+- **Stable Version**: Tagged as `v1.0.0` for rollback safety
+- **Development Branch**: `feature/mobile-optimization`
+- **Version Control**: Detailed commit history with rollback capability
+- **Documentation**: Comprehensive change tracking
+
+**Git Workflow**:
+```bash
+# Safety: Tagged stable version
+git tag -a v1.0.0 -m "Production stable version"
+
+# Development: Feature branch approach
+git checkout -b feature/mobile-optimization
+
+# Release: Version 1.1.0 preparation
+git tag -a v1.1.0 -m "Mobile optimization and performance improvement"
+```
+
+#### Impact Assessment
+
+**Performance Improvements**:
+- Eliminated subcategory selection freeze on mobile devices
+- Reduced unnecessary re-renders through memoization
+- Enhanced error handling with user-friendly notifications
+
+**Mobile Experience Enhancement**:
+- Full-screen modal interface on smartphones
+- Touch-optimized controls and spacing
+- Responsive layout adaptation for all screen sizes
+
+**Code Quality**:
+- Type-safe implementation with zero TypeScript errors
+- ESLint compliance with zero warnings
+- Improved maintainability through better error handling
+
+**User Experience**:
+- Seamless mobile transaction entry
+- Clear feedback through notifications
+- Consistent experience across devices
+
+#### Rollback Strategy
+**Emergency Procedures**:
+```bash
+# Immediate rollback to stable version
+git checkout v1.0.0
+
+# File-specific rollback if needed
+git checkout v1.0.0 -- src/components/forms/TransactionForm.tsx
+```
+
+**Monitoring Points**:
+- Mobile user engagement metrics
+- Error rates in transaction entry
+- Performance metrics for subcategory selection
+
+This update successfully resolves the critical mobile freeze issue while establishing a robust foundation for future mobile-first development.
+
 ## Development Notes
 
 ### Type Safety
@@ -292,10 +451,56 @@ runningBalance = runningBalance + monthIncome - monthCashExpense - previousMonth
 
 ### Performance Considerations
 - Real-time Firestore subscriptions
-- Memoized calculations with useMemo
+- Memoized calculations with useMemo (enhanced in v1.1.0)
 - Component-level state management to minimize re-renders
+- Mobile-optimized rendering with conditional layouts
 
 ### Code Quality
 - ESLint configuration with Next.js rules
 - Consistent code formatting
 - Clear separation of concerns between UI and business logic
+- Zero TypeScript errors and ESLint warnings (maintained since v1.1.0)
+
+## Development Guidelines & Best Practices
+
+### Mobile-First Development
+- **Always test on mobile devices first**: Primary user base is mobile
+- **Use useMediaQuery for responsive design**: Consistent breakpoint management
+- **Implement touch-friendly interfaces**: Minimum 44px touch targets
+- **Consider performance on mobile devices**: Limited processing power and memory
+
+### Performance Optimization
+- **Use useMemo for expensive calculations**: Especially in form components
+- **Implement proper error boundaries**: Graceful error handling
+- **Optimize bundle size**: Regular analysis and tree-shaking
+- **Monitor rendering performance**: React DevTools profiling
+
+### Code Quality Standards
+- **TypeScript strict mode**: Zero tolerance for type errors
+- **ESLint compliance**: Zero warnings in production builds
+- **Consistent import order**: External libraries → Internal modules → Relative imports
+- **Comprehensive error handling**: User-friendly notifications with technical logging
+
+### Version Control Best Practices
+- **Feature branch strategy**: Always develop in feature branches
+- **Semantic versioning**: Clear version numbering for releases
+- **Comprehensive commit messages**: Include problem description and solution
+- **Tag stable versions**: Enable easy rollback when needed
+
+### Testing Strategy
+- **Manual testing required**: Both mobile and desktop environments
+- **Type checking**: `npm run type-check` before commits
+- **Linting verification**: `npm run lint` as part of workflow
+- **Build verification**: `npm run build` before deployment
+
+### Documentation Requirements
+- **Update CLAUDE.md**: Record all significant changes
+- **Technical documentation**: Detailed implementation notes
+- **User-facing changes**: Update USER_GUIDE.md when applicable
+- **Version records**: Maintain DEVELOPMENT_RECORD files for major releases
+
+### Emergency Procedures
+- **Rollback strategy**: Always have tagged stable versions
+- **Hotfix process**: Use hotfix branches for critical fixes
+- **Monitoring**: Watch for errors and performance degradation
+- **Communication**: Document all emergency actions taken
