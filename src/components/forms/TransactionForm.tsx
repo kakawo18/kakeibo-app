@@ -10,6 +10,7 @@ import {
   Group,
   SegmentedControl,
   Textarea,
+  TextInput,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
@@ -17,6 +18,7 @@ import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/hooks/useTransactions';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
+import { MobileCalendar } from '@/components/ui/MobileCalendar';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -31,6 +33,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const { addTransaction, updateTransaction } = useTransactions();
   const [loading, setLoading] = useState(false);
+  const [mobileCalendarOpened, setMobileCalendarOpened] = useState(false);
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -203,6 +206,26 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     onClose();
   };
 
+  const handleMobileDateInputClick = () => {
+    if (isMobile) {
+      setMobileCalendarOpened(true);
+    }
+  };
+
+  const handleMobileCalendarChange = (date: Date) => {
+    form.setFieldValue('date', date);
+    setMobileCalendarOpened(false);
+  };
+
+  const formatDateForDisplay = (date: Date) => {
+    return date.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    });
+  };
+
   return (
     <Modal
       opened={opened}
@@ -279,11 +302,34 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             {...form.getInputProps('paymentMethod')}
           />
 
-          <DateInput
-            label="日付"
-            required
-            {...form.getInputProps('date')}
-          />
+          {isMobile ? (
+            <TextInput
+              label="日付"
+              required
+              value={formatDateForDisplay(form.values.date)}
+              onClick={handleMobileDateInputClick}
+              readOnly
+              styles={{
+                input: {
+                  fontSize: '16px',
+                  padding: '12px',
+                  minHeight: '48px',
+                  cursor: 'pointer',
+                  backgroundColor: 'var(--mantine-color-gray-0)',
+                },
+                label: {
+                  fontSize: '14px',
+                  fontWeight: 500,
+                }
+              }}
+            />
+          ) : (
+            <DateInput
+              label="日付"
+              required
+              {...form.getInputProps('date')}
+            />
+          )}
 
           <Textarea
             label="メモ（任意）"
@@ -301,6 +347,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </Group>
         </Stack>
       </form>
+      
+      {/* モバイル専用カレンダー */}
+      <MobileCalendar
+        opened={mobileCalendarOpened}
+        onClose={() => setMobileCalendarOpened(false)}
+        value={form.values.date}
+        onChange={handleMobileCalendarChange}
+      />
     </Modal>
   );
 };
