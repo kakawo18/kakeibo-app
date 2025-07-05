@@ -15,6 +15,21 @@ export interface Transaction {
   updatedAt: Date;
 }
 
+export interface TransactionTemplate {
+  id: string;
+  userId: string;
+  name: string;
+  type: 'income' | 'expense';
+  category: string;
+  subcategory?: string;
+  paymentMethod?: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastUsed: Date;
+  usageCount: number;
+}
+
 export interface Category {
   name: string;
   subcategories?: string[];

@@ -11,29 +11,35 @@ import {
   SegmentedControl,
   Textarea,
   TextInput,
+  Checkbox,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/hooks/useTransactions';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
+import { useTransactionTemplates } from '@/hooks/useTransactionTemplates';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction, TransactionTemplate } from '@/types';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 
 interface TransactionFormProps {
   opened: boolean;
   onClose: () => void;
   editingTransaction?: Transaction | null;
+  selectedTemplate?: TransactionTemplate | null;
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
   opened,
   onClose,
   editingTransaction,
+  selectedTemplate,
 }) => {
   const { addTransaction, updateTransaction } = useTransactions();
+  const { addTemplate } = useTransactionTemplates();
   const [loading, setLoading] = useState(false);
   const [mobileCalendarOpened, setMobileCalendarOpened] = useState(false);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -41,7 +47,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const form = useForm({
     initialValues: {
       type: 'expense' as 'income' | 'expense',
-      amount: 0,
+      amount: '',
       category: '',
       subcategory: '',
       paymentMethod: '',
@@ -50,23 +56,34 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     },
   });
 
-  // editingTransactionが変更された時にフォーム値を更新
+  // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
   useEffect(() => {
     if (editingTransaction) {
       form.setValues({
         type: editingTransaction.type,
-        amount: editingTransaction.amount,
+        amount: editingTransaction.amount.toString(),
         category: editingTransaction.category,
         subcategory: editingTransaction.subcategory || '',
         paymentMethod: editingTransaction.paymentMethod || '',
         date: editingTransaction.date,
         description: editingTransaction.description || '',
       });
+    } else if (selectedTemplate) {
+      // テンプレートが選択された時はテンプレートの値を設定（金額は空のまま）
+      form.setValues({
+        type: selectedTemplate.type,
+        amount: '',
+        category: selectedTemplate.category,
+        subcategory: selectedTemplate.subcategory || '',
+        paymentMethod: selectedTemplate.paymentMethod || '',
+        date: new Date(),
+        description: selectedTemplate.description || '',
+      });
     } else {
       // 新規作成時はフォームをリセット
       form.setValues({
         type: 'expense',
-        amount: 0,
+        amount: '',
         category: '',
         subcategory: '',
         paymentMethod: '',
@@ -75,7 +92,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingTransaction]);
+  }, [editingTransaction, selectedTemplate]);
 
   // パフォーマンス最適化: カテゴリ関連の計算をメモ化
   const categories = useMemo(() => {
@@ -92,7 +109,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const handleSubmit = async (values: {
     type: 'income' | 'expense';
-    amount: number;
+    amount: string | number;
     category: string;
     subcategory?: string;
     paymentMethod?: string;
@@ -100,7 +117,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     description?: string;
   }) => {
     // フォームバリデーション
-    if (!values.amount || values.amount <= 0) {
+    if (!values.amount || Number(values.amount) <= 0) {
       notifications.show({
         title: '入力エラー',
         message: '正しい金額を入力してください',
@@ -149,7 +166,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         description?: string;
       } = {
         type: values.type as 'income' | 'expense',
-        amount: Math.floor(values.amount), // 小数点切り捨て
+        amount: Math.floor(Number(values.amount)), // 小数点切り捨て
         category: values.category,
         date: values.date,
         transactionType,
@@ -176,6 +193,33 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
       onClose();
       
+      // テンプレート保存処理
+      if (saveAsTemplate && !editingTransaction) {
+        try {
+          const templateName = `${values.category}${values.subcategory ? ` - ${values.subcategory}` : ''}`;
+          await addTemplate({
+            name: templateName,
+            type: values.type,
+            category: values.category,
+            subcategory: values.subcategory,
+            paymentMethod: values.paymentMethod,
+            description: values.description,
+          });
+          notifications.show({
+            title: '成功',
+            message: 'テンプレートとして保存しました',
+            color: 'green',
+          });
+        } catch (error) {
+          console.error('Error saving template:', error);
+          notifications.show({
+            title: 'エラー',
+            message: 'テンプレートの保存に失敗しました',
+            color: 'red',
+          });
+        }
+      }
+
       // 成功通知
       notifications.show({
         title: '成功',
@@ -230,7 +274,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     <Modal
       opened={opened}
       onClose={handleClose}
-      title={editingTransaction ? '取引を編集' : '新しい取引を追加'}
+      title={
+        editingTransaction 
+          ? '取引を編集' 
+          : selectedTemplate 
+            ? `${selectedTemplate.name} (テンプレート使用中)` 
+            : '新しい取引を追加'
+      }
       size={isMobile ? 'full' : 'lg'}
       fullScreen={isMobile}
       radius={isMobile ? 0 : undefined}
@@ -284,6 +334,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             required
             value={form.values.category}
             onChange={handleCategoryChange}
+            styles={{
+              input: {
+                backgroundColor: selectedTemplate ? 'var(--mantine-color-gray-0)' : undefined,
+                color: selectedTemplate ? 'var(--mantine-color-gray-7)' : undefined,
+              }
+            }}
           />
 
           {subcategories.length > 0 && (
@@ -300,6 +356,12 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             placeholder="支払方法を選択（任意）"
             data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
             {...form.getInputProps('paymentMethod')}
+            styles={{
+              input: {
+                backgroundColor: selectedTemplate ? 'var(--mantine-color-gray-0)' : undefined,
+                color: selectedTemplate ? 'var(--mantine-color-gray-7)' : undefined,
+              }
+            }}
           />
 
           {isMobile ? (
@@ -336,6 +398,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             placeholder="メモを入力"
             {...form.getInputProps('description')}
           />
+
+          {/* テンプレート保存チェックボックス（新規作成時のみ） */}
+          {!editingTransaction && (
+            <Checkbox
+              label="この取引をテンプレートとして保存する"
+              checked={saveAsTemplate}
+              onChange={(event) => setSaveAsTemplate(event.currentTarget.checked)}
+            />
+          )}
 
           <Group justify="flex-end">
             <Button variant="light" onClick={handleClose}>

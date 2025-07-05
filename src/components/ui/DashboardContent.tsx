@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -13,12 +13,15 @@ import { LineChart } from '@/components/charts/LineChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent } from '@/utils/dateUtils';
-import { Transaction } from '@/types';
+import { Transaction, TransactionTemplate } from '@/types';
+import { TemplateSelector } from '@/components/ui/TemplateSelector';
 
 export function DashboardContent() {
   const { transactions, loading: transactionsLoading } = useTransactions();
   const [transactionFormOpened, setTransactionFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TransactionTemplate | null>(null);
+  const [templateSelectorOpened, setTemplateSelectorOpened] = useState(false);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
   
   // モバイル表示判定
@@ -78,6 +81,16 @@ export function DashboardContent() {
   const handleCloseTransactionForm = () => {
     setTransactionFormOpened(false);
     setEditingTransaction(null);
+    setSelectedTemplate(null);
+  };
+
+  const handleSelectTemplate = (template: TransactionTemplate) => {
+    setSelectedTemplate(template);
+    setTransactionFormOpened(true);
+  };
+
+  const handleCreateTemplate = () => {
+    setTransactionFormOpened(true);
   };
 
   const handleMonthChange = (month: string | null) => {
@@ -176,6 +189,15 @@ export function DashboardContent() {
                 size={isMobile ? "sm" : "md"}
               >
                 {isMobile ? '追加' : '取引を追加'}
+              </Button>
+              <Button
+                variant="light"
+                leftSection={<IconTemplate size={14} />}
+                onClick={() => setTemplateSelectorOpened(true)}
+                size={isMobile ? "sm" : "md"}
+                color="orange"
+              >
+                テンプレート
               </Button>
               <Menu shadow="md" width={isMobile ? 180 : 200}>
                 <Menu.Target>
@@ -363,6 +385,14 @@ export function DashboardContent() {
           opened={transactionFormOpened}
           onClose={handleCloseTransactionForm}
           editingTransaction={editingTransaction}
+          selectedTemplate={selectedTemplate}
+        />
+
+        <TemplateSelector
+          opened={templateSelectorOpened}
+          onClose={() => setTemplateSelectorOpened(false)}
+          onSelectTemplate={handleSelectTemplate}
+          onCreateTemplate={handleCreateTemplate}
         />
 
         <CSVImportExport
@@ -374,32 +404,23 @@ export function DashboardContent() {
         {isMobile && (
           <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
             <Group gap="xs">
-              <Menu shadow="md" width={180}>
-                <Menu.Target>
-                  <ActionIcon 
-                    variant="light" 
-                    size="xl"
-                    style={{ 
-                      backgroundColor: 'var(--mantine-color-gray-1)',
-                      border: '1px solid var(--mantine-color-gray-3)',
-                      borderRadius: '50%',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      opacity: transactionFormOpened ? 0.3 : 1,
-                      pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                    }}
-                  >
-                    <IconDots size={20} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<IconFileImport size={14} />}
-                    onClick={() => setCsvModalOpened(true)}
-                  >
-                    CSV インポート/エクスポート
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+              <Button
+                variant="light"
+                leftSection={<IconTemplate size={16} />}
+                onClick={() => setTemplateSelectorOpened(true)}
+                size="md"
+                color="orange"
+                style={{
+                  borderRadius: '25px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  paddingLeft: '16px',
+                  paddingRight: '20px',
+                  opacity: transactionFormOpened ? 0.3 : 1,
+                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                }}
+              >
+                テンプレ
+              </Button>
               <Button
                 leftSection={<IconPlus size={16} />}
                 onClick={() => setTransactionFormOpened(true)}
