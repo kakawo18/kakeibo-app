@@ -27,6 +27,7 @@ interface TransactionFormProps {
   onClose: () => void;
   editingTransaction?: Transaction | null;
   selectedTemplate?: TransactionTemplate | null;
+  templateOnlyMode?: boolean; // テンプレート専用モード
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -34,6 +35,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   onClose,
   editingTransaction,
   selectedTemplate,
+  templateOnlyMode = false,
 }) => {
   const { addTransaction, updateTransaction } = useTransactions();
   const { addTemplate } = useTransactionTemplates();
@@ -56,11 +58,46 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     },
   });
 
+  // フォームの初期状態とdirtyStateを監視
+  useEffect(() => {
+    console.log('Form state changed:', {
+      values: form.values,
+      isDirty: form.isDirty(),
+      selectedTemplate: selectedTemplate?.name,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplate]);
+
+  // モーダル開閉状態を監視
+  useEffect(() => {
+    console.log('TransactionForm opened state changed:', {
+      opened,
+      editingTransaction: !!editingTransaction,
+      selectedTemplate: !!selectedTemplate,
+      templateName: selectedTemplate?.name,
+    });
+    
+    // モーダルが開かれた時にフォームをリセット（isDirtyを解除）
+    if (opened && !editingTransaction) {
+      console.log('Resetting form on modal open');
+      form.resetDirty();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, editingTransaction, selectedTemplate]);
+
   // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
   // 編集時は常に既存情報表示、テンプレート・新規作成時は適切な状態管理
   useEffect(() => {
+    console.log('TransactionForm useEffect triggered:', {
+      editingTransaction: !!editingTransaction,
+      selectedTemplate: !!selectedTemplate,
+      'form.isDirty()': form.isDirty(),
+      templateName: selectedTemplate?.name,
+    });
+
     // 編集時: 常に既存情報を表示（isDirtyに関係なく）
     if (editingTransaction) {
+      console.log('Setting form values for editing transaction:', editingTransaction);
       form.setValues({
         type: editingTransaction.type,
         amount: editingTransaction.amount.toString(),
@@ -71,20 +108,24 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         description: editingTransaction.description || '',
       });
     } 
-    // テンプレート使用時: 入力中でない場合のみ設定
-    else if (selectedTemplate && !form.isDirty()) {
+    // テンプレート使用時: 強制的にフォームをリセットしてからテンプレート値を設定
+    else if (selectedTemplate) {
+      console.log('Setting form values for template:', selectedTemplate);
+      // テンプレートの値を設定（isDirtyの状態に関係なく）
       form.setValues({
         type: selectedTemplate.type,
-        amount: '',
+        amount: selectedTemplate.amount ? selectedTemplate.amount.toString() : '', // 金額があれば設定、なければ空欄
         category: selectedTemplate.category,
         subcategory: selectedTemplate.subcategory || '',
         paymentMethod: selectedTemplate.paymentMethod || '',
         date: new Date(),
         description: selectedTemplate.description || '',
       });
+      console.log('Template values set successfully');
     } 
     // 新規作成時: フォームをリセット
     else if (!editingTransaction && !selectedTemplate) {
+      console.log('Resetting form for new transaction');
       form.setValues({
         type: 'expense',
         amount: '',
@@ -121,8 +162,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     date: Date;
     description?: string;
   }) => {
-    // フォームバリデーション
-    if (!values.amount || Number(values.amount) <= 0) {
+    // フォームバリデーション（テンプレート専用モードでは金額チェックを緩和）
+    if (!templateOnlyMode && (!values.amount || Number(values.amount) <= 0)) {
       notifications.show({
         title: '入力エラー',
         message: '正しい金額を入力してください',
@@ -186,10 +227,55 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       if (values.paymentMethod && values.paymentMethod.trim()) {
         transactionData.paymentMethod = values.paymentMethod.trim();
       }
-      if (values.description && values.description.trim()) {
-        transactionData.description = values.description.trim();
+      // description は削除対応のため、値が存在する場合は常に設定
+      if (values.description !== undefined) {
+        transactionData.description = values.description.trim() || '';
       }
 
+      // テンプレート専用モードの場合は取引を追加せず、テンプレートのみ保存
+      if (templateOnlyMode) {
+        // テンプレート専用モード: テンプレートのみ保存
+        const templateName = `${values.category}${values.subcategory ? ` - ${values.subcategory}` : ''}`;
+        
+        // テンプレートデータを構築（undefined値を除外）
+        const templateData: Omit<TransactionTemplate, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'lastUsed' | 'usageCount'> = {
+          name: templateName,
+          type: values.type,
+          category: values.category,
+        };
+        
+        // 空文字列でない場合のみ追加
+        if (values.subcategory && values.subcategory.trim()) {
+          templateData.subcategory = values.subcategory.trim();
+        }
+        if (values.paymentMethod && values.paymentMethod.trim()) {
+          templateData.paymentMethod = values.paymentMethod.trim();
+        }
+        if (values.description !== undefined) {
+          templateData.description = values.description.trim() || '';
+        }
+        
+        // 金額の適切な処理
+        const amountValue = Number(values.amount);
+        if (!isNaN(amountValue) && amountValue > 0) {
+          templateData.amount = Math.floor(amountValue);
+        }
+        // 金額が0またはNaNの場合は、amountフィールドを含めない（undefined送信を回避）
+        
+        await addTemplate(templateData);
+        
+        onClose();
+        
+        // 成功通知
+        notifications.show({
+          title: '成功',
+          message: 'テンプレートを作成しました',
+          color: 'green',
+        });
+        return; // ここで処理終了
+      }
+
+      // 通常モード: 取引を追加
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, transactionData);
       } else {
@@ -198,18 +284,37 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
       onClose();
       
-      // テンプレート保存処理
+      // テンプレート保存処理（通常モードのみ）
       if (saveAsTemplate && !editingTransaction) {
         try {
           const templateName = `${values.category}${values.subcategory ? ` - ${values.subcategory}` : ''}`;
-          await addTemplate({
+          
+          // テンプレートデータを構築（undefined値を除外）
+          const templateData: Omit<TransactionTemplate, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'lastUsed' | 'usageCount'> = {
             name: templateName,
             type: values.type,
             category: values.category,
-            subcategory: values.subcategory,
-            paymentMethod: values.paymentMethod,
-            description: values.description,
-          });
+          };
+          
+          // 空文字列でない場合のみ追加
+          if (values.subcategory && values.subcategory.trim()) {
+            templateData.subcategory = values.subcategory.trim();
+          }
+          if (values.paymentMethod && values.paymentMethod.trim()) {
+            templateData.paymentMethod = values.paymentMethod.trim();
+          }
+          if (values.description !== undefined) {
+            templateData.description = values.description.trim() || '';
+          }
+          
+          // 金額の適切な処理
+          const amountValue = Number(values.amount);
+          if (!isNaN(amountValue) && amountValue > 0) {
+            templateData.amount = Math.floor(amountValue);
+          }
+          // 金額が0またはNaNの場合は、amountフィールドを含めない（undefined送信を回避）
+          
+          await addTemplate(templateData);
           notifications.show({
             title: '成功',
             message: 'テンプレートとして保存しました',
@@ -251,6 +356,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleClose = () => {
+    console.log('TransactionForm closing');
     // モーダルが閉じられた時のクリーンアップ処理は useEffect で処理
     onClose();
   };
@@ -280,11 +386,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       opened={opened}
       onClose={handleClose}
       title={
-        editingTransaction 
-          ? '取引を編集' 
-          : selectedTemplate 
-            ? `${selectedTemplate.name} (テンプレート使用中)` 
-            : '新しい取引を追加'
+        templateOnlyMode
+          ? '新しいテンプレートを作成'
+          : editingTransaction 
+            ? '取引を編集' 
+            : selectedTemplate 
+              ? `${selectedTemplate.name} (テンプレート使用中)` 
+              : '新しい取引を追加'
       }
       size={isMobile ? 'full' : 'lg'}
       fullScreen={isMobile}
@@ -315,9 +423,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
           <NumberInput
             label="金額"
-            placeholder="金額を入力"
+            placeholder={templateOnlyMode ? "金額を入力（任意）" : "金額を入力"}
             min={0}
-            required
+            required={!templateOnlyMode} // テンプレート専用モードでは金額は任意
             {...form.getInputProps('amount')}
             styles={{
               input: {
@@ -415,8 +523,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             }}
           />
 
-          {/* テンプレート保存チェックボックス（新規作成時のみ） */}
-          {!editingTransaction && (
+          {/* テンプレート保存チェックボックス（通常の新規作成時のみ） */}
+          {!editingTransaction && !templateOnlyMode && (
             <Checkbox
               label="この取引をテンプレートとして保存する"
               checked={saveAsTemplate}
@@ -429,7 +537,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               キャンセル
             </Button>
             <Button type="submit" loading={loading}>
-              {editingTransaction ? '更新' : '追加'}
+              {templateOnlyMode ? 'テンプレート作成' : editingTransaction ? '更新' : '追加'}
             </Button>
           </Group>
         </Stack>

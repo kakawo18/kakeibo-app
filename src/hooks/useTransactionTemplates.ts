@@ -72,8 +72,30 @@ export const useTransactionTemplates = () => {
   const addTemplate = async (templateData: Omit<TransactionTemplate, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'lastUsed' | 'usageCount'>) => {
     if (!user) throw new Error('ユーザーがログインしていません');
 
+    // undefined値を除外してFirestore安全なデータを構築
+    const cleanedData: Record<string, unknown> = {
+      name: templateData.name,
+      type: templateData.type,
+      category: templateData.category,
+    };
+
+    // オプショナルフィールドは値が存在する場合のみ追加
+    if (templateData.subcategory && templateData.subcategory.trim()) {
+      cleanedData.subcategory = templateData.subcategory.trim();
+    }
+    if (templateData.paymentMethod && templateData.paymentMethod.trim()) {
+      cleanedData.paymentMethod = templateData.paymentMethod.trim();
+    }
+    if (templateData.description !== undefined) {
+      cleanedData.description = templateData.description.trim() || '';
+    }
+    // amountは有効な数値の場合のみ追加（undefinedを完全に除外）
+    if (templateData.amount !== undefined && !isNaN(templateData.amount) && templateData.amount > 0) {
+      cleanedData.amount = templateData.amount;
+    }
+
     const template = {
-      ...templateData,
+      ...cleanedData,
       userId: user.uid,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),

@@ -23,6 +23,7 @@ export function DashboardContent() {
   const [selectedTemplate, setSelectedTemplate] = useState<TransactionTemplate | null>(null);
   const [templateSelectorOpened, setTemplateSelectorOpened] = useState(false);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
+  const [templateOnlyMode, setTemplateOnlyMode] = useState(false); // テンプレート専用モード
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -82,14 +83,20 @@ export function DashboardContent() {
     setTransactionFormOpened(false);
     setEditingTransaction(null);
     setSelectedTemplate(null);
+    setTemplateOnlyMode(false); // テンプレート専用モードもリセット
   };
 
   const handleSelectTemplate = (template: TransactionTemplate) => {
+    console.log('handleSelectTemplate called with:', template);
     setSelectedTemplate(template);
+    setTemplateOnlyMode(false); // 通常の取引作成モード
     setTransactionFormOpened(true);
   };
 
   const handleCreateTemplate = () => {
+    setTemplateOnlyMode(true); // テンプレート専用モードを有効化
+    setEditingTransaction(null);
+    setSelectedTemplate(null);
     setTransactionFormOpened(true);
   };
 
@@ -386,6 +393,7 @@ export function DashboardContent() {
           onClose={handleCloseTransactionForm}
           editingTransaction={editingTransaction}
           selectedTemplate={selectedTemplate}
+          templateOnlyMode={templateOnlyMode}
         />
 
         <TemplateSelector

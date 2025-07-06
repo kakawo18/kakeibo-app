@@ -58,15 +58,18 @@ const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransacti
     cleaned.affectsBalance = transaction.affectsBalance;
   }
 
-  // オプショナルフィールドの処理（値がある場合のみ追加、空文字列は除外）
+  // オプショナルフィールドの処理
+  // subcategory と paymentMethod: 値がある場合のみ追加、空文字列は除外
   if (transaction.subcategory && transaction.subcategory.trim()) {
     cleaned.subcategory = transaction.subcategory.trim();
   }
   if (transaction.paymentMethod && transaction.paymentMethod.trim()) {
     cleaned.paymentMethod = transaction.paymentMethod.trim();
   }
-  if (transaction.description && transaction.description.trim()) {
-    cleaned.description = transaction.description.trim();
+  
+  // description: 空文字列削除に対応するため、undefinedでない場合は常に設定
+  if (transaction.description !== undefined) {
+    cleaned.description = transaction.description.trim() || '';
   }
 
   return cleaned;
