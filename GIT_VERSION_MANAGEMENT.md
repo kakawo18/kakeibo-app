@@ -383,6 +383,110 @@ git push origin testbranch
 - メインブランチへのマージ
 - v1.2.0としてのリリース準備
 
+### 2025-07-05 更新: テンプレート機能の修正とモバイル最適化
+
+#### 問題解決
+**1. Firebaseクエリエラーの修正**
+- **問題**: `transactionTemplates`コレクションで複合インデックスエラー
+- **原因**: `where('userId')` + `orderBy('usageCount')` + `orderBy('lastUsed')`の組み合わせ
+- **解決**: クエリを単純化し、クライアント側でソート処理
+
+**実装内容:**
+```typescript
+// 修正前（複合インデックス必要）
+const q = query(
+  collection(db, 'transactionTemplates'),
+  where('userId', '==', user.uid),
+  orderBy('usageCount', 'desc'),
+  orderBy('lastUsed', 'desc')
+);
+
+// 修正後（単純クエリ + クライアント側ソート）
+const q = query(
+  collection(db, 'transactionTemplates'),
+  where('userId', '==', user.uid)
+);
+
+// クライアント側でソート
+const sortedTemplates = templatesData.sort((a, b) => {
+  if (a.usageCount !== b.usageCount) {
+    return b.usageCount - a.usageCount;
+  }
+  return b.lastUsed.getTime() - a.lastUsed.getTime();
+});
+```
+
+**2. モバイル用テンプレートアクセス改善**
+- **問題**: スマホ画面でテンプレートボタンが表示されない
+- **解決**: フローティングアクションボタンにテンプレート機能を追加
+
+**実装内容:**
+```typescript
+// フローティングアクションボタンの構成
+<Group gap="xs">
+  <Button
+    variant="light"
+    leftSection={<IconTemplate size={16} />}
+    onClick={() => setTemplateSelectorOpened(true)}
+    color="orange"
+  >
+    テンプレ
+  </Button>
+  <Button
+    leftSection={<IconPlus size={16} />}
+    onClick={() => setTransactionFormOpened(true)}
+  >
+    追加
+  </Button>
+</Group>
+```
+
+**3. 不要なUI要素の削除**
+- CSVインポート/エクスポート機能をモバイルから削除
+- 「・・・」メニューボタンを削除してシンプル化
+
+#### 技術的改善
+**修正ファイル:**
+- `src/hooks/useTransactionTemplates.ts`: Firebaseクエリの簡略化、未使用import削除
+- `src/components/ui/DashboardContent.tsx`: モバイル用フローティングボタン改善
+
+**ESLint/TypeScript対応:**
+- `orderBy`の未使用import削除
+- ビルドエラーの完全解消
+
+#### デプロイ結果
+- ✅ Vercelデプロイ: 成功
+- ✅ ESLint: エラーなし
+- ✅ TypeScript: 型エラーなし
+- ✅ 機能テスト: テンプレート機能正常動作
+
+#### Git操作履歴
+```bash
+# 1. Firebaseクエリ修正
+git add src/hooks/useTransactionTemplates.ts
+git commit -m "fix: Firebaseクエリを簡略化してインデックスエラーを解消"
+
+# 2. モバイルUI改善
+git add src/components/ui/DashboardContent.tsx
+git commit -m "feat: モバイル用フローティングボタンにテンプレート機能追加"
+
+# 3. 最終調整とデプロイ
+git add .
+git commit -m "fix: 未使用importを削除してESLintエラー解消"
+git push origin testbranch
+```
+
+#### 改善効果
+- **モバイル操作性**: スマホでもテンプレート機能に簡単アクセス
+- **パフォーマンス**: Firebase複合インデックス不要で高速クエリ
+- **UI/UX**: 不要なボタンを削除してシンプル化
+- **保守性**: ESLint/TypeScript準拠で品質向上
+
+#### 今後の展開
+- テンプレート機能の利用状況モニタリング
+- 必要に応じてテンプレート管理機能の拡張
+- モバイル操作性のさらなる改善
+
 ## まとめ
 
 このガイドラインに従うことで、以下のメリットが得られます：
