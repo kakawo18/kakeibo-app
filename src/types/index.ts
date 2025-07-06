@@ -24,6 +24,7 @@ export interface TransactionTemplate {
   subcategory?: string;
   paymentMethod?: string;
   description?: string;
+  amount?: number; // 金額をオプショナルフィールドとして追加
   createdAt: Date;
   updatedAt: Date;
   lastUsed: Date;
