@@ -57,39 +57,43 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   });
 
   // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
+  // フォームがダーティ（入力済み）の場合は初期値設定をスキップしてメモ欄フリーズを防ぐ
   useEffect(() => {
-    if (editingTransaction) {
-      form.setValues({
-        type: editingTransaction.type,
-        amount: editingTransaction.amount.toString(),
-        category: editingTransaction.category,
-        subcategory: editingTransaction.subcategory || '',
-        paymentMethod: editingTransaction.paymentMethod || '',
-        date: editingTransaction.date,
-        description: editingTransaction.description || '',
-      });
-    } else if (selectedTemplate) {
-      // テンプレートが選択された時はテンプレートの値を設定（金額は空のまま）
-      form.setValues({
-        type: selectedTemplate.type,
-        amount: '',
-        category: selectedTemplate.category,
-        subcategory: selectedTemplate.subcategory || '',
-        paymentMethod: selectedTemplate.paymentMethod || '',
-        date: new Date(),
-        description: selectedTemplate.description || '',
-      });
-    } else {
-      // 新規作成時はフォームをリセット
-      form.setValues({
-        type: 'expense',
-        amount: '',
-        category: '',
-        subcategory: '',
-        paymentMethod: '',
-        date: new Date(),
-        description: '',
-      });
+    // フォームが変更されていない場合のみ初期値を設定
+    if (!form.isDirty()) {
+      if (editingTransaction) {
+        form.setValues({
+          type: editingTransaction.type,
+          amount: editingTransaction.amount.toString(),
+          category: editingTransaction.category,
+          subcategory: editingTransaction.subcategory || '',
+          paymentMethod: editingTransaction.paymentMethod || '',
+          date: editingTransaction.date,
+          description: editingTransaction.description || '',
+        });
+      } else if (selectedTemplate) {
+        // テンプレートが選択された時はテンプレートの値を設定（金額は空のまま）
+        form.setValues({
+          type: selectedTemplate.type,
+          amount: '',
+          category: selectedTemplate.category,
+          subcategory: selectedTemplate.subcategory || '',
+          paymentMethod: selectedTemplate.paymentMethod || '',
+          date: new Date(),
+          description: selectedTemplate.description || '',
+        });
+      } else {
+        // 新規作成時はフォームをリセット
+        form.setValues({
+          type: 'expense',
+          amount: '',
+          category: '',
+          subcategory: '',
+          paymentMethod: '',
+          date: new Date(),
+          description: '',
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTransaction, selectedTemplate]);
@@ -397,6 +401,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             label="メモ（任意）"
             placeholder="メモを入力"
             {...form.getInputProps('description')}
+            styles={{
+              input: {
+                fontSize: isMobile ? '16px' : undefined,
+                padding: isMobile ? '12px' : undefined,
+                minHeight: isMobile ? '48px' : undefined,
+              },
+              label: {
+                fontSize: isMobile ? '14px' : undefined,
+                fontWeight: 500,
+              }
+            }}
           />
 
           {/* テンプレート保存チェックボックス（新規作成時のみ） */}
