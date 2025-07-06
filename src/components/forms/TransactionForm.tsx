@@ -57,48 +57,49 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   });
 
   // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
-  // フォームがダーティ（入力済み）の場合は初期値設定をスキップしてメモ欄フリーズを防ぐ
+  // 編集時は常に既存情報表示、テンプレート・新規作成時は適切な状態管理
   useEffect(() => {
-    // フォームが変更されていない場合のみ初期値を設定
-    if (!form.isDirty()) {
-      if (editingTransaction) {
-        form.setValues({
-          type: editingTransaction.type,
-          amount: editingTransaction.amount.toString(),
-          category: editingTransaction.category,
-          subcategory: editingTransaction.subcategory || '',
-          paymentMethod: editingTransaction.paymentMethod || '',
-          date: editingTransaction.date,
-          description: editingTransaction.description || '',
-        });
-      } else if (selectedTemplate) {
-        // テンプレートが選択された時はテンプレートの値を設定（金額は空のまま）
-        form.setValues({
-          type: selectedTemplate.type,
-          amount: '',
-          category: selectedTemplate.category,
-          subcategory: selectedTemplate.subcategory || '',
-          paymentMethod: selectedTemplate.paymentMethod || '',
-          date: new Date(),
-          description: selectedTemplate.description || '',
-        });
-      } else {
-        // 新規作成時はフォームをリセット
-        form.setValues({
-          type: 'expense',
-          amount: '',
-          category: '',
-          subcategory: '',
-          paymentMethod: '',
-          date: new Date(),
-          description: '',
-        });
-      }
+    // 編集時: 常に既存情報を表示（isDirtyに関係なく）
+    if (editingTransaction) {
+      form.setValues({
+        type: editingTransaction.type,
+        amount: editingTransaction.amount.toString(),
+        category: editingTransaction.category,
+        subcategory: editingTransaction.subcategory || '',
+        paymentMethod: editingTransaction.paymentMethod || '',
+        date: editingTransaction.date,
+        description: editingTransaction.description || '',
+      });
+    } 
+    // テンプレート使用時: 入力中でない場合のみ設定
+    else if (selectedTemplate && !form.isDirty()) {
+      form.setValues({
+        type: selectedTemplate.type,
+        amount: '',
+        category: selectedTemplate.category,
+        subcategory: selectedTemplate.subcategory || '',
+        paymentMethod: selectedTemplate.paymentMethod || '',
+        date: new Date(),
+        description: selectedTemplate.description || '',
+      });
+    } 
+    // 新規作成時: フォームをリセット
+    else if (!editingTransaction && !selectedTemplate) {
+      form.setValues({
+        type: 'expense',
+        amount: '',
+        category: '',
+        subcategory: '',
+        paymentMethod: '',
+        date: new Date(),
+        description: '',
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTransaction, selectedTemplate]);
 
   // パフォーマンス最適化: カテゴリ関連の計算をメモ化
+  // メモ欄入力でのフリーズ防止のため、dependencyを制限
   const categories = useMemo(() => {
     return form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   }, [form.values.type]);
