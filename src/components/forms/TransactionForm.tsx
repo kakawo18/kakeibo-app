@@ -483,17 +483,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             label="メモ（任意）"
             placeholder="メモを入力"
             {...form.getInputProps('description')}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
           />
 
           {/* テンプレート保存チェックボックス（通常の新規作成時のみ） */}
