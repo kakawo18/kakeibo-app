@@ -9,7 +9,6 @@ import {
   Stack,
   Group,
   SegmentedControl,
-  Textarea,
   TextInput,
   Checkbox,
 } from '@mantine/core';
