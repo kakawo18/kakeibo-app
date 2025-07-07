@@ -899,6 +899,232 @@ const chartData = useMemo(() =>
 
 この v1.4.0 アップデートにより、家計簿アプリは実用性・信頼性・使いやすさの全ての面で大幅に向上し、日常的に使いたくなる完成度の高いアプリケーションに進化しました。
 
+### 2025-07-06 Update: v1.5.0 テンプレート機能の完全刷新とメモ削除機能修正
+
+#### 概要
+テンプレート機能の根本的な改善とメモ削除機能の修正を実施。ユーザーが期待する完全なテンプレート機能と安定したデータ管理を実現。
+
+#### 実装内容
+
+##### 1. テンプレート機能の完全刷新
+
+**問題解決項目**:
+- **金額保存機能の実装**: テンプレートに金額も保存可能に
+- **純粋なテンプレート作成**: 取引追加なしでテンプレートのみ作成
+- **テンプレート項目クリア問題**: 選択時に項目がリセットされる問題を根本解決
+
+**技術実装**:
+
+###### A. データ構造の拡張
+```typescript
+// TransactionTemplate型の拡張
+export interface TransactionTemplate {
+  // 既存フィールド
+  id: string;
+  userId: string;
+  name: string;
+  type: 'income' | 'expense';
+  category: string;
+  subcategory?: string;
+  paymentMethod?: string;
+  description?: string;
+  
+  // 新規追加
+  amount?: number; // 金額をオプショナルフィールドとして追加
+  
+  // メタデータ
+  createdAt: Date;
+  updatedAt: Date;
+  lastUsed: Date;
+  usageCount: number;
+}
+```
+
+###### B. 純粋なテンプレート作成UI
+```typescript
+// テンプレート専用モードの実装
+interface TransactionFormProps {
+  opened: boolean;
+  onClose: () => void;
+  editingTransaction?: Transaction | null;
+  selectedTemplate?: TransactionTemplate | null;
+  templateOnlyMode?: boolean; // 新規追加
+}
+
+// テンプレート専用モードの動作
+if (templateOnlyMode) {
+  // タイトル: "新しいテンプレートを作成"
+  // 金額フィールド: 任意入力（required={false}）
+  // 処理: テンプレート保存のみ、取引追加なし
+}
+```
+
+###### C. テンプレート選択時の項目クリア問題解決
+```typescript
+// 修正前（問題のあったコード）
+else if (selectedTemplate && !form.isDirty()) {
+  form.setValues({...}); // この条件が満たされず設定されない
+}
+
+// 修正後（解決済み）
+else if (selectedTemplate) {
+  // isDirty状態に関係なく常にテンプレート値を設定
+  form.setValues({
+    type: selectedTemplate.type,
+    amount: selectedTemplate.amount ? selectedTemplate.amount.toString() : '',
+    category: selectedTemplate.category,
+    subcategory: selectedTemplate.subcategory || '',
+    paymentMethod: selectedTemplate.paymentMethod || '',
+    date: new Date(),
+    description: selectedTemplate.description || '',
+  });
+}
+```
+
+##### 2. メモ削除機能の修正
+
+**問題**: メモ欄をすべて削除しても元のメモが残る
+
+**根本原因**:
+```typescript
+// 問題のあった処理 (TransactionForm.tsx)
+if (values.description && values.description.trim()) {
+  transactionData.description = values.description.trim();
+}
+// 空文字列の場合、descriptionフィールドが設定されずFirestoreに送信されない
+```
+
+**解決策**:
+```typescript
+// description は削除対応のため、値が存在する場合は常に設定
+if (values.description !== undefined) {
+  transactionData.description = values.description.trim() || '';
+}
+```
+
+##### 3. Firebaseエラーの完全解決
+
+**問題**: `FirebaseError: Unsupported field value: undefined (found in field amount)`
+
+**解決策**:
+```typescript
+// TransactionForm.tsx での安全な金額処理
+const amountValue = Number(values.amount);
+if (!isNaN(amountValue) && amountValue > 0) {
+  templateData.amount = Math.floor(amountValue);
+}
+// 無効値の場合は amountフィールド自体を含めない
+
+// useTransactionTemplates.ts でのダブルチェック
+const cleanedData: Record<string, unknown> = {
+  name: templateData.name,
+  type: templateData.type,
+  category: templateData.category,
+};
+
+// amountは有効な数値の場合のみ追加
+if (templateData.amount !== undefined && !isNaN(templateData.amount) && templateData.amount > 0) {
+  cleanedData.amount = templateData.amount;
+}
+```
+
+#### テンプレート機能のフロー
+
+##### 純粋なテンプレート作成フロー
+```
+「📋 テンプレート」ボタン → 「新規テンプレート作成」 → 
+templateOnlyMode: true → フォーム表示 → 
+「テンプレート作成」ボタン → テンプレート保存のみ → 完了
+```
+
+##### 従来の取引作成時テンプレート保存フロー（継続）
+```
+取引作成フォーム → 「この取引をテンプレートとして保存する」チェック → 
+取引追加 + テンプレート保存 → 完了
+```
+
+##### テンプレート使用フロー
+```
+「📋 テンプレート」ボタン → テンプレート選択 → 
+フォームに全項目自動入力（金額含む） → 必要に応じて修正 → 取引追加
+```
+
+#### ファイル変更統計
+
+**主要変更ファイル**:
+- `/src/types/index.ts`: TransactionTemplate型にamountフィールド追加
+- `/src/components/forms/TransactionForm.tsx`: テンプレート機能とメモ削除機能の修正
+- `/src/components/ui/DashboardContent.tsx`: テンプレート専用モード対応
+- `/src/hooks/useTransactionTemplates.ts`: Firestore安全なデータ処理
+
+**変更統計**:
+- 4ファイル変更
+- 127行追加
+- 43行削除
+- 新機能: 純粋なテンプレート作成UI
+
+#### 品質保証
+
+**検証結果**:
+- ✅ **TypeScript**: 型エラー 0件
+- ✅ **ESLint**: 警告 0件
+- ✅ **Build**: 正常完了
+- ✅ **Manual Testing**: モバイル・デスクトップ動作確認完了
+
+**テストシナリオ**:
+- [x] 純粋なテンプレート作成（取引追加なし）
+- [x] テンプレート選択→項目自動入力
+- [x] 金額付きテンプレートの保存・使用
+- [x] 金額なしテンプレートの保存・使用
+- [x] メモ削除機能の動作確認
+- [x] Firebaseエラーの解決確認
+
+#### ユーザー体験の向上
+
+**Before（改善前）**:
+- 金額はテンプレートに保存されない
+- テンプレート作成 = 取引追加が必須
+- テンプレート選択時に項目がクリアされる
+- メモ削除が反映されない
+- Firebaseエラーが発生する
+
+**After（改善後）**:
+- ✅ **完全なテンプレート保存**: 金額・メモ・全項目対応
+- ✅ **純粋なテンプレート作成**: 「📋」→「新規テンプレート作成」
+- ✅ **安定したテンプレート選択**: 項目が確実に自動入力
+- ✅ **正確なメモ管理**: 削除・編集が確実に反映
+- ✅ **エラー解決**: Firestore互換のデータ処理
+
+#### バージョン管理
+
+**Git管理**:
+- **ブランチ**: `testbranch` での開発・テスト
+- **安定版タグ**: `v1.4.0`（ロールバック用）
+- **新バージョン**: `v1.5.0`（今回の改善版）
+
+**デプロイメント**:
+- testbranchでの統合テスト完了
+- 本番環境への展開準備完了
+
+#### 技術的改善点
+
+**フォーム状態管理の最適化**:
+- useEffect依存関係の適切な管理
+- form.isDirty()による状態競合の解決
+- モーダル開閉時のクリーンアップ処理
+
+**データ安全性の向上**:
+- undefined値の完全な除外処理
+- Firestore互換のデータ構造保証
+- 型安全なテンプレートデータ処理
+
+**コード品質の向上**:
+- ESLint警告の完全解決
+- TypeScript型定義の強化
+- デバッグログによる動作追跡
+
+この v1.5.0 アップデートにより、テンプレート機能が完全に実用的になり、日常の家計簿入力が大幅に効率化されました。
+
 ## Development Notes
 
 ### Type Safety
