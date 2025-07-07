@@ -479,10 +479,18 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             />
           )}
 
-          <Textarea
-            label="メモ（任意）"
+          <textarea
             placeholder="メモを入力"
-            {...form.getInputProps('description')}
+            value={form.values.description}
+            onChange={(event) => form.setFieldValue('description', event.currentTarget.value)}
+            style={{ 
+              width: '100%', 
+              minHeight: '80px', 
+              border: '1px solid #ced4da', 
+              borderRadius: '4px', 
+              padding: '8px', 
+              fontSize: '16px' 
+            }}
           />
 
           {/* テンプレート保存チェックボックス（通常の新規作成時のみ） */}
