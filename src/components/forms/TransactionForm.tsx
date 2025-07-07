@@ -9,6 +9,7 @@ import {
   Stack,
   Group,
   SegmentedControl,
+  Textarea,
   TextInput,
   Checkbox,
 } from '@mantine/core';
@@ -427,14 +428,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             }}
           />
 
-          {subcategories.length > 0 && (
-            <Select
-              label="サブカテゴリ"
-              placeholder="サブカテゴリを選択（任意）"
-              data={subcategories.map(sub => ({ value: sub, label: sub }))}
-              {...form.getInputProps('subcategory')}
-            />
-          )}
+          <Select
+            label="サブカテゴリ"
+            placeholder="サブカテゴリを選択（任意）"
+            data={subcategories.map(sub => ({ value: sub, label: sub }))}
+            {...form.getInputProps('subcategory')}
+            disabled={subcategories.length === 0}
+            style={{ display: subcategories.length > 0 ? 'block' : 'none' }}
+          />
 
           <Select
             label="支払方法"
@@ -478,18 +479,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             />
           )}
 
-          <textarea
+          <Textarea
+            label="メモ（任意）"
             placeholder="メモを入力"
-            value={form.values.description}
-            onChange={(event) => form.setFieldValue('description', event.currentTarget.value)}
-            style={{ 
-              width: '100%', 
-              minHeight: '80px', 
-              border: '1px solid #ced4da', 
-              borderRadius: '4px', 
-              padding: '8px', 
-              fontSize: '16px' 
-            }}
+            {...form.getInputProps('description')}
           />
 
           {/* テンプレート保存チェックボックス（通常の新規作成時のみ） */}
