@@ -58,44 +58,18 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     },
   });
 
-  // フォームの初期状態とdirtyStateを監視
-  useEffect(() => {
-    console.log('Form state changed:', {
-      values: form.values,
-      isDirty: form.isDirty(),
-      selectedTemplate: selectedTemplate?.name,
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTemplate]);
-
-  // モーダル開閉状態を監視
-  useEffect(() => {
-    console.log('TransactionForm opened state changed:', {
-      opened,
-      editingTransaction: !!editingTransaction,
-      selectedTemplate: !!selectedTemplate,
-      templateName: selectedTemplate?.name,
-    });
-    
-    // モーダルが開かれた時にフォームをリセット（isDirtyを解除）
-    if (opened && !editingTransaction) {
-      console.log('Resetting form on modal open');
-      form.resetDirty();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opened, editingTransaction, selectedTemplate]);
-
   // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
-  // 編集時は常に既存情報表示、テンプレート・新規作成時は適切な状態管理
+  // モーダルが開いたタイミングで一度だけ実行
   useEffect(() => {
-    console.log('TransactionForm useEffect triggered:', {
+    if (!opened) return;
+
+    console.log('TransactionForm useEffect triggered on open:', {
       editingTransaction: !!editingTransaction,
       selectedTemplate: !!selectedTemplate,
-      'form.isDirty()': form.isDirty(),
       templateName: selectedTemplate?.name,
     });
 
-    // 編集時: 常に既存情報を表示（isDirtyに関係なく）
+    // 編集時: 既存情報を表示
     if (editingTransaction) {
       console.log('Setting form values for editing transaction:', editingTransaction);
       form.setValues({
@@ -108,23 +82,21 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         description: editingTransaction.description || '',
       });
     } 
-    // テンプレート使用時: 強制的にフォームをリセットしてからテンプレート値を設定
+    // テンプレート使用時: テンプレート値を設定
     else if (selectedTemplate) {
       console.log('Setting form values for template:', selectedTemplate);
-      // テンプレートの値を設定（isDirtyの状態に関係なく）
       form.setValues({
         type: selectedTemplate.type,
-        amount: selectedTemplate.amount ? selectedTemplate.amount.toString() : '', // 金額があれば設定、なければ空欄
+        amount: selectedTemplate.amount ? selectedTemplate.amount.toString() : '',
         category: selectedTemplate.category,
         subcategory: selectedTemplate.subcategory || '',
         paymentMethod: selectedTemplate.paymentMethod || '',
         date: new Date(),
         description: selectedTemplate.description || '',
       });
-      console.log('Template values set successfully');
     } 
     // 新規作成時: フォームをリセット
-    else if (!editingTransaction && !selectedTemplate) {
+    else {
       console.log('Resetting form for new transaction');
       form.setValues({
         type: 'expense',
@@ -136,8 +108,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         description: '',
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingTransaction, selectedTemplate]);
+    // フォームのisDirtyフラグをリセット
+    form.resetDirty();
+    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opened, editingTransaction, selectedTemplate]);
 
   // パフォーマンス最適化: カテゴリ関連の計算をメモ化
   // メモ欄入力でのフリーズ防止のため、dependencyを制限
@@ -145,13 +120,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     return form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   }, [form.values.type]);
 
-  const selectedCategory = useMemo(() => {
-    return categories.find(cat => cat.name === form.values.category);
-  }, [categories, form.values.category]);
-
   const subcategories = useMemo(() => {
-    return selectedCategory?.subcategories || [];
-  }, [selectedCategory]);
+    const selected = categories.find(cat => cat.name === form.values.category);
+    return selected?.subcategories || [];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.values.category, categories]);
 
   const handleSubmit = async (values: {
     type: 'income' | 'expense';

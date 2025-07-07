@@ -38,8 +38,10 @@ export interface Category {
 
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: '食費', subcategories: ['食費', '飲み会費'] },
-  { name: '光熱費', subcategories: ['電気代', 'ガス代'] },
-  { name: '固定費', subcategories: ['家賃', '投資'] },
+  { name: '交際費' },
+  { name: '光熱費', subcategories: ['電気代', 'ガス代', '水道代'] },
+  { name: '固定費', subcategories: ['家賃', '投資', '通信費'] },
+  { name: '日用品' },
   { name: '交通費' },
   { name: '趣味代' },
   { name: '旅行代' },
