@@ -428,14 +428,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             }}
           />
 
-          <Select
-            label="サブカテゴリ"
-            placeholder="サブカテゴリを選択（任意）"
-            data={subcategories.map(sub => ({ value: sub, label: sub }))}
-            {...form.getInputProps('subcategory')}
-            disabled={subcategories.length === 0}
-            style={{ display: subcategories.length > 0 ? 'block' : 'none' }}
-          />
+          {subcategories.length > 0 && (
+            <Select
+              label="サブカテゴリ"
+              placeholder="サブカテゴリを選択（任意）"
+              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              {...form.getInputProps('subcategory')}
+            />
+          )}
 
           <Select
             label="支払方法"
