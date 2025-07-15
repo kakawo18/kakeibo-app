@@ -28,6 +28,7 @@ interface TransactionFormProps {
   editingTransaction?: Transaction | null;
   selectedTemplate?: TransactionTemplate | null;
   templateOnlyMode?: boolean; // テンプレート専用モード
+  initialDate?: Date; // カレンダーから選択された日付
 }
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -36,8 +37,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   editingTransaction,
   selectedTemplate,
   templateOnlyMode = false,
+  initialDate,
 }) => {
-  const { addTransaction, updateTransaction } = useTransactions();
+  const { addTransaction, updateTransaction, transactions } = useTransactions();
   const { addTemplate } = useTransactionTemplates();
   const [loading, setLoading] = useState(false);
   const [mobileCalendarOpened, setMobileCalendarOpened] = useState(false);
@@ -104,7 +106,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         category: '',
         subcategory: '',
         paymentMethod: '',
-        date: new Date(),
+        date: initialDate || new Date(), // カレンダーから選択された日付を使用
         description: '',
       });
     }
@@ -511,6 +513,15 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         onClose={() => setMobileCalendarOpened(false)}
         value={form.values.date}
         onChange={handleMobileCalendarChange}
+        transactions={transactions?.map(t => ({
+          id: t.id,
+          date: t.date,
+          amount: t.amount,
+          type: t.type,
+          category: t.category,
+          subcategory: t.subcategory,
+          description: t.description
+        })) || []}
       />
     </Modal>
   );

@@ -4,13 +4,14 @@ import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate, IconCalendar } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { PieChart } from '@/components/charts/PieChart';
 import { LineChart } from '@/components/charts/LineChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
+import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent } from '@/utils/dateUtils';
 import { Transaction, TransactionTemplate } from '@/types';
@@ -24,6 +25,8 @@ export function DashboardContent() {
   const [templateSelectorOpened, setTemplateSelectorOpened] = useState(false);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
   const [templateOnlyMode, setTemplateOnlyMode] = useState(false); // テンプレート専用モード
+  const [calendarOpened, setCalendarOpened] = useState(false);
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -118,6 +121,13 @@ export function DashboardContent() {
     handleMonthChange(nextMonth);
   };
 
+  const handleCalendarDateChange = (date: Date) => {
+    setCalendarSelectedDate(date);
+    setCalendarOpened(false);
+    // 選択した日付で取引追加フォームを開く
+    setTransactionFormOpened(true);
+  };
+
   const monthOptions = getMonthOptions();
 
   // トレンドアイコンとバッジを表示するコンポーネント
@@ -205,6 +215,15 @@ export function DashboardContent() {
                 color="orange"
               >
                 テンプレート
+              </Button>
+              <Button
+                variant="light"
+                leftSection={<IconCalendar size={14} />}
+                onClick={() => setCalendarOpened(true)}
+                size={isMobile ? "sm" : "md"}
+                color="blue"
+              >
+                カレンダー
               </Button>
               <Menu shadow="md" width={isMobile ? 180 : 200}>
                 <Menu.Target>
@@ -394,6 +413,7 @@ export function DashboardContent() {
           editingTransaction={editingTransaction}
           selectedTemplate={selectedTemplate}
           templateOnlyMode={templateOnlyMode}
+          initialDate={calendarSelectedDate}
         />
 
         <TemplateSelector
@@ -408,10 +428,43 @@ export function DashboardContent() {
           onClose={() => setCsvModalOpened(false)}
         />
 
+        <MobileCalendar
+          opened={calendarOpened}
+          onClose={() => setCalendarOpened(false)}
+          value={calendarSelectedDate}
+          onChange={handleCalendarDateChange}
+          transactions={transactions.map(t => ({
+            id: t.id,
+            date: t.date,
+            amount: t.amount,
+            type: t.type,
+            category: t.category,
+            subcategory: t.subcategory,
+            description: t.description
+          }))}
+        />
+
         {/* モバイル用フローティングアクションボタン */}
         {isMobile && (
           <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
             <Group gap="xs">
+              <Button
+                variant="light"
+                leftSection={<IconCalendar size={16} />}
+                onClick={() => setCalendarOpened(true)}
+                size="md"
+                color="blue"
+                style={{
+                  borderRadius: '25px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  paddingLeft: '16px',
+                  paddingRight: '20px',
+                  opacity: transactionFormOpened ? 0.3 : 1,
+                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                }}
+              >
+                📅
+              </Button>
               <Button
                 variant="light"
                 leftSection={<IconTemplate size={16} />}
