@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Table,
   ActionIcon,
@@ -13,7 +13,6 @@ import {
   Card,
   Box,
   Collapse,
-  Loader,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconEdit, IconTrash, IconArrowUp, IconArrowDown, IconFilter, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
