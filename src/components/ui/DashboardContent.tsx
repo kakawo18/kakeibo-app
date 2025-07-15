@@ -124,8 +124,9 @@ export function DashboardContent() {
   const handleCalendarDateChange = (date: Date) => {
     setCalendarSelectedDate(date);
     setCalendarOpened(false);
-    // 選択した日付で取引追加フォームを開く
-    setTransactionFormOpened(true);
+    // 選択した日付の取引履歴を表示するため、その月に移動
+    const selectedMonth = date.toISOString().substring(0, 7);
+    handleMonthChange(selectedMonth);
   };
 
   const monthOptions = getMonthOptions();

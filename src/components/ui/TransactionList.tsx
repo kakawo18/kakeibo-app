@@ -30,7 +30,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'category'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
-  const [filterPeriod, setFilterPeriod] = useState<'all' | 'week' | 'month'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -49,20 +48,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
     // 種別フィルター
     if (filterType !== 'all' && transaction.type !== filterType) {
       return false;
-    }
-
-    // 期間フィルター
-    if (filterPeriod !== 'all') {
-      const now = new Date();
-      const transactionDate = new Date(transaction.date);
-
-      if (filterPeriod === 'week') {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        if (transactionDate < weekAgo) return false;
-      } else if (filterPeriod === 'month') {
-        const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
-        if (transactionDate < monthAgo) return false;
-      }
     }
 
     // カテゴリフィルター
@@ -166,38 +151,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                 </Button>
               </Group>
 
-              <Text size="sm" c="dimmed" fw={600} mt="xs">期間フィルター</Text>
-              <Group gap="xs">
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('all')}
-                  color={filterPeriod === 'all' ? 'blue' : 'gray'}
-                  style={{ flex: 1 }}
-                >
-                  全期間
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('week')}
-                  color={filterPeriod === 'week' ? 'blue' : 'gray'}
-                  style={{ flex: 1 }}
-                >
-                  1週間
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('month')}
-                  color={filterPeriod === 'month' ? 'blue' : 'gray'}
-                  style={{ flex: 1 }}
-                >
-                  1ヶ月
-                </Button>
-              </Group>
-
-              {/* カテゴリフィルター */}
+              {/* カテゴリフィルター - 重点機能 */}
               <Text size="sm" c="dimmed" fw={600} mt="xs">カテゴリフィルター</Text>
               <Group gap="xs" style={{ flexWrap: 'wrap' }}>
                 <Button
@@ -205,27 +159,22 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                   size="xs"
                   onClick={() => setFilterCategory('all')}
                   color={filterCategory === 'all' ? 'blue' : 'gray'}
-                  style={{ minWidth: '60px' }}
+                  style={{ minWidth: '70px' }}
                 >
                   全て
                 </Button>
-                {availableCategories.slice(0, 6).map((category) => (
+                {availableCategories.map((category) => (
                   <Button
                     key={category}
                     variant="light"
                     size="xs"
                     onClick={() => setFilterCategory(category)}
                     color={filterCategory === category ? 'blue' : 'gray'}
-                    style={{ minWidth: '60px' }}
+                    style={{ minWidth: '70px' }}
                   >
-                    {category.length > 6 ? `${category.slice(0, 6)}...` : category}
+                    {category.length > 8 ? `${category.slice(0, 8)}...` : category}
                   </Button>
                 ))}
-                {availableCategories.length > 6 && (
-                  <Text size="xs" c="dimmed" style={{ alignSelf: 'center' }}>
-                    他{availableCategories.length - 6}件
-                  </Text>
-                )}
               </Group>
 
               {/* ソート */}
@@ -270,7 +219,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
             <Stack gap="xs">
               <Group justify="space-between">
                 <Group gap="xs">
-                  <Text size="sm" c="dimmed">種別・期間:</Text>
+                  <Text size="sm" c="dimmed">種別:</Text>
                   <Button
                     variant="light"
                     size="xs"
@@ -294,30 +243,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                     color={filterType === 'expense' ? 'red' : 'gray'}
                   >
                     支出
-                  </Button>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => setFilterPeriod('all')}
-                    color={filterPeriod === 'all' ? 'blue' : 'gray'}
-                  >
-                    全期間
-                  </Button>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => setFilterPeriod('week')}
-                    color={filterPeriod === 'week' ? 'blue' : 'gray'}
-                  >
-                    1週間
-                  </Button>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => setFilterPeriod('month')}
-                    color={filterPeriod === 'month' ? 'blue' : 'gray'}
-                  >
-                    1ヶ月
                   </Button>
                 </Group>
               </Group>
