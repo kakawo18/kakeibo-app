@@ -31,7 +31,15 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterPeriod, setFilterPeriod] = useState<'all' | 'week' | 'month'>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
+
+  // 利用可能なカテゴリを取得
+  const availableCategories = Array.from(
+    new Set(
+      transactions.map(t => t.subcategory || t.category).filter(Boolean)
+    )
+  ).sort();
 
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -54,6 +62,14 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
       } else if (filterPeriod === 'month') {
         const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
         if (transactionDate < monthAgo) return false;
+      }
+    }
+
+    // カテゴリフィルター
+    if (filterCategory !== 'all') {
+      const transactionCategory = transaction.subcategory || transaction.category;
+      if (transactionCategory !== filterCategory) {
+        return false;
       }
     }
 
@@ -181,6 +197,37 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                 </Button>
               </Group>
 
+              {/* カテゴリフィルター */}
+              <Text size="sm" c="dimmed" fw={600} mt="xs">カテゴリフィルター</Text>
+              <Group gap="xs" style={{ flexWrap: 'wrap' }}>
+                <Button
+                  variant="light"
+                  size="xs"
+                  onClick={() => setFilterCategory('all')}
+                  color={filterCategory === 'all' ? 'blue' : 'gray'}
+                  style={{ minWidth: '60px' }}
+                >
+                  全て
+                </Button>
+                {availableCategories.slice(0, 6).map((category) => (
+                  <Button
+                    key={category}
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterCategory(category)}
+                    color={filterCategory === category ? 'blue' : 'gray'}
+                    style={{ minWidth: '60px' }}
+                  >
+                    {category.length > 6 ? `${category.slice(0, 6)}...` : category}
+                  </Button>
+                ))}
+                {availableCategories.length > 6 && (
+                  <Text size="xs" c="dimmed" style={{ alignSelf: 'center' }}>
+                    他{availableCategories.length - 6}件
+                  </Text>
+                )}
+              </Group>
+
               {/* ソート */}
               <Text size="sm" c="dimmed" fw={600} mt="xs">並び順</Text>
               <Group gap="xs">
@@ -220,59 +267,90 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
         ) : (
           <Stack gap="sm">
             {/* デスクトップ用フィルター */}
-            <Group justify="space-between">
-              <Group gap="xs">
-                <Text size="sm" c="dimmed">フィルター:</Text>
+            <Stack gap="xs">
+              <Group justify="space-between">
+                <Group gap="xs">
+                  <Text size="sm" c="dimmed">種別・期間:</Text>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterType('all')}
+                    color={filterType === 'all' ? 'blue' : 'gray'}
+                  >
+                    全て
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterType('income')}
+                    color={filterType === 'income' ? 'green' : 'gray'}
+                  >
+                    収入
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterType('expense')}
+                    color={filterType === 'expense' ? 'red' : 'gray'}
+                  >
+                    支出
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterPeriod('all')}
+                    color={filterPeriod === 'all' ? 'blue' : 'gray'}
+                  >
+                    全期間
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterPeriod('week')}
+                    color={filterPeriod === 'week' ? 'blue' : 'gray'}
+                  >
+                    1週間
+                  </Button>
+                  <Button
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterPeriod('month')}
+                    color={filterPeriod === 'month' ? 'blue' : 'gray'}
+                  >
+                    1ヶ月
+                  </Button>
+                </Group>
+              </Group>
+              
+              {/* デスクトップ用カテゴリフィルター */}
+              <Group gap="xs" align="center">
+                <Text size="sm" c="dimmed">カテゴリ:</Text>
                 <Button
                   variant="light"
                   size="xs"
-                  onClick={() => setFilterType('all')}
-                  color={filterType === 'all' ? 'blue' : 'gray'}
+                  onClick={() => setFilterCategory('all')}
+                  color={filterCategory === 'all' ? 'blue' : 'gray'}
                 >
                   全て
                 </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterType('income')}
-                  color={filterType === 'income' ? 'green' : 'gray'}
-                >
-                  収入
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterType('expense')}
-                  color={filterType === 'expense' ? 'red' : 'gray'}
-                >
-                  支出
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('all')}
-                  color={filterPeriod === 'all' ? 'blue' : 'gray'}
-                >
-                  全期間
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('week')}
-                  color={filterPeriod === 'week' ? 'blue' : 'gray'}
-                >
-                  1週間
-                </Button>
-                <Button
-                  variant="light"
-                  size="xs"
-                  onClick={() => setFilterPeriod('month')}
-                  color={filterPeriod === 'month' ? 'blue' : 'gray'}
-                >
-                  1ヶ月
-                </Button>
+                {availableCategories.slice(0, 8).map((category) => (
+                  <Button
+                    key={category}
+                    variant="light"
+                    size="xs"
+                    onClick={() => setFilterCategory(category)}
+                    color={filterCategory === category ? 'blue' : 'gray'}
+                  >
+                    {category.length > 8 ? `${category.slice(0, 8)}...` : category}
+                  </Button>
+                ))}
+                {availableCategories.length > 8 && (
+                  <Text size="xs" c="dimmed">
+                    他{availableCategories.length - 8}件
+                  </Text>
+                )}
               </Group>
-            </Group>
+            </Stack>
 
             {/* デスクトップ用ソート */}
             <Group justify="flex-end">
