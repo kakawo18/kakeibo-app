@@ -21,6 +21,11 @@ interface MobileCalendarProps {
   onClose: () => void;
   value: Date;
   onChange: (date: Date) => void;
+  transactions?: Array<{
+    date: Date;
+    amount: number;
+    type: 'income' | 'expense';
+  }>;
 }
 
 export const MobileCalendar: React.FC<MobileCalendarProps> = ({
@@ -28,6 +33,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   onClose,
   value,
   onChange,
+  transactions = [],
 }) => {
   const [currentDate, setCurrentDate] = useState(value);
   const [selectedDate, setSelectedDate] = useState(value);
@@ -129,6 +135,22 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   const isWeekend = (date: Date) => {
     const day = date.getDay();
     return day === 0 || day === 6;
+  };
+
+  // 日別の収支を計算
+  const getDailyBalance = (date: Date) => {
+    const dateStr = date.toDateString();
+    const dayTransactions = transactions.filter(t => t.date.toDateString() === dateStr);
+    
+    const income = dayTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const expense = dayTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    return { income, expense, balance: income - expense };
   };
 
   const calendarDays = generateCalendarDays();
@@ -283,6 +305,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                       const selected = isSelected(date);
                       const currentMonth = isCurrentMonth(date);
                       const weekend = isWeekend(date);
+                      const { income, expense, balance } = getDailyBalance(date);
 
                       return (
                         <Box
@@ -291,9 +314,9 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                           style={{
                             aspectRatio: '1',
                             width: '100%',
-                            maxWidth: '40px',
-                            minHeight: '36px',
-                            fontSize: '13px',
+                            maxWidth: '50px',
+                            minHeight: '45px',
+                            fontSize: '11px',
                             fontWeight: selected ? 700 : 500,
                             borderRadius: '4px',
                             border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
@@ -313,14 +336,34 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                             transition: 'all 0.2s ease',
                             opacity: currentMonth ? 1 : 0.6,
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
                             textAlign: 'center',
                             userSelect: 'none',
                             margin: '0 auto',
+                            padding: '2px',
                           }}
                         >
-                          {date.getDate()}
+                          <Text size="xs" fw={selected ? 700 : 600}>
+                            {date.getDate()}
+                          </Text>
+                          {currentMonth && (income > 0 || expense > 0) && (
+                            <Text 
+                              size="8px" 
+                              c={selected ? 'white' : balance >= 0 ? 'green' : 'red'} 
+                              fw={500}
+                              style={{ 
+                                lineHeight: 1,
+                                marginTop: '1px',
+                                opacity: 0.8
+                              }}
+                            >
+                              {balance >= 0 ? '+' : ''}¥{Math.abs(balance) >= 10000 
+                                ? `${Math.floor(Math.abs(balance) / 1000)}k` 
+                                : Math.abs(balance).toLocaleString()}
+                            </Text>
+                          )}
                         </Box>
                       );
                     })}
@@ -451,6 +494,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                   const selected = isSelected(date);
                   const currentMonth = isCurrentMonth(date);
                   const weekend = isWeekend(date);
+                  const { income, expense, balance } = getDailyBalance(date);
 
                   return (
                     <Box
@@ -460,8 +504,8 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                         aspectRatio: '1',
                         width: '100%',
                         maxWidth: '44px',
-                        minHeight: '40px',
-                        fontSize: '14px',
+                        minHeight: '48px',
+                        fontSize: '12px',
                         fontWeight: selected ? 700 : 500,
                         borderRadius: '6px',
                         border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
@@ -481,11 +525,13 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                         transition: 'all 0.2s ease',
                         opacity: currentMonth ? 1 : 0.6,
                         display: 'flex',
+                        flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
                         textAlign: 'center',
                         userSelect: 'none',
                         margin: '0 auto',
+                        padding: '2px',
                         '&:hover': {
                           backgroundColor: selected 
                             ? 'var(--mantine-color-blue-7)' 
@@ -496,7 +542,25 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                         },
                       }}
                     >
-                      {date.getDate()}
+                      <Text size="sm" fw={selected ? 700 : 600}>
+                        {date.getDate()}
+                      </Text>
+                      {currentMonth && (income > 0 || expense > 0) && (
+                        <Text 
+                          size="9px" 
+                          c={selected ? 'white' : balance >= 0 ? 'green' : 'red'} 
+                          fw={500}
+                          style={{ 
+                            lineHeight: 1,
+                            marginTop: '1px',
+                            opacity: 0.8
+                          }}
+                        >
+                          {balance >= 0 ? '+' : ''}¥{Math.abs(balance) >= 10000 
+                            ? `${Math.floor(Math.abs(balance) / 1000)}k` 
+                            : Math.abs(balance).toLocaleString()}
+                        </Text>
+                      )}
                     </Box>
                   );
                 })}
