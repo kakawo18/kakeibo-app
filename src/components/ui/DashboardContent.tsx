@@ -27,6 +27,7 @@ export function DashboardContent() {
   const [templateOnlyMode, setTemplateOnlyMode] = useState(false); // テンプレート専用モード
   const [calendarOpened, setCalendarOpened] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
+  const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -245,16 +246,47 @@ export function DashboardContent() {
           )}
         </Group>
 
+        {/* 3行2列レイアウト - 最初の2行は2列、最後の行は1列中央配置 */}
         <Grid>
-          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
-            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
+          {/* 1行目: 収入・支出 */}
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.15) 100%)',
+                borderLeft: '4px solid #4caf50',
+                boxShadow: '0 2px 12px rgba(76, 175, 80, 0.1)',
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(76, 175, 80, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(76, 175, 80, 0.1)';
+              }}
+            >
               <Group>
-                <ActionIcon size="lg" color="green" variant="light">
+                <ActionIcon 
+                  size="lg" 
+                  color="green" 
+                  variant="light"
+                  style={{
+                    background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+                  }}
+                >
                   <IconTrendingUp size={20} />
                 </ActionIcon>
                 <div>
                   <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">収入</Text>
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>収入</Text>
                     {monthlyComparison && (
                       <TrendIndicator 
                         trend={monthlyComparison.income.trend} 
@@ -270,15 +302,44 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
-            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: 'linear-gradient(135deg, rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%)',
+                borderLeft: '4px solid #f44336',
+                boxShadow: '0 2px 12px rgba(244, 67, 54, 0.1)',
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out 0.1s both',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(244, 67, 54, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(244, 67, 54, 0.1)';
+              }}
+            >
               <Group>
-                <ActionIcon size="lg" color="red" variant="light">
+                <ActionIcon 
+                  size="lg" 
+                  color="red" 
+                  variant="light"
+                  style={{
+                    background: 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
+                  }}
+                >
                   <IconTrendingDown size={20} />
                 </ActionIcon>
                 <div>
                   <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">支出</Text>
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>支出</Text>
                     {monthlyComparison && (
                       <TrendIndicator 
                         trend={monthlyComparison.expense.trend} 
@@ -294,18 +355,52 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
-            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
+          {/* 2行目: 今月の収支・実残高 */}
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: `linear-gradient(135deg, ${
+                  (selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 
+                    ? 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
+                    : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
+                })`,
+                borderLeft: `4px solid ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? '#2196f3' : '#f44336'}`,
+                boxShadow: `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out 0.2s both',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = `0 8px 30px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.2)' : 'rgba(244, 67, 54, 0.2)'}`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`;
+              }}
+            >
               <Group>
                 <ActionIcon 
                   size="lg" 
                   color={(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'blue' : 'red'}
                   variant="light"
+                  style={{
+                    background: `linear-gradient(135deg, ${
+                      (selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 
+                        ? '#2196f3 0%, #42a5f5 100%'
+                        : '#f44336 0%, #ef5350 100%'
+                    })`,
+                    color: 'white',
+                    boxShadow: `0 4px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
+                  }}
                 >
                   <IconWallet size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">今月の収支</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>今月の収支</Text>
                   <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード支払い含む</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
@@ -319,19 +414,52 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
-            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: `linear-gradient(135deg, ${
+                  (selectedMonthData?.balance || 0) >= 0 
+                    ? 'rgba(0, 150, 136, 0.05) 0%, rgba(0, 150, 136, 0.15) 100%'
+                    : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
+                })`,
+                borderLeft: `4px solid ${(selectedMonthData?.balance || 0) >= 0 ? '#009688' : '#f44336'}`,
+                boxShadow: `0 2px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out 0.3s both',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = `0 8px 30px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.2)' : 'rgba(244, 67, 54, 0.2)'}`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = `0 2px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`;
+              }}
+            >
               <Group>
                 <ActionIcon 
                   size="lg" 
                   color={(selectedMonthData?.balance || 0) >= 0 ? 'teal' : 'red'}
                   variant="light"
+                  style={{
+                    background: `linear-gradient(135deg, ${
+                      (selectedMonthData?.balance || 0) >= 0 
+                        ? '#009688 0%, #26a69a 100%'
+                        : '#f44336 0%, #ef5350 100%'
+                    })`,
+                    color: 'white',
+                    boxShadow: `0 4px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
+                  }}
                 >
                   <IconBuildingBank size={20} />
                 </ActionIcon>
                 <div>
                   <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed">実残高</Text>
+                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>実残高</Text>
                     {monthlyComparison && (
                       <TrendIndicator 
                         trend={monthlyComparison.balance.trend} 
@@ -352,18 +480,44 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 12, sm: 6, md: 4, lg: 2.4 }}>
-            <Card withBorder p={isMobile ? "sm" : "md"} style={{ minHeight: isMobile ? '80px' : undefined }}>
+          {/* 3行目: カード支払い（中央配置） */}
+          <Grid.Col span={{ base: 12, sm: 6 }} offset={{ base: 0, sm: 3 }}>
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.05) 0%, rgba(156, 39, 176, 0.15) 100%)',
+                borderLeft: '4px solid #9c27b0',
+                boxShadow: '0 2px 12px rgba(156, 39, 176, 0.1)',
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out 0.4s both',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(156, 39, 176, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(156, 39, 176, 0.1)';
+              }}
+            >
               <Group>
                 <ActionIcon 
                   size="lg" 
                   color="violet"
                   variant="light"
+                  style={{
+                    background: 'linear-gradient(135deg, #9c27b0 0%, #ab47bc 100%)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
+                  }}
                 >
                   <IconCreditCard size={20} />
                 </ActionIcon>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed">カード支払い</Text>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>カード支払い</Text>
                   <Text size={isMobile ? "xs" : "xs"} c="dimmed">5社カード合計</Text>
                   <Text 
                     size={isMobile ? "lg" : "xl"} 
@@ -378,25 +532,84 @@ export function DashboardContent() {
           </Grid.Col>
         </Grid>
 
-        <Grid>
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <PieChart
-              title={`${getMonthName(selectedMonth)}の収入内訳`}
-              data={incomeChartData}
-              totalAmount={selectedMonthData?.income || 0}
-              color="green"
-            />
-          </Grid.Col>
+        {/* 円グラフセクション - モバイル対応 */}
+        {isMobile ? (
+          /* モバイル: 切り替え式円グラフ */
+          <Stack gap="md">
+            {/* 切り替えボタン */}
+            <Group justify="center" gap="xs">
+              <Button
+                variant={mobileChartType === 'expense' ? 'filled' : 'light'}
+                color="red"
+                size="sm"
+                onClick={() => setMobileChartType('expense')}
+                style={{
+                  borderRadius: '20px',
+                  transition: 'all 0.3s ease',
+                  transform: mobileChartType === 'expense' ? 'scale(1.05)' : 'scale(1)',
+                }}
+              >
+                📊 支出内訳
+              </Button>
+              <Button
+                variant={mobileChartType === 'income' ? 'filled' : 'light'}
+                color="green"
+                size="sm"
+                onClick={() => setMobileChartType('income')}
+                style={{
+                  borderRadius: '20px',
+                  transition: 'all 0.3s ease',
+                  transform: mobileChartType === 'income' ? 'scale(1.05)' : 'scale(1)',
+                }}
+              >
+                💰 収入内訳
+              </Button>
+            </Group>
+            
+            {/* 選択された円グラフを表示 */}
+            <div style={{ 
+              animation: 'fadeInScale 0.4s ease-out',
+              transform: 'translateY(0)',
+            }}>
+              {mobileChartType === 'expense' ? (
+                <PieChart
+                  title={`${getMonthName(selectedMonth)}の支出内訳`}
+                  data={expenseChartData}
+                  totalAmount={selectedMonthData?.expense || 0}
+                  color="red"
+                />
+              ) : (
+                <PieChart
+                  title={`${getMonthName(selectedMonth)}の収入内訳`}
+                  data={incomeChartData}
+                  totalAmount={selectedMonthData?.income || 0}
+                  color="green"
+                />
+              )}
+            </div>
+          </Stack>
+        ) : (
+          /* デスクトップ: 並列表示 */
+          <Grid>
+            <Grid.Col span={{ base: 12, lg: 6 }}>
+              <PieChart
+                title={`${getMonthName(selectedMonth)}の支出内訳`}
+                data={expenseChartData}
+                totalAmount={selectedMonthData?.expense || 0}
+                color="red"
+              />
+            </Grid.Col>
 
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <PieChart
-              title={`${getMonthName(selectedMonth)}の支出内訳`}
-              data={expenseChartData}
-              totalAmount={selectedMonthData?.expense || 0}
-              color="red"
-            />
-          </Grid.Col>
-        </Grid>
+            <Grid.Col span={{ base: 12, lg: 6 }}>
+              <PieChart
+                title={`${getMonthName(selectedMonth)}の収入内訳`}
+                data={incomeChartData}
+                totalAmount={selectedMonthData?.income || 0}
+                color="green"
+              />
+            </Grid.Col>
+          </Grid>
+        )}
 
         <LineChart
           title="残高推移"

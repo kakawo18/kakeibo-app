@@ -24,3 +24,101 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* アニメーション定義 */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+/* カードホバー効果の改善 */
+.enhanced-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.enhanced-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.enhanced-card:hover::before {
+  left: 100%;
+}
+
+/* 取引カードの改善 */
+.transaction-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.transaction-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    currentColor 50%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.transaction-card:hover::after {
+  opacity: 0.3;
+}
+
+/* スムーズなスクロール */
+html {
+  scroll-behavior: smooth;
+}
+
+/* フォーカス表示の改善 */
+*:focus-visible {
+  outline: 2px solid #2196f3;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
