@@ -328,7 +328,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                   transform: 'translateY(0)',
                   opacity: 0,
                   animation: `slideInUp 0.4s ease-out ${index * 0.05}s forwards`,
-                  minHeight: '70px', // 最小高さを設定
+                  minHeight: '50px', // 超スリム設計
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
@@ -340,71 +340,69 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                 }}
                 onClick={() => onEditTransaction(transaction)}
               >
-                {/* コンパクトな1行レイアウト */}
+                {/* 超スリムな1行レイアウト */}
                 <Group justify="space-between" align="center" style={{ width: '100%' }}>
-                  {/* 左側: 日付・カテゴリ・バッジ */}
-                  <Box style={{ flex: 1 }}>
-                    <Group gap="xs" align="center">
-                      <Text size="xs" c="dimmed" fw={500}>
-                        {formatDate(transaction.date)}
+                  {/* 左側: 日付・カテゴリ・コメント */}
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Group gap="xs" align="center" wrap="nowrap">
+                      <Text size="xs" c="dimmed" fw={500} style={{ minWidth: '35px' }}>
+                        {transaction.date.getDate()}日
                       </Text>
                       <Badge 
                         color={transaction.type === 'income' ? 'green' : 'red'} 
                         size="xs"
-                        variant="light"
-                      >
-                        {transaction.type === 'income' ? '収入' : '支出'}
-                      </Badge>
-                      {transaction.transactionType === 'card_payment' && (
-                        <Badge variant="outline" color="blue" size="xs">
-                          カード
-                        </Badge>
-                      )}
-                    </Group>
-                    <Group gap="xs" mt={2}>
-                      <Text fw={600} size="sm" truncate style={{ maxWidth: '120px' }}>
+                        variant="dot"
+                      />
+                      <Text fw={600} size="xs" truncate style={{ maxWidth: '60px' }}>
                         {transaction.category}
                       </Text>
-                      {transaction.subcategory && (
+                      {transaction.description && (
                         <Text size="xs" c="dimmed" truncate style={{ maxWidth: '80px' }}>
-                          {transaction.subcategory}
+                          {transaction.description.length > 10 
+                            ? `${transaction.description.substring(0, 10)}...` 
+                            : transaction.description}
                         </Text>
+                      )}
+                      {transaction.transactionType === 'card_payment' && (
+                        <Badge variant="outline" color="blue" size="xs" style={{ fontSize: '9px', height: '16px' }}>
+                          💳
+                        </Badge>
                       )}
                     </Group>
                   </Box>
 
                   {/* 右側: 金額・操作ボタン */}
-                  <Group gap="xs" align="center">
+                  <Group gap="xs" align="center" wrap="nowrap">
                     <Text
                       c={transaction.type === 'income' ? 'green' : 'red'}
                       fw={700}
-                      size="md"
-                      style={{ minWidth: '80px', textAlign: 'right' }}
+                      size="sm"
+                      style={{ minWidth: '70px', textAlign: 'right' }}
                     >
-                      {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
+                      {transaction.type === 'income' ? '+' : ''}¥{transaction.amount.toLocaleString()}
                     </Text>
-                    <Group gap={4}>
+                    <Group gap={2}>
                       <ActionIcon
-                        variant="light"
+                        variant="subtle"
                         color="blue"
-                        size="sm"
+                        size="xs"
                         onClick={(e) => {
                           e.stopPropagation();
                           onEditTransaction(transaction);
                         }}
                       >
-                        <IconEdit size={14} />
+                        <IconEdit size={12} />
                       </ActionIcon>
                       <ActionIcon
-                        variant="light"
+                        variant="subtle"
                         color="red"
-                        size="sm"
+                        size="xs"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDelete(transaction.id);
                         }}
                       >
-                        <IconTrash size={14} />
+                        <IconTrash size={12} />
                       </ActionIcon>
                     </Group>
                   </Group>
