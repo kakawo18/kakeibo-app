@@ -246,7 +246,7 @@ export function DashboardContent() {
           )}
         </Group>
 
-        {/* 3行2列レイアウト - 最初の2行は2列、最後の行は1列中央配置 */}
+        {/* 3行2列レイアウト - スペース効率最適化 */}
         <Grid>
           {/* 1行目: 収入・支出 */}
           <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -480,8 +480,8 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          {/* 3行目: カード支払い（中央配置） */}
-          <Grid.Col span={{ base: 12, sm: 6 }} offset={{ base: 0, sm: 3 }}>
+          {/* 3行目: カード支払い */}
+          <Grid.Col span={{ base: 12, sm: 6 }}>
             <Card 
               withBorder 
               p={isMobile ? "sm" : "md"} 
@@ -529,6 +529,11 @@ export function DashboardContent() {
                 </div>
               </Group>
             </Card>
+          </Grid.Col>
+
+          {/* 3行目右側: 空きスペース（将来の拡張用） */}
+          <Grid.Col span={{ base: 12, sm: 6 }}>
+            {/* 将来的に追加機能用のスペース */}
           </Grid.Col>
         </Grid>
 
