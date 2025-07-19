@@ -467,7 +467,7 @@ export function DashboardContent() {
                       />
                     )}
                   </Group>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード料金反映</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード反映済</Text>
                   <Text 
                     size={isMobile ? "md" : "xl"} 
                     fw={700} 
@@ -619,6 +619,7 @@ export function DashboardContent() {
         <LineChart
           title="残高推移"
           data={monthlyData}
+          transactions={transactions}
         />
 
         <TransactionList 
