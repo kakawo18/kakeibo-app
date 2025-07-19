@@ -1,0 +1,14 @@
+{
+  "name": "家計簿アプリ",
+  "short_name": "家計簿",
+  "description": "シンプルで使いやすい家計簿アプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1976d2",
+  "orientation": "portrait-primary",
+  "icons": [],
+  "categories": ["finance", "productivity"],
+  "lang": "ja",
+  "dir": "ltr"
+}

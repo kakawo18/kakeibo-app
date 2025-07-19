@@ -5,6 +5,7 @@ import { Container, Text } from '@mantine/core';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/components/ui/LoginForm';
 import { DashboardContent } from '@/components/ui/DashboardContent';
+import { PWAInstaller } from '@/components/PWAInstaller';
 
 function DashboardWrapper() {
   const { user, loading: authLoading } = useAuth();
@@ -37,5 +38,10 @@ function DashboardWrapper() {
 }
 
 export default function Home() {
-  return <DashboardWrapper />;
+  return (
+    <>
+      <DashboardWrapper />
+      <PWAInstaller />
+    </>
+  );
 }

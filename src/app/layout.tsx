@@ -22,7 +22,21 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "家計簿アプリ",
-  description: "シンプルな家計簿管理アプリ",
+  description: "シンプルで使いやすい家計簿管理アプリ",
+  manifest: "/manifest.json",
+  themeColor: "#1976d2",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "家計簿アプリ",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export const viewport = {
