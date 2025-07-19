@@ -33,7 +33,7 @@ interface MobileCalendarProps {
     subcategory?: string;
     description?: string;
   }>;
-  onDateTransactionsView?: (date: Date, transactions: any[]) => void;
+
 }
 
 export const MobileCalendar: React.FC<MobileCalendarProps> = ({
@@ -42,7 +42,6 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   value,
   onChange,
   transactions = [],
-  onDateTransactionsView,
 }) => {
   const [currentDate, setCurrentDate] = useState(value);
   const [selectedDate, setSelectedDate] = useState(value);
@@ -66,13 +65,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     onClose();
   };
 
-  const handleDateLongPress = (date: Date) => {
-    const dayTransactions = transactions.filter(t => t.date.toDateString() === date.toDateString());
-    if (dayTransactions.length > 0) {
-      setDayTransactionsDate(date);
-      setShowDayTransactions(true);
-    }
-  };
+
 
   const handleShowDayTransactions = (date: Date) => {
     const dayTransactions = transactions.filter(t => t.date.toDateString() === date.toDateString());
