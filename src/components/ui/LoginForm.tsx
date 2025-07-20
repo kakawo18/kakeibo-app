@@ -25,7 +25,45 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       }
     }, 100);
 
-    return () => clearTimeout(timer);
+    // PWA環境での強制入力有効化
+    const enablePWAInput = () => {
+      const inputs = document.querySelectorAll('[data-testid="email-input"] input, [data-testid="password-input"] input');
+      inputs.forEach((input) => {
+        const htmlInput = input as HTMLInputElement;
+        
+        // 強制的に入力可能にする
+        htmlInput.readOnly = false;
+        htmlInput.disabled = false;
+        htmlInput.style.pointerEvents = 'auto';
+        htmlInput.style.userSelect = 'text';
+        htmlInput.style.webkitUserSelect = 'text';
+        htmlInput.style.webkitTouchCallout = 'default';
+        htmlInput.style.touchAction = 'manipulation';
+        
+        // PWA環境での特別処理
+        if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+          htmlInput.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            htmlInput.focus();
+            // キーボードを強制表示
+            htmlInput.click();
+          }, { passive: false });
+          
+          htmlInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+            htmlInput.focus();
+          });
+        }
+      });
+    };
+
+    // DOM読み込み後に実行
+    const domTimer = setTimeout(enablePWAInput, 200);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(domTimer);
+    };
   }, []);
 
   const form = useForm({
@@ -79,14 +117,36 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             {...form.getInputProps('email')}
             styles={{
               input: {
-                fontSize: '16px', // PWA自動ズーム防止
-                WebkitUserSelect: 'text',
-                WebkitTouchCallout: 'default',
-                touchAction: 'manipulation',
+                fontSize: '16px !important', // PWA自動ズーム防止
+                WebkitUserSelect: 'text !important',
+                WebkitTouchCallout: 'default !important',
+                touchAction: 'manipulation !important',
+                WebkitAppearance: 'none !important',
+                appearance: 'none !important',
+                transform: 'translateZ(0)',
+                WebkitTransform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                outline: 'none',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                backgroundColor: '#ffffff !important',
+                color: '#000000 !important',
               }
             }}
             inputMode="email"
             autoComplete="email"
+            data-testid="email-input"
+            onTouchStart={(e) => {
+              // PWA環境でのタッチ開始時の処理
+              e.currentTarget.focus();
+            }}
+            onFocus={(e) => {
+              // フォーカス時の強制処理
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.color = '#000000';
+            }}
           />
 
           <TextInput
@@ -97,13 +157,35 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             {...form.getInputProps('password')}
             styles={{
               input: {
-                fontSize: '16px', // PWA自動ズーム防止
-                WebkitUserSelect: 'text',
-                WebkitTouchCallout: 'default',
-                touchAction: 'manipulation',
+                fontSize: '16px !important', // PWA自動ズーム防止
+                WebkitUserSelect: 'text !important',
+                WebkitTouchCallout: 'default !important',
+                touchAction: 'manipulation !important',
+                WebkitAppearance: 'none !important',
+                appearance: 'none !important',
+                transform: 'translateZ(0)',
+                WebkitTransform: 'translateZ(0)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                outline: 'none',
+                border: '1px solid #ced4da',
+                borderRadius: '4px',
+                padding: '8px 12px',
+                backgroundColor: '#ffffff !important',
+                color: '#000000 !important',
               }
             }}
             autoComplete="current-password"
+            data-testid="password-input"
+            onTouchStart={(e) => {
+              // PWA環境でのタッチ開始時の処理
+              e.currentTarget.focus();
+            }}
+            onFocus={(e) => {
+              // フォーカス時の強制処理
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.color = '#000000';
+            }}
           />
 
           <Button type="submit" loading={loading} fullWidth>

@@ -165,3 +165,45 @@ input, textarea, select {
     -webkit-user-select: text;
   }
 }
+
+/* ログイン画面専用のPWA修正 */
+[data-testid="email-input"] input,
+[data-testid="password-input"] input {
+  /* 強制的にPWA入力を有効化 */
+  -webkit-user-select: text !important;
+  -webkit-touch-callout: default !important;
+  -webkit-tap-highlight-color: rgba(0,0,0,0.1) !important;
+  touch-action: manipulation !important;
+  
+  /* iOS PWA特有の問題を強制修正 */
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: white !important;
+  color: black !important;
+  
+  /* フォーカス時の問題を修正 */
+  outline: 2px solid #007bff !important;
+  outline-offset: 2px !important;
+  
+  /* キーボード表示を強制 */
+  inputmode: text !important;
+}
+
+/* PWAログイン画面でのフォーカス強制 */
+@media all and (display-mode: standalone) {
+  [data-testid="email-input"] input:focus,
+  [data-testid="password-input"] input:focus {
+    /* PWAでのフォーカス状態を強制表示 */
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    border: 2px solid #007bff !important;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25) !important;
+  }
+  
+  /* PWAでのタッチ時の反応を改善 */
+  [data-testid="email-input"] input:active,
+  [data-testid="password-input"] input:active {
+    transform: scale(1.02) !important;
+    transition: transform 0.1s ease !important;
+  }
+}
