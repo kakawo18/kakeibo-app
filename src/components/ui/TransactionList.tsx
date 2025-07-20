@@ -340,30 +340,49 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                 }}
                 onClick={() => onEditTransaction(transaction)}
               >
-                {/* 超スリムな1行レイアウト */}
+                {/* レスポンシブ対応スリムレイアウト */}
                 <Group justify="space-between" align="center" style={{ width: '100%' }}>
-                  {/* 左側: 日付・カテゴリ・コメント */}
+                  {/* 左側: 日付・カテゴリ・メモ */}
                   <Box style={{ flex: 1, minWidth: 0 }}>
                     <Group gap="xs" align="center" wrap="nowrap">
-                      <Text size="xs" c="dimmed" fw={500} style={{ minWidth: '35px' }}>
+                      <Text size="xs" c="dimmed" fw={500} style={{ minWidth: isMobile ? '25px' : '35px' }}>
                         {transaction.date.getDate()}日
                       </Text>
-                      <Badge 
-                        color={transaction.type === 'income' ? 'green' : 'red'} 
-                        size="xs"
-                        variant="dot"
-                      />
-                      <Text fw={600} size="xs" truncate style={{ maxWidth: '60px' }}>
+                      
+                      {/* デスクトップのみ: 種別バッジ */}
+                      {!isMobile && (
+                        <Badge 
+                          color={transaction.type === 'income' ? 'green' : 'red'} 
+                          size="xs"
+                          variant="dot"
+                        />
+                      )}
+                      
+                      <Text 
+                        fw={600} 
+                        size={isMobile ? "sm" : "xs"} 
+                        truncate 
+                        style={{ maxWidth: isMobile ? '100px' : '60px' }}
+                      >
                         {transaction.category}
                       </Text>
+                      
+                      {/* メモ表示 */}
                       {transaction.description && (
-                        <Text size="xs" c="dimmed" truncate style={{ maxWidth: '80px' }}>
-                          {transaction.description.length > 10 
-                            ? `${transaction.description.substring(0, 10)}...` 
+                        <Text 
+                          size="xs" 
+                          c="dimmed" 
+                          truncate 
+                          style={{ maxWidth: isMobile ? '120px' : '80px' }}
+                        >
+                          {transaction.description.length > (isMobile ? 15 : 10)
+                            ? `${transaction.description.substring(0, isMobile ? 15 : 10)}...` 
                             : transaction.description}
                         </Text>
                       )}
-                      {transaction.transactionType === 'card_payment' && (
+                      
+                      {/* デスクトップのみ: カード支払いバッジ */}
+                      {!isMobile && transaction.transactionType === 'card_payment' && (
                         <Badge variant="outline" color="blue" size="xs" style={{ fontSize: '9px', height: '16px' }}>
                           💳
                         </Badge>
@@ -376,33 +395,36 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                     <Text
                       c={transaction.type === 'income' ? 'green' : 'red'}
                       fw={700}
-                      size="sm"
-                      style={{ minWidth: '70px', textAlign: 'right' }}
+                      size={isMobile ? "md" : "sm"}
+                      style={{ 
+                        minWidth: isMobile ? '80px' : '70px', 
+                        textAlign: 'right' 
+                      }}
                     >
                       {transaction.type === 'income' ? '+' : ''}¥{transaction.amount.toLocaleString()}
                     </Text>
-                    <Group gap={2}>
+                    <Group gap={isMobile ? 4 : 2}>
                       <ActionIcon
                         variant="subtle"
                         color="blue"
-                        size="xs"
+                        size={isMobile ? "sm" : "xs"}
                         onClick={(e) => {
                           e.stopPropagation();
                           onEditTransaction(transaction);
                         }}
                       >
-                        <IconEdit size={12} />
+                        <IconEdit size={isMobile ? 14 : 12} />
                       </ActionIcon>
                       <ActionIcon
                         variant="subtle"
                         color="red"
-                        size="xs"
+                        size={isMobile ? "sm" : "xs"}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDelete(transaction.id);
                         }}
                       >
-                        <IconTrash size={12} />
+                        <IconTrash size={isMobile ? 14 : 12} />
                       </ActionIcon>
                     </Group>
                   </Group>
