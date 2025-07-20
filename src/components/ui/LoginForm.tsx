@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button, TextInput, Stack, Paper, Title, Text, Alert } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -14,6 +14,19 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+
+  // PWA環境での初期フォーカス問題を解決
+  useEffect(() => {
+    // PWA環境でのフォーカス遅延
+    const timer = setTimeout(() => {
+      if (emailInputRef.current) {
+        emailInputRef.current.focus();
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   const form = useForm({
     initialValues: {
@@ -59,10 +72,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       <form onSubmit={form.onSubmit(handleSubmit)}>
         <Stack>
           <TextInput
+            ref={emailInputRef}
             label="メールアドレス"
             placeholder="your-email@example.com"
             required
             {...form.getInputProps('email')}
+            styles={{
+              input: {
+                fontSize: '16px', // PWA自動ズーム防止
+                WebkitUserSelect: 'text',
+                WebkitTouchCallout: 'default',
+                touchAction: 'manipulation',
+              }
+            }}
+            inputMode="email"
+            autoComplete="email"
           />
 
           <TextInput
@@ -71,6 +95,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             type="password"
             required
             {...form.getInputProps('password')}
+            styles={{
+              input: {
+                fontSize: '16px', // PWA自動ズーム防止
+                WebkitUserSelect: 'text',
+                WebkitTouchCallout: 'default',
+                touchAction: 'manipulation',
+              }
+            }}
+            autoComplete="current-password"
           />
 
           <Button type="submit" loading={loading} fullWidth>
