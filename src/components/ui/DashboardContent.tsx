@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate, IconCalendar } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate, IconCalendar, IconCoins } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -16,6 +16,7 @@ import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyCompa
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent } from '@/utils/dateUtils';
 import { Transaction, TransactionTemplate } from '@/types';
 import { TemplateSelector } from '@/components/ui/TemplateSelector';
+import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 
 export function DashboardContent() {
   const { transactions, loading: transactionsLoading } = useTransactions();
@@ -28,6 +29,7 @@ export function DashboardContent() {
   const [calendarOpened, setCalendarOpened] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
+  const [cardRewardsOpened, setCardRewardsOpened] = useState(false); // カード還元ポイント詳細モーダル
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -531,9 +533,76 @@ export function DashboardContent() {
             </Card>
           </Grid.Col>
 
-          {/* 3行目右側: 空きスペース（将来の拡張用） */}
+          {/* 3行目右側: 獲得ポイント */}
           <Grid.Col span={{ base: 6, sm: 6 }}>
-            {/* 将来的に追加機能用のスペース */}
+            <Card 
+              withBorder 
+              p={isMobile ? "sm" : "md"} 
+              className="enhanced-card"
+              style={{ 
+                minHeight: isMobile ? '80px' : undefined,
+                background: 'linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 152, 0, 0.15) 100%)',
+                borderLeft: '4px solid #ff9800',
+                boxShadow: '0 2px 12px rgba(255, 152, 0, 0.1)',
+                cursor: 'pointer',
+                animation: 'fadeInScale 0.5s ease-out 0.5s both',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 8px 30px rgba(255, 152, 0, 0.2)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 152, 0, 0.1)';
+              }}
+              onClick={() => setCardRewardsOpened(true)}
+            >
+              <Group>
+                <ActionIcon 
+                  size={isMobile ? "md" : "lg"} 
+                  color="orange"
+                  variant="light"
+                  style={{
+                    background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
+                    color: 'white',
+                    boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
+                  }}
+                >
+                  <IconCoins size={isMobile ? 16 : 20} />
+                </ActionIcon>
+                <div>
+                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>獲得ポイント</Text>
+                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード還元合計</Text>
+                  <Text 
+                    size={isMobile ? "md" : "xl"} 
+                    fw={700} 
+                    c="orange"
+                  >
+                    {useMemo(() => {
+                      const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
+                      const cardTransactions = selectedMonthTransactions.filter(t => 
+                        t.type === 'expense' && cardMethods.includes(t.paymentMethod || '')
+                      );
+                      
+                      const CARD_REWARD_RATES = {
+                        '楽天カード': 0.01,
+                        '三菱UFJカード': 0.07,
+                        'EPOSカード': 0.0025,
+                        'amazonカード': 0.01,
+                        '三井住友カード': 0.005,
+                      };
+                      
+                      const totalPoints = cardTransactions.reduce((sum, t) => {
+                        const rate = CARD_REWARD_RATES[t.paymentMethod as keyof typeof CARD_REWARD_RATES];
+                        return sum + (rate ? Math.floor(t.amount * rate) : 0);
+                      }, 0);
+                      
+                      return totalPoints;
+                    }, [selectedMonthTransactions])}pt
+                  </Text>
+                </div>
+              </Group>
+            </Card>
           </Grid.Col>
         </Grid>
 
@@ -620,6 +689,13 @@ export function DashboardContent() {
           title="残高推移"
           data={monthlyData}
           transactions={transactions}
+        />
+
+        <CardRewardsDisplay
+          transactions={transactions}
+          selectedMonth={selectedMonth}
+          opened={cardRewardsOpened}
+          onClose={() => setCardRewardsOpened(false)}
         />
 
         <TransactionList 
