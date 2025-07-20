@@ -42,8 +42,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5, // ズーム可能にして入力時の問題を回避
+  userScalable: true, // ユーザースケール可能にする
 };
 
 export default function RootLayout({
