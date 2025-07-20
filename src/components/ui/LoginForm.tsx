@@ -36,9 +36,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         htmlInput.disabled = false;
         htmlInput.style.pointerEvents = 'auto';
         htmlInput.style.userSelect = 'text';
-        htmlInput.style.webkitUserSelect = 'text';
-        htmlInput.style.webkitTouchCallout = 'default';
-        htmlInput.style.touchAction = 'manipulation';
+        (htmlInput.style as any).webkitUserSelect = 'text';
+        (htmlInput.style as any).webkitTouchCallout = 'default';
+        (htmlInput.style as any).touchAction = 'manipulation';
         
         // PWA環境での特別処理
         if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
