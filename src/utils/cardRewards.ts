@@ -18,7 +18,7 @@ export const calculateCardRewards = (amount: number, cardType: string): number =
 };
 
 // 月間カード別還元ポイント集計
-export const calculateMonthlyCardRewards = (transactions: any[]) => {
+export const calculateMonthlyCardRewards = (transactions: { type: string; paymentMethod?: string; amount: number }[]) => {
   const cardRewards: { [key: string]: { amount: number; points: number } } = {};
   let totalPoints = 0;
 
