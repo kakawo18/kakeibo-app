@@ -125,7 +125,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const subcategories = useMemo(() => {
     const selected = categories.find(cat => cat.name === form.values.category);
     return selected?.subcategories || [];
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.values.category, categories]);
 
   const handleSubmit = async (values: {
