@@ -25,7 +25,7 @@ export const calculateMonthlyCardRewards = (transactions: { type: string; paymen
   transactions
     .filter(t => t.type === 'expense' && t.paymentMethod && CARD_REWARD_RATES[t.paymentMethod as CardType])
     .forEach(transaction => {
-      const cardType = transaction.paymentMethod;
+      const cardType = transaction.paymentMethod!; // 上のfilterで既にチェック済み
       const points = calculateCardRewards(transaction.amount, cardType);
       
       if (!cardRewards[cardType]) {
