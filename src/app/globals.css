@@ -122,3 +122,46 @@ html {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* PWA入力フィールド修正 */
+input, textarea, select {
+  /* iOS PWAでの入力問題を修正 */
+  -webkit-user-select: text !important;
+  -webkit-touch-callout: default !important;
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Android PWAでの入力問題を修正 */
+  touch-action: manipulation;
+  
+  /* フォーカス時のズーム防止（但し入力は可能） */
+  font-size: 16px !important;
+}
+
+/* PWA環境での入力フィールド最適化 */
+@media all and (display-mode: standalone) {
+  input, textarea, select {
+    /* PWAモードでの入力最適化 */
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    
+    /* iOS PWA特有の問題を修正 */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+  
+  /* PWAでのキーボード表示時の調整 */
+  body {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
+
+/* iOS PWA特有の修正 */
+@supports (-webkit-touch-callout: none) {
+  input, textarea, select {
+    /* iOS PWAでのタッチ操作改善 */
+    -webkit-touch-callout: default;
+    -webkit-user-select: text;
+  }
+}

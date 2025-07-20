@@ -42,23 +42,25 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       if (transaction.type !== 'expense') return;
       
       const month = transaction.date.toISOString().substring(0, 7);
-      const monthName = getMonthName(month).replace('年', '/').replace('月', '');
       
-      if (!monthlyCategories[monthName]) {
-        monthlyCategories[monthName] = {};
+      if (!monthlyCategories[month]) {
+        monthlyCategories[month] = {};
       }
       
-      if (!monthlyCategories[monthName][transaction.category]) {
-        monthlyCategories[monthName][transaction.category] = 0;
+      if (!monthlyCategories[month][transaction.category]) {
+        monthlyCategories[month][transaction.category] = 0;
       }
       
-      monthlyCategories[monthName][transaction.category] += transaction.amount;
+      monthlyCategories[month][transaction.category] += transaction.amount;
     });
 
-    return Object.entries(monthlyCategories).map(([month, categories]) => ({
-      month,
-      ...categories,
-    }));
+    // 月を時系列順にソート（過去→現在）
+    return Object.entries(monthlyCategories)
+      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB)) // YYYY-MM形式で文字列ソート
+      .map(([month, categories]) => ({
+        month: getMonthName(month).replace('年', '/').replace('月', ''),
+        ...categories,
+      }));
   }, [data, transactions, chartMode]);
 
   // チャートシリーズを動的生成
