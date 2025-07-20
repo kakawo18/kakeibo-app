@@ -5,8 +5,6 @@ import { Modal, Card, Text, Group, Stack, Progress, Badge, Grid, Box, ThemeIcon 
 import { IconCreditCard, IconCoins, IconTrendingUp } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { calculateMonthlyCardRewards, CARD_COLORS, CARD_REWARD_RATES } from '@/utils/cardRewards';
-import { useMediaQuery } from '@mantine/hooks';
-
 interface CardRewardsDisplayProps {
   transactions: Transaction[];
   selectedMonth: string;
@@ -20,7 +18,6 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
   opened,
   onClose
 }) => {
-  const isMobile = useMediaQuery('(max-width: 768px)');
 
   // 選択月の取引をフィルター
   const monthlyTransactions = useMemo(() => 

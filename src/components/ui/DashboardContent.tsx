@@ -80,6 +80,27 @@ export function DashboardContent() {
       .reduce((sum, t) => sum + t.amount, 0);
   }, [selectedMonthTransactions]);
 
+  // 月間カード還元ポイント計算
+  const monthlyCardPoints = useMemo(() => {
+    const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
+    const cardTransactions = selectedMonthTransactions.filter(t => 
+      t.type === 'expense' && cardMethods.includes(t.paymentMethod || '')
+    );
+    
+    const CARD_REWARD_RATES = {
+      '楽天カード': 0.01,
+      '三菱UFJカード': 0.07,
+      'EPOSカード': 0.0025,
+      'amazonカード': 0.01,
+      '三井住友カード': 0.005,
+    };
+    
+    return cardTransactions.reduce((sum, t) => {
+      const rate = CARD_REWARD_RATES[t.paymentMethod as keyof typeof CARD_REWARD_RATES];
+      return sum + (rate ? Math.floor(t.amount * rate) : 0);
+    }, 0);
+  }, [selectedMonthTransactions]);
+
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setTransactionFormOpened(true);
@@ -578,27 +599,7 @@ export function DashboardContent() {
                     fw={700} 
                     c="orange"
                   >
-                    {useMemo(() => {
-                      const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
-                      const cardTransactions = selectedMonthTransactions.filter(t => 
-                        t.type === 'expense' && cardMethods.includes(t.paymentMethod || '')
-                      );
-                      
-                      const CARD_REWARD_RATES = {
-                        '楽天カード': 0.01,
-                        '三菱UFJカード': 0.07,
-                        'EPOSカード': 0.0025,
-                        'amazonカード': 0.01,
-                        '三井住友カード': 0.005,
-                      };
-                      
-                      const totalPoints = cardTransactions.reduce((sum, t) => {
-                        const rate = CARD_REWARD_RATES[t.paymentMethod as keyof typeof CARD_REWARD_RATES];
-                        return sum + (rate ? Math.floor(t.amount * rate) : 0);
-                      }, 0);
-                      
-                      return totalPoints;
-                    }, [selectedMonthTransactions])}pt
+                    {monthlyCardPoints}pt
                   </Text>
                 </div>
               </Group>
