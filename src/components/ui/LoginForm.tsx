@@ -41,7 +41,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         htmlInput.style.setProperty('touch-action', 'manipulation');
         
         // PWA環境での特別処理
-        if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+        if ((window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches) {
           htmlInput.addEventListener('touchstart', (e) => {
             e.preventDefault();
             htmlInput.focus();
