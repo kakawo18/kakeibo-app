@@ -79,8 +79,15 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
 
 
   const handleShowDayTransactions = (date: Date) => {
+    console.log('MobileCalendar: handleShowDayTransactions called', { 
+      mode, 
+      date: date.toDateString(),
+      transactionsCount: transactions.length 
+    });
+    
     if (mode === 'select') {
       // 選択モード: 常に日付選択（取引があっても詳細表示しない）
+      console.log('MobileCalendar: Select mode - calling handleDateSelect');
       handleDateSelect(date);
       return;
     }
@@ -92,6 +99,11 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
       t.date.getMonth() === date.getMonth() &&
       t.date.getDate() === date.getDate()
     );
+    
+    console.log('MobileCalendar: View mode', { 
+      dayTransactionsFound: dayTransactions.length,
+      dayTransactions: dayTransactions.map(t => ({ date: t.date.toDateString(), amount: t.amount }))
+    });
     
     if (dayTransactions.length > 0) {
       setDayTransactionsDate(date);
