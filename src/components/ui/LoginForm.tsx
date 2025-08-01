@@ -136,7 +136,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 padding: '8px 12px',
                 backgroundColor: '#ffffff !important',
                 color: '#000000 !important',
-              } as React.CSSProperties
+              } as any // PWA対応のため!importantが必要
             }}
             inputMode="email"
             autoComplete="email"
@@ -176,7 +176,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 padding: '8px 12px',
                 backgroundColor: '#ffffff !important',
                 color: '#000000 !important',
-              } as React.CSSProperties
+              } as any // PWA対応のため!importantが必要
             }}
             autoComplete="current-password"
             data-testid="password-input"
