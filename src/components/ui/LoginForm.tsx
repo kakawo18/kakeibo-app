@@ -136,6 +136,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 padding: '8px 12px',
                 backgroundColor: '#ffffff !important',
                 color: '#000000 !important',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               } as any // PWA対応のため!importantが必要
             }}
             inputMode="email"
@@ -176,6 +177,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
                 padding: '8px 12px',
                 backgroundColor: '#ffffff !important',
                 color: '#000000 !important',
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               } as any // PWA対応のため!importantが必要
             }}
             autoComplete="current-password"
