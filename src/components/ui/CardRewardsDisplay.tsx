@@ -19,9 +19,12 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
   onClose
 }) => {
 
-  // 選択月の取引をフィルター
+  // 選択月の取引をフィルター（ローカルタイムゾーン対応）
   const monthlyTransactions = useMemo(() => 
-    transactions.filter(t => t.date.toISOString().startsWith(selectedMonth)),
+    transactions.filter(t => {
+      const transactionMonth = `${t.date.getFullYear()}-${(t.date.getMonth() + 1).toString().padStart(2, '0')}`;
+      return transactionMonth === selectedMonth;
+    }),
     [transactions, selectedMonth]
   );
 

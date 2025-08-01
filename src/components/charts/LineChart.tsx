@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { LineChart as MantineLineChart } from '@mantine/charts';
 import { Paper, Text, Group, Button, MultiSelect } from '@mantine/core';
 import { MonthlyData, Transaction } from '@/types';
-import { getMonthName } from '@/utils/dateUtils';
+import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 
 interface LineChartProps {
   title: string;
@@ -41,7 +41,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
     transactions.forEach(transaction => {
       if (transaction.type !== 'expense') return;
       
-      const month = transaction.date.toISOString().substring(0, 7);
+      const month = formatMonthLocal(transaction.date);
       
       if (!monthlyCategories[month]) {
         monthlyCategories[month] = {};

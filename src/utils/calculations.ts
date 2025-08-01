@@ -1,12 +1,12 @@
 import { Transaction, MonthlyData, ChartData } from '@/types';
-import { formatMonth, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
+import { formatMonth, formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
 
 export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
   const monthlyMap = new Map<string, MonthlyData>();
 
-  // トランザクションがある月のデータを構築
+  // トランザクションがある月のデータを構築（ローカルタイムゾーン対応）
   transactions.forEach((transaction) => {
-    const month = formatMonth(transaction.date);
+    const month = formatMonthLocal(transaction.date);
     
     if (!monthlyMap.has(month)) {
       monthlyMap.set(month, {
@@ -58,15 +58,15 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
   
   sortedData.forEach((monthData) => {
-    // その月の収入
+    // その月の収入（ローカルタイムゾーン対応）
     const monthIncome = transactions
-      .filter(t => formatMonth(t.date) === monthData.month && t.type === 'income')
+      .filter(t => formatMonthLocal(t.date) === monthData.month && t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
     
     // その月の現金支払い（カード支払いとカード引き落としを除外）
     const monthCashExpense = transactions
       .filter(t => 
-        formatMonth(t.date) === monthData.month && 
+        formatMonthLocal(t.date) === monthData.month && 
         t.type === 'expense' && 
         t.transactionType !== 'card_payment' &&
         t.transactionType !== 'card_withdrawal' &&
@@ -79,7 +79,7 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     const previousMonth = getPreviousMonthFromCurrent(monthData.month);
     const previousMonthCardPayments = transactions
       .filter(t => 
-        formatMonth(t.date) === previousMonth && 
+        formatMonthLocal(t.date) === previousMonth && 
         t.transactionType === 'card_payment'
       )
       .reduce((sum, t) => sum + t.amount, 0);
@@ -87,7 +87,7 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     // 今月のカード引き落とし（従来の引き落とし取引）
     const monthCardWithdrawal = transactions
       .filter(t => 
-        formatMonth(t.date) === monthData.month && 
+        formatMonthLocal(t.date) === monthData.month && 
         t.transactionType === 'card_withdrawal'
       )
       .reduce((sum, t) => sum + t.amount, 0);

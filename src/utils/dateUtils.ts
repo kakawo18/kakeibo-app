@@ -73,3 +73,24 @@ export const parseYYYYMMDD = (dateString: string): Date | null => {
 export const formatToYYYYMMDD = (date: Date): string => {
   return dayjs(date).format('YYYYMMDD');
 };
+
+// 【新機能】ローカルタイムゾーンでの月フォーマット（タイムゾーン問題解決）
+export const formatMonthLocal = (date: Date): string => {
+  // ローカルタイムゾーンで年月を取得
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+// 【新機能】ローカルタイムゾーンでの日付文字列比較
+export const isSameDay = (date1: Date, date2: Date): boolean => {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate();
+};
+
+// 【新機能】ローカルタイムゾーンでの月判定
+export const isSameMonth = (date: Date, monthString: string): boolean => {
+  const dateMonth = formatMonthLocal(date);
+  return dateMonth === monthString;
+};

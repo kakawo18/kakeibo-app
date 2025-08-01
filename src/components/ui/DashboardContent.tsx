@@ -13,7 +13,7 @@ import { LineChart } from '@/components/charts/LineChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
-import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent } from '@/utils/dateUtils';
+import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
 import { Transaction, TransactionTemplate } from '@/types';
 import { TemplateSelector } from '@/components/ui/TemplateSelector';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
@@ -56,7 +56,11 @@ export function DashboardContent() {
   }, [selectedMonthData, previousMonthData]);
 
   const selectedMonthTransactions = useMemo(() => 
-    transactions.filter(t => t.date.toISOString().startsWith(selectedMonth)),
+    transactions.filter(t => {
+      // ローカルタイムゾーンで月を比較（タイムゾーン問題解決）
+      const transactionMonth = formatMonthLocal(t.date);
+      return transactionMonth === selectedMonth;
+    }),
     [transactions, selectedMonth]
   );
 
@@ -114,7 +118,6 @@ export function DashboardContent() {
   };
 
   const handleSelectTemplate = (template: TransactionTemplate) => {
-    console.log('handleSelectTemplate called with:', template);
     setSelectedTemplate(template);
     setTemplateOnlyMode(false); // 通常の取引作成モード
     setTransactionFormOpened(true);
@@ -149,7 +152,7 @@ export function DashboardContent() {
     setCalendarSelectedDate(date);
     setCalendarOpened(false);
     // 選択した日付の取引履歴を表示するため、その月に移動
-    const selectedMonth = date.toISOString().substring(0, 7);
+    const selectedMonth = formatMonthLocal(date);
     handleMonthChange(selectedMonth);
   };
 
@@ -730,6 +733,7 @@ export function DashboardContent() {
           onClose={() => setCalendarOpened(false)}
           value={calendarSelectedDate}
           onChange={handleCalendarDateChange}
+          mode="view" // 閲覧モード（取引詳細表示可能）
           transactions={transactions.map(t => ({
             id: t.id,
             date: t.date,
