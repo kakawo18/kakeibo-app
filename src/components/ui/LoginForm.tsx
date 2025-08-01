@@ -41,19 +41,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         htmlInput.style.setProperty('touch-action', 'manipulation');
         
         // PWA環境での特別処理
-        const isStandalone = 'standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone;
-        if (isStandalone || window.matchMedia('(display-mode: standalone)').matches) {
-          htmlInput.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            htmlInput.focus();
-            // キーボードを強制表示
-            htmlInput.click();
-          }, { passive: false });
-          
-          htmlInput.addEventListener('click', (e) => {
-            e.stopPropagation();
-            htmlInput.focus();
-          });
+        if (typeof window !== 'undefined') {
+          const isStandalone = 'standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone;
+          if (isStandalone || window.matchMedia('(display-mode: standalone)').matches) {
+            htmlInput.addEventListener('touchstart', (e) => {
+              e.preventDefault();
+              htmlInput.focus();
+              // キーボードを強制表示
+              htmlInput.click();
+            }, { passive: false });
+            
+            htmlInput.addEventListener('click', (e) => {
+              e.stopPropagation();
+              htmlInput.focus();
+            });
+          }
         }
       });
     };

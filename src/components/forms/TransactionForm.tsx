@@ -65,15 +65,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   useEffect(() => {
     if (!opened) return;
 
-    console.log('TransactionForm useEffect triggered on open:', {
-      editingTransaction: !!editingTransaction,
-      selectedTemplate: !!selectedTemplate,
-      templateName: selectedTemplate?.name,
-    });
-
     // 編集時: 既存情報を表示
     if (editingTransaction) {
-      console.log('Setting form values for editing transaction:', editingTransaction);
       form.setValues({
         type: editingTransaction.type,
         amount: editingTransaction.amount.toString(),
@@ -86,7 +79,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     } 
     // テンプレート使用時: テンプレート値を設定
     else if (selectedTemplate) {
-      console.log('Setting form values for template:', selectedTemplate);
       form.setValues({
         type: selectedTemplate.type,
         amount: selectedTemplate.amount ? selectedTemplate.amount.toString() : '',
@@ -99,7 +91,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     } 
     // 新規作成時: フォームをリセット
     else {
-      console.log('Resetting form for new transaction');
       form.setValues({
         type: 'expense',
         amount: '',
@@ -330,7 +321,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleClose = () => {
-    console.log('TransactionForm closing');
     // モーダルが閉じられた時のクリーンアップ処理は useEffect で処理
     onClose();
   };
@@ -512,6 +502,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         onClose={() => setMobileCalendarOpened(false)}
         value={form.values.date}
         onChange={handleMobileCalendarChange}
+        mode="select" // 選択モード（日付選択専用）
         transactions={transactions?.map(t => ({
           id: t.id,
           date: t.date,

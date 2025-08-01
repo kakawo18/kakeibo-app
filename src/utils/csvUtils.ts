@@ -2,6 +2,12 @@ import { Transaction } from '@/types';
 import { formatDate } from './dateUtils';
 
 export const exportToCSV = (transactions: Transaction[]): void => {
+  // サーバーサイドレンダリング時は何もしない
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    console.warn('CSV export is not available on server side');
+    return;
+  }
+
   const headers = ['日付', '種別', 'カテゴリ', 'サブカテゴリ', '金額', 'メモ'];
   
   const csvContent = [

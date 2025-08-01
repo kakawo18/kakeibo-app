@@ -81,7 +81,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   });
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('この取引を削除しますか？')) {
+    if (typeof window !== 'undefined' && window.confirm('この取引を削除しますか？')) {
       await deleteTransaction(id);
     }
   };

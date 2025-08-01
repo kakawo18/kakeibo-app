@@ -24,6 +24,7 @@ interface MobileCalendarProps {
   onClose: () => void;
   value: Date;
   onChange: (date: Date) => void;
+  mode?: 'select' | 'view'; // 新しいモードプロパティ
   transactions?: Array<{
     id: string;
     date: Date;
@@ -33,7 +34,6 @@ interface MobileCalendarProps {
     subcategory?: string;
     description?: string;
   }>;
-
 }
 
 export const MobileCalendar: React.FC<MobileCalendarProps> = ({
@@ -41,6 +41,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   onClose,
   value,
   onChange,
+  mode = 'view', // デフォルトは閲覧モード
   transactions = [],
 }) => {
   const [currentDate, setCurrentDate] = useState(value);
@@ -60,20 +61,42 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   }, [value]);
 
   const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    onChange(date);
-    onClose();
+    try {
+      // 日付の妥当性チェック
+      if (!date || isNaN(date.getTime())) {
+        console.error('Invalid date selected:', date);
+        return;
+      }
+      
+      setSelectedDate(date);
+      onChange(date);
+      onClose();
+    } catch (error) {
+      console.error('Error in handleDateSelect:', error);
+    }
   };
 
 
 
   const handleShowDayTransactions = (date: Date) => {
-    const dayTransactions = transactions.filter(t => t.date.toDateString() === date.toDateString());
+    if (mode === 'select') {
+      // 選択モード: 常に日付選択（取引があっても詳細表示しない）
+      handleDateSelect(date);
+      return;
+    }
+    
+    // 閲覧モード: 取引がある場合は詳細表示、ない場合は日付選択
+    // ローカルタイムゾーンでの日付比較
+    const dayTransactions = transactions.filter(t => 
+      t.date.getFullYear() === date.getFullYear() &&
+      t.date.getMonth() === date.getMonth() &&
+      t.date.getDate() === date.getDate()
+    );
+    
     if (dayTransactions.length > 0) {
       setDayTransactionsDate(date);
       setShowDayTransactions(true);
     } else {
-      // 取引がない場合は通常の日付選択
       handleDateSelect(date);
     }
   };
@@ -145,11 +168,15 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
 
   const isToday = (date: Date) => {
     const today = new Date();
-    return date.toDateString() === today.toDateString();
+    return date.getFullYear() === today.getFullYear() &&
+           date.getMonth() === today.getMonth() &&
+           date.getDate() === today.getDate();
   };
 
   const isSelected = (date: Date) => {
-    return date.toDateString() === selectedDate.toDateString();
+    return date.getFullYear() === selectedDate.getFullYear() &&
+           date.getMonth() === selectedDate.getMonth() &&
+           date.getDate() === selectedDate.getDate();
   };
 
   const isCurrentMonth = (date: Date) => {
@@ -161,10 +188,13 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     return day === 0 || day === 6;
   };
 
-  // 日別の収支を計算
+  // 日別の収支を計算（ローカルタイムゾーン対応）
   const getDailyBalance = (date: Date) => {
-    const dateStr = date.toDateString();
-    const dayTransactions = transactions.filter(t => t.date.toDateString() === dateStr);
+    const dayTransactions = transactions.filter(t => 
+      t.date.getFullYear() === date.getFullYear() &&
+      t.date.getMonth() === date.getMonth() &&
+      t.date.getDate() === date.getDate()
+    );
 
     const income = dayTransactions
       .filter(t => t.type === 'income')
@@ -637,7 +667,12 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
         {dayTransactionsDate && (
           <Stack gap="sm">
             {transactions
-              .filter(t => t.date.toDateString() === dayTransactionsDate.toDateString())
+              .filter(t => 
+                dayTransactionsDate &&
+                t.date.getFullYear() === dayTransactionsDate.getFullYear() &&
+                t.date.getMonth() === dayTransactionsDate.getMonth() &&
+                t.date.getDate() === dayTransactionsDate.getDate()
+              )
               .map((transaction) => (
                 <Card key={transaction.id} withBorder p="sm">
                   <Group justify="space-between" align="flex-start">
@@ -683,7 +718,10 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                 <Box style={{ textAlign: 'right' }}>
                   {(() => {
                     const dayTransactions = transactions.filter(t =>
-                      t.date.toDateString() === dayTransactionsDate.toDateString()
+                      dayTransactionsDate &&
+                      t.date.getFullYear() === dayTransactionsDate.getFullYear() &&
+                      t.date.getMonth() === dayTransactionsDate.getMonth() &&
+                      t.date.getDate() === dayTransactionsDate.getDate()
                     );
                     const income = dayTransactions
                       .filter(t => t.type === 'income')
