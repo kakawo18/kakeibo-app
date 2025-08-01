@@ -734,22 +734,15 @@ export function DashboardContent() {
           value={calendarSelectedDate}
           onChange={handleCalendarDateChange}
           mode="view" // 閲覧モード（取引詳細表示可能）
-          transactions={transactions.map(t => {
-            console.log('DashboardContent: Mapping transaction', { 
-              id: t.id, 
-              date: t.date.toDateString(), 
-              amount: t.amount 
-            });
-            return {
-              id: t.id,
-              date: t.date,
-              amount: t.amount,
-              type: t.type,
-              category: t.category,
-              subcategory: t.subcategory,
-              description: t.description
-            };
-          })}
+          transactions={transactions.map(t => ({
+            id: t.id,
+            date: t.date,
+            amount: t.amount,
+            type: t.type,
+            category: t.category,
+            subcategory: t.subcategory,
+            description: t.description
+          }))}
         />
 
         {/* モバイル用フローティングアクションボタン */}
