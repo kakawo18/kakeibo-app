@@ -1,5 +1,5 @@
 import { Transaction, MonthlyData, ChartData } from '@/types';
-import { formatMonth, formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
+import { formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
 
 export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
   const monthlyMap = new Map<string, MonthlyData>();
