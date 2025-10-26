@@ -489,6 +489,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                   drag="x"
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={0.2}
+                  dragMomentum={false}
                   onDragEnd={(e, info) => {
                     // 50px以上スワイプしたら月を変更
                     if (info.offset.x > 50) {
@@ -499,25 +500,32 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                   }}
                   style={{
                     cursor: 'grab',
-                    touchAction: 'pan-x',
+                    touchAction: 'none',
                     userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    WebkitTouchCallout: 'none',
                   }}
-                  whileTap={{ cursor: 'grabbing' }}
+                  whileTap={{ cursor: 'grabbing', scale: 0.98 }}
                 >
-                  <Group gap="sm" style={{ padding: '8px 16px' }}>
-                    <Select
-                      data={generateYearOptions()}
-                      value={currentDate.getFullYear().toString()}
-                      onChange={handleYearChange}
-                      size={isSmallScreen ? "sm" : "md"}
-                      style={{ width: isSmallScreen ? '80px' : '90px' }}
-                      styles={{
-                        input: {
-                          fontSize: '16px',
-                          fontWeight: 600,
-                        }
-                      }}
-                    />
+                  <Group gap="sm" style={{ 
+                    padding: '8px 16px',
+                    pointerEvents: 'none',
+                  }}>
+                    <Box style={{ pointerEvents: 'auto' }}>
+                      <Select
+                        data={generateYearOptions()}
+                        value={currentDate.getFullYear().toString()}
+                        onChange={handleYearChange}
+                        size={isSmallScreen ? "sm" : "md"}
+                        style={{ width: isSmallScreen ? '80px' : '90px' }}
+                        styles={{
+                          input: {
+                            fontSize: '16px',
+                            fontWeight: 600,
+                          }
+                        }}
+                      />
+                    </Box>
                     <Text size={isSmallScreen ? "lg" : "xl"} fw={700}>
                       {monthNames[currentDate.getMonth()]}
                     </Text>

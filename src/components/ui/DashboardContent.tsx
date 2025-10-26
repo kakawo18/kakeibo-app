@@ -267,6 +267,7 @@ export function DashboardContent() {
                 drag="x"
                 dragConstraints={{ left: 0, right: 0 }}
                 dragElastic={0.2}
+                dragMomentum={false}
                 onDragEnd={(e, info) => {
                   // 50px以上スワイプしたら月を変更
                   if (info.offset.x > 50) {
@@ -277,35 +278,39 @@ export function DashboardContent() {
                 }}
                 style={{
                   cursor: 'grab',
-                  touchAction: 'pan-x',
+                  touchAction: 'none',
                   userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
                 }}
-                whileTap={{ cursor: 'grabbing' }}
+                whileTap={{ cursor: 'grabbing', scale: 0.98 }}
               >
-                <Stack gap={0} align="center">
-                  <Select
-                    data={monthOptions}
-                    value={selectedMonth}
-                    onChange={handleMonthChange}
-                    searchable={false}
-                    w={140}
-                    size="sm"
-                    styles={{
-                      input: {
-                        fontSize: '16px',
-                        fontWeight: 600,
-                        minHeight: '40px',
-                        textAlign: 'center',
-                      },
-                      dropdown: {
-                        maxHeight: '60vh',
-                      },
-                      option: {
-                        fontSize: '14px',
-                        padding: '10px',
-                      }
-                    }}
-                  />
+                <Stack gap={0} align="center" style={{ pointerEvents: 'none' }}>
+                  <Box style={{ pointerEvents: 'auto' }}>
+                    <Select
+                      data={monthOptions}
+                      value={selectedMonth}
+                      onChange={handleMonthChange}
+                      searchable={false}
+                      w={140}
+                      size="sm"
+                      styles={{
+                        input: {
+                          fontSize: '16px',
+                          fontWeight: 600,
+                          minHeight: '40px',
+                          textAlign: 'center',
+                        },
+                        dropdown: {
+                          maxHeight: '60vh',
+                        },
+                        option: {
+                          fontSize: '14px',
+                          padding: '10px',
+                        }
+                      }}
+                    />
+                  </Box>
                   <Text 
                     size="9px" 
                     c="dimmed"
