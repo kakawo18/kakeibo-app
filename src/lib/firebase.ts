@@ -20,6 +20,16 @@ if (typeof window !== 'undefined') {
 
   if (missingVars.length > 0) {
     console.error(`Missing required Firebase environment variables: ${missingVars.join(', ')}`);
+    console.error('Please check your .env.local file and ensure all Firebase configuration values are set.');
+  }
+}
+
+// ビルド時の環境変数チェック（サーバーサイドでのみ実行）
+if (typeof window === 'undefined') {
+  const hasAllEnvVars = Object.values(requiredEnvVars).every(value => value !== '');
+  if (!hasAllEnvVars && process.env.NODE_ENV === 'production') {
+    console.warn('Missing required Firebase environment variables in production build');
+    // 開発時はエラーを投げずに警告のみ
   }
 }
 

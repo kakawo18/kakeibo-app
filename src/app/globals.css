@@ -137,6 +137,20 @@ input, textarea, select {
   font-size: 16px !important;
 }
 
+/* ボタンとクリック可能要素のタップ反応改善 */
+button, a, [role="button"], [onclick] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Selectドロップダウンのタップ反応改善 */
+[role="option"], [role="listbox"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* PWA環境での入力フィールド最適化 */
 @media all and (display-mode: standalone) {
   input, textarea, select {

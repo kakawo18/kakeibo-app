@@ -31,6 +31,20 @@ export interface TransactionTemplate {
   usageCount: number;
 }
 
+export interface RecurringTransaction {
+  id: string;
+  userId: string;
+  name: string;              // 例: "家賃"、"投資（積立NISA）"
+  amount: number;            // 例: 75000
+  category: string;          // 例: "固定費"
+  subcategory?: string;      // 例: "家賃"
+  paymentMethod?: string;    // 例: "EPOSカード"
+  dayOfMonth: number;        // 1-31
+  isEnabled: boolean;        // true/false
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Category {
   name: string;
   subcategories?: string[];
@@ -39,8 +53,7 @@ export interface Category {
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: '食費', subcategories: ['食費', '飲み会費'] },
   { name: '交際費' },
-  { name: '光熱費', subcategories: ['電気代', 'ガス代', '水道代'] },
-  { name: '固定費', subcategories: ['家賃', '投資', '通信費'] },
+  { name: '固定費', subcategories: ['家賃', '投資', '通信費', '電気代', 'ガス代', '水道代'] },
   { name: '日用品' },
   { name: '交通費' },
   { name: '趣味代' },

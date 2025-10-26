@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconTemplate, IconCalendar, IconCoins } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -14,18 +14,27 @@ import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
-import { Transaction, TransactionTemplate } from '@/types';
-import { TemplateSelector } from '@/components/ui/TemplateSelector';
+import { Transaction, RecurringTransaction } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
+import { VersionDisplay } from '@/components/ui/VersionDisplay';
+import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
+import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
+import { RecurringTransactionNotice } from '@/components/recurring/RecurringTransactionNotice';
+import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
 
 export function DashboardContent() {
-  const { transactions, loading: transactionsLoading } = useTransactions();
+  const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
+  const { 
+    getActiveRecurringTransactions, 
+    shouldShowRecurringTransaction 
+  } = useRecurringTransactions();
+  
   const [transactionFormOpened, setTransactionFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<TransactionTemplate | null>(null);
-  const [templateSelectorOpened, setTemplateSelectorOpened] = useState(false);
+  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
+  const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);
+  const [selectedRecurringTransaction, setSelectedRecurringTransaction] = useState<RecurringTransaction | null>(null);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
-  const [templateOnlyMode, setTemplateOnlyMode] = useState(false); // テンプレート専用モード
   const [calendarOpened, setCalendarOpened] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
@@ -105,6 +114,12 @@ export function DashboardContent() {
     }, 0);
   }, [selectedMonthTransactions]);
 
+  // 表示すべき定期取引を取得
+  const displayRecurringTransactions = useMemo(() => {
+    const active = getActiveRecurringTransactions();
+    return active.filter(transaction => shouldShowRecurringTransaction(transaction));
+  }, [getActiveRecurringTransactions, shouldShowRecurringTransaction]);
+
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setTransactionFormOpened(true);
@@ -113,28 +128,55 @@ export function DashboardContent() {
   const handleCloseTransactionForm = () => {
     setTransactionFormOpened(false);
     setEditingTransaction(null);
-    setSelectedTemplate(null);
-    setTemplateOnlyMode(false); // テンプレート専用モードもリセット
   };
 
-  const handleSelectTemplate = (template: TransactionTemplate) => {
-    setSelectedTemplate(template);
-    setTemplateOnlyMode(false); // 通常の取引作成モード
-    setTransactionFormOpened(true);
+  const handleRecordRecurringTransaction = (transaction: RecurringTransaction) => {
+    setSelectedRecurringTransaction(transaction);
+    setRecurringConfirmOpened(true);
   };
 
-  const handleCreateTemplate = () => {
-    setTemplateOnlyMode(true); // テンプレート専用モードを有効化
-    setEditingTransaction(null);
-    setSelectedTemplate(null);
-    setTransactionFormOpened(true);
+  const handleConfirmRecurringTransaction = async (data: {
+    amount: number;
+    category: string;
+    subcategory?: string;
+    paymentMethod?: string;
+    date: Date;
+    description?: string;
+  }) => {
+    // カード取引タイプの判定
+    let transactionType: 'normal' | 'card_payment' | 'card_withdrawal' = 'normal';
+    let affectsExpense = true;
+    let affectsBalance = true;
+
+    if (data.category === 'カード引き落とし') {
+      transactionType = 'card_withdrawal';
+      affectsExpense = false;
+      affectsBalance = true;
+    } else if (data.paymentMethod && data.paymentMethod !== '現金') {
+      transactionType = 'card_payment';
+      affectsExpense = true;
+      affectsBalance = false;
+    }
+
+    await addTransaction({
+      type: 'expense',
+      amount: data.amount,
+      category: data.category,
+      subcategory: data.subcategory,
+      paymentMethod: data.paymentMethod,
+      date: data.date,
+      description: data.description,
+      transactionType,
+      affectsExpense,
+      affectsBalance,
+    });
   };
 
   const handleMonthChange = (month: string | null) => {
     if (month) {
       const params = new URLSearchParams(searchParams);
       params.set('month', month);
-      router.push(`?${params.toString()}`);
+      router.push(`?${params.toString()}`, { scroll: false });
     }
   };
 
@@ -214,9 +256,22 @@ export function DashboardContent() {
               data={monthOptions}
               value={selectedMonth}
               onChange={handleMonthChange}
-              searchable
+              searchable={!isMobile}
               w={isMobile ? 140 : 200}
               size={isMobile ? "sm" : "md"}
+              styles={{
+                input: {
+                  fontSize: isMobile ? '14px' : undefined,
+                  minHeight: isMobile ? '36px' : undefined,
+                },
+                dropdown: {
+                  maxHeight: isMobile ? '60vh' : undefined,
+                },
+                option: {
+                  fontSize: isMobile ? '14px' : undefined,
+                  padding: isMobile ? '10px' : undefined,
+                }
+              }}
             />
             <ActionIcon
               variant="light"
@@ -237,12 +292,12 @@ export function DashboardContent() {
               </Button>
               <Button
                 variant="light"
-                leftSection={<IconTemplate size={14} />}
-                onClick={() => setTemplateSelectorOpened(true)}
+                leftSection={<IconRepeat size={14} />}
+                onClick={() => setRecurringManagerOpened(true)}
                 size={isMobile ? "sm" : "md"}
                 color="orange"
               >
-                テンプレート
+                定期取引
               </Button>
               <Button
                 variant="light"
@@ -271,6 +326,14 @@ export function DashboardContent() {
             </Group>
           )}
         </Group>
+
+        {/* 定期取引通知セクション */}
+        {displayRecurringTransactions.length > 0 && (
+          <RecurringTransactionNotice
+            recurringTransactions={displayRecurringTransactions}
+            onRecord={handleRecordRecurringTransaction}
+          />
+        )}
 
         {/* 3行2列レイアウト - スペース効率最適化 */}
         <Grid>
@@ -707,20 +770,28 @@ export function DashboardContent() {
           onEditTransaction={handleEditTransaction} 
         />
 
+        {/* バージョン表示 */}
+        <VersionDisplay />
+
         <TransactionForm
           opened={transactionFormOpened}
           onClose={handleCloseTransactionForm}
           editingTransaction={editingTransaction}
-          selectedTemplate={selectedTemplate}
-          templateOnlyMode={templateOnlyMode}
-          initialDate={calendarSelectedDate}
         />
 
-        <TemplateSelector
-          opened={templateSelectorOpened}
-          onClose={() => setTemplateSelectorOpened(false)}
-          onSelectTemplate={handleSelectTemplate}
-          onCreateTemplate={handleCreateTemplate}
+        <RecurringTransactionManager
+          opened={recurringManagerOpened}
+          onClose={() => setRecurringManagerOpened(false)}
+        />
+
+        <RecurringTransactionConfirm
+          opened={recurringConfirmOpened}
+          onClose={() => {
+            setRecurringConfirmOpened(false);
+            setSelectedRecurringTransaction(null);
+          }}
+          transaction={selectedRecurringTransaction}
+          onConfirm={handleConfirmRecurringTransaction}
         />
 
         <CSVImportExport
@@ -768,8 +839,8 @@ export function DashboardContent() {
               </Button>
               <Button
                 variant="light"
-                leftSection={<IconTemplate size={16} />}
-                onClick={() => setTemplateSelectorOpened(true)}
+                leftSection={<IconRepeat size={16} />}
+                onClick={() => setRecurringManagerOpened(true)}
                 size="md"
                 color="orange"
                 style={{
@@ -781,7 +852,7 @@ export function DashboardContent() {
                   pointerEvents: transactionFormOpened ? 'none' : 'auto'
                 }}
               >
-                テンプレ
+                定期
               </Button>
               <Button
                 leftSection={<IconPlus size={16} />}

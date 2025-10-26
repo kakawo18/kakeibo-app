@@ -20,6 +20,15 @@ const nextConfig: NextConfig = {
     ignoreDuringBuilds: false,
   },
   
+  // 環境変数の検証
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
+  
+  // パフォーマンス最適化
+  compress: true,
+  poweredByHeader: false,
+  
   // PWA設定
   async headers() {
     return [

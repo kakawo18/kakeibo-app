@@ -576,7 +576,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                               ? 'var(--mantine-color-blue-0)'
                               : 'transparent',
                           cursor: 'pointer',
-                          transition: 'all 0.2s ease',
+                          transition: 'background-color 0.15s ease, transform 0.1s ease',
                           opacity: currentMonth ? 1 : 0.6,
                           display: 'flex',
                           flexDirection: 'column',
@@ -584,16 +584,11 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                           justifyContent: 'center',
                           textAlign: 'center',
                           userSelect: 'none',
+                          WebkitUserSelect: 'none',
+                          WebkitTapHighlightColor: 'transparent',
                           margin: '0 auto',
                           padding: '2px',
-                          '&:hover': {
-                            backgroundColor: selected
-                              ? 'var(--mantine-color-blue-7)'
-                              : 'var(--mantine-color-gray-1)',
-                          },
-                          '&:active': {
-                            transform: 'scale(0.95)',
-                          },
+                          touchAction: 'manipulation',
                         }}
                       >
                         <Text size="sm" fw={selected ? 700 : 600}>
