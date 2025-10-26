@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge } from '@mantine/core';
+import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, useMantineColorScheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
 import { useTransactions } from '@/hooks/useTransactions';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -42,6 +43,10 @@ export function DashboardContent() {
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
+  
+  // ダークモード判定
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -247,38 +252,93 @@ export function DashboardContent() {
           <Group gap={isMobile ? "xs" : "md"}>
             <ActionIcon
               variant="light"
-              size={isMobile ? "md" : "lg"}
+              size={isMobile ? "xl" : "lg"}
               onClick={handlePreviousMonth}
+              style={isMobile ? {
+                minWidth: '48px',
+                minHeight: '48px',
+                touchAction: 'manipulation',
+              } : undefined}
             >
-              <IconChevronLeft size={14} />
+              <IconChevronLeft size={isMobile ? 20 : 18} />
             </ActionIcon>
-            <Select
-              data={monthOptions}
-              value={selectedMonth}
-              onChange={handleMonthChange}
-              searchable={!isMobile}
-              w={isMobile ? 140 : 200}
-              size={isMobile ? "sm" : "md"}
-              styles={{
-                input: {
-                  fontSize: isMobile ? '14px' : undefined,
-                  minHeight: isMobile ? '36px' : undefined,
-                },
-                dropdown: {
-                  maxHeight: isMobile ? '60vh' : undefined,
-                },
-                option: {
-                  fontSize: isMobile ? '14px' : undefined,
-                  padding: isMobile ? '10px' : undefined,
-                }
-              }}
-            />
+            {isMobile ? (
+              <motion.div
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={(e, info) => {
+                  // 50px以上スワイプしたら月を変更
+                  if (info.offset.x > 50) {
+                    handlePreviousMonth();
+                  } else if (info.offset.x < -50) {
+                    handleNextMonth();
+                  }
+                }}
+                style={{
+                  cursor: 'grab',
+                  touchAction: 'pan-x',
+                  userSelect: 'none',
+                }}
+                whileTap={{ cursor: 'grabbing' }}
+              >
+                <Stack gap={0} align="center">
+                  <Select
+                    data={monthOptions}
+                    value={selectedMonth}
+                    onChange={handleMonthChange}
+                    searchable={false}
+                    w={140}
+                    size="sm"
+                    styles={{
+                      input: {
+                        fontSize: '16px',
+                        fontWeight: 600,
+                        minHeight: '40px',
+                        textAlign: 'center',
+                      },
+                      dropdown: {
+                        maxHeight: '60vh',
+                      },
+                      option: {
+                        fontSize: '14px',
+                        padding: '10px',
+                      }
+                    }}
+                  />
+                  <Text 
+                    size="9px" 
+                    c="dimmed"
+                    style={{ 
+                      marginTop: '-2px',
+                      opacity: 0.5,
+                    }}
+                  >
+                    ← スワイプ →
+                  </Text>
+                </Stack>
+              </motion.div>
+            ) : (
+              <Select
+                data={monthOptions}
+                value={selectedMonth}
+                onChange={handleMonthChange}
+                searchable
+                w={200}
+                size="md"
+              />
+            )}
             <ActionIcon
               variant="light"
-              size={isMobile ? "md" : "lg"}
+              size={isMobile ? "xl" : "lg"}
               onClick={handleNextMonth}
+              style={isMobile ? {
+                minWidth: '48px',
+                minHeight: '48px',
+                touchAction: 'manipulation',
+              } : undefined}
             >
-              <IconChevronRight size={14} />
+              <IconChevronRight size={isMobile ? 20 : 18} />
             </ActionIcon>
           </Group>
           {!isMobile && (
@@ -345,7 +405,9 @@ export function DashboardContent() {
               className="enhanced-card"
               style={{ 
                 minHeight: isMobile ? '80px' : undefined,
-                background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.15) 100%)',
+                background: isDark 
+                  ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.25) 100%)'
+                  : 'linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.15) 100%)',
                 borderLeft: '4px solid #4caf50',
                 boxShadow: '0 2px 12px rgba(76, 175, 80, 0.1)',
                 cursor: 'pointer',
@@ -398,7 +460,9 @@ export function DashboardContent() {
               className="enhanced-card"
               style={{ 
                 minHeight: isMobile ? '80px' : undefined,
-                background: 'linear-gradient(135deg, rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%)',
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%)'
+                  : 'linear-gradient(135deg, rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%)',
                 borderLeft: '4px solid #f44336',
                 boxShadow: '0 2px 12px rgba(244, 67, 54, 0.1)',
                 cursor: 'pointer',
@@ -454,8 +518,8 @@ export function DashboardContent() {
                 minHeight: isMobile ? '80px' : undefined,
                 background: `linear-gradient(135deg, ${
                   (selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 
-                    ? 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
-                    : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
+                    ? isDark ? 'rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.25) 100%' : 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
+                    : isDark ? 'rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%' : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
                 })`,
                 borderLeft: `4px solid ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? '#2196f3' : '#f44336'}`,
                 boxShadow: `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,

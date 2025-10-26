@@ -464,7 +464,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
               </Group>
             </motion.div>
 
-            {/* 年月選択 */}
+            {/* 年月選択 - スワイプ対応 */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -474,33 +474,79 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
               <Group justify="space-between" style={{ marginBottom: isSmallScreen ? '12px' : '16px' }}>
                 <ActionIcon
                   variant="light"
-                  size={isSmallScreen ? "md" : "lg"}
+                  size="xl"
                   onClick={() => handleMonthChange('prev')}
-                  style={{ minWidth: '40px', minHeight: '40px' }}
+                  style={{ 
+                    minWidth: '48px', 
+                    minHeight: '48px',
+                    touchAction: 'manipulation',
+                  }}
                 >
-                  <IconChevronLeft size={18} />
+                  <IconChevronLeft size={24} />
                 </ActionIcon>
 
-                <Group gap="sm">
-                  <Select
-                    data={generateYearOptions()}
-                    value={currentDate.getFullYear().toString()}
-                    onChange={handleYearChange}
-                    size={isSmallScreen ? "xs" : "sm"}
-                    style={{ width: isSmallScreen ? '70px' : '80px' }}
-                  />
-                  <Text size={isSmallScreen ? "md" : "lg"} fw={600}>
-                    {monthNames[currentDate.getMonth()]}
+                <motion.div
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.2}
+                  onDragEnd={(e, info) => {
+                    // 50px以上スワイプしたら月を変更
+                    if (info.offset.x > 50) {
+                      handleMonthChange('prev');
+                    } else if (info.offset.x < -50) {
+                      handleMonthChange('next');
+                    }
+                  }}
+                  style={{
+                    cursor: 'grab',
+                    touchAction: 'pan-x',
+                    userSelect: 'none',
+                  }}
+                  whileTap={{ cursor: 'grabbing' }}
+                >
+                  <Group gap="sm" style={{ padding: '8px 16px' }}>
+                    <Select
+                      data={generateYearOptions()}
+                      value={currentDate.getFullYear().toString()}
+                      onChange={handleYearChange}
+                      size={isSmallScreen ? "sm" : "md"}
+                      style={{ width: isSmallScreen ? '80px' : '90px' }}
+                      styles={{
+                        input: {
+                          fontSize: '16px',
+                          fontWeight: 600,
+                        }
+                      }}
+                    />
+                    <Text size={isSmallScreen ? "lg" : "xl"} fw={700}>
+                      {monthNames[currentDate.getMonth()]}
+                    </Text>
+                  </Group>
+                  <Text 
+                    size="xs" 
+                    c="dimmed" 
+                    ta="center"
+                    style={{ 
+                      marginTop: '-4px',
+                      fontSize: '10px',
+                      opacity: 0.6,
+                    }}
+                  >
+                    ← スワイプで移動 →
                   </Text>
-                </Group>
+                </motion.div>
 
                 <ActionIcon
                   variant="light"
-                  size={isSmallScreen ? "md" : "lg"}
+                  size="xl"
                   onClick={() => handleMonthChange('next')}
-                  style={{ minWidth: '40px', minHeight: '40px' }}
+                  style={{ 
+                    minWidth: '48px', 
+                    minHeight: '48px',
+                    touchAction: 'manipulation',
+                  }}
                 >
-                  <IconChevronRight size={18} />
+                  <IconChevronRight size={24} />
                 </ActionIcon>
               </Group>
             </motion.div>
