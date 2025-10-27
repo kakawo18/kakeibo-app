@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, useMantineColorScheme } from '@mantine/core';
+import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
@@ -40,6 +40,7 @@ export function DashboardContent() {
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
   const [cardRewardsOpened, setCardRewardsOpened] = useState(false); // カード還元ポイント詳細モーダル
+  const [yearSummaryOpened, setYearSummaryOpened] = useState(false); // 年間収支サマリーモーダル
   
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -68,6 +69,35 @@ export function DashboardContent() {
     if (!selectedMonthData) return null;
     return calculateMonthlyComparison(selectedMonthData, previousMonthData);
   }, [selectedMonthData, previousMonthData]);
+
+  // 年間収支の計算
+  const yearSummary = useMemo(() => {
+    const currentYear = new Date(selectedMonth).getFullYear();
+    const yearTransactions = transactions.filter(t => t.date.getFullYear() === currentYear);
+    
+    const income = yearTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const expense = yearTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const balance = income - expense;
+    
+    // 月別データ
+    const monthlyBreakdown = monthlyData
+      .filter(m => new Date(m.month).getFullYear() === currentYear)
+      .sort((a, b) => a.month.localeCompare(b.month));
+    
+    return {
+      year: currentYear,
+      income,
+      expense,
+      balance,
+      monthlyBreakdown,
+    };
+  }, [transactions, selectedMonth, monthlyData]);
 
   const selectedMonthTransactions = useMemo(() => 
     transactions.filter(t => {
@@ -519,6 +549,7 @@ export function DashboardContent() {
               withBorder 
               p={isMobile ? "sm" : "md"} 
               className="enhanced-card"
+              onClick={() => setYearSummaryOpened(true)}
               style={{ 
                 minHeight: isMobile ? '80px' : undefined,
                 background: `linear-gradient(135deg, ${
@@ -942,6 +973,165 @@ export function DashboardContent() {
           </Affix>
         )}
       </Stack>
+
+      {/* 年間収支サマリーモーダル */}
+      <Modal
+        opened={yearSummaryOpened}
+        onClose={() => setYearSummaryOpened(false)}
+        title={
+          <Group gap="sm">
+            <ThemeIcon size="lg" color="blue" variant="light">
+              <IconTrendingUp size={20} />
+            </ThemeIcon>
+            <Text size="lg" fw={600}>{yearSummary.year}年 年間収支</Text>
+          </Group>
+        }
+        size="lg"
+        centered
+      >
+        <Stack gap="md">
+          {/* 年間サマリー */}
+          <Grid>
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Box 
+                p="md" 
+                style={{ 
+                  backgroundColor: 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-blue-2), var(--mantine-color-dark-4))'
+                }}
+              >
+                <Group gap="xs" mb="xs">
+                  <IconArrowDownRight size={16} color="var(--mantine-color-blue-6)" />
+                  <Text size="xs" c="dimmed" fw={600}>年間収入</Text>
+                </Group>
+                <Text size="xl" fw={700} c="blue">
+                  ¥{yearSummary.income.toLocaleString()}
+                </Text>
+              </Box>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Box 
+                p="md" 
+                style={{ 
+                  backgroundColor: 'light-dark(var(--mantine-color-red-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-red-2), var(--mantine-color-dark-4))'
+                }}
+              >
+                <Group gap="xs" mb="xs">
+                  <IconArrowUpRight size={16} color="var(--mantine-color-red-6)" />
+                  <Text size="xs" c="dimmed" fw={600}>年間支出</Text>
+                </Group>
+                <Text size="xl" fw={700} c="red">
+                  ¥{yearSummary.expense.toLocaleString()}
+                </Text>
+              </Box>
+            </Grid.Col>
+            <Grid.Col span={{ base: 12, sm: 4 }}>
+              <Box 
+                p="md" 
+                style={{ 
+                  backgroundColor: yearSummary.balance >= 0 
+                    ? 'light-dark(var(--mantine-color-green-0), var(--mantine-color-dark-6))' 
+                    : 'light-dark(var(--mantine-color-orange-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: `1px solid ${yearSummary.balance >= 0 
+                    ? 'light-dark(var(--mantine-color-green-2), var(--mantine-color-dark-4))' 
+                    : 'light-dark(var(--mantine-color-orange-2), var(--mantine-color-dark-4))'}`
+                }}
+              >
+                <Group gap="xs" mb="xs">
+                  <IconWallet size={16} color={yearSummary.balance >= 0 ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-orange-6)'} />
+                  <Text size="xs" c="dimmed" fw={600}>年間収支</Text>
+                </Group>
+                <Text size="xl" fw={700} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
+                  {yearSummary.balance >= 0 ? '+' : ''}¥{yearSummary.balance.toLocaleString()}
+                </Text>
+              </Box>
+            </Grid.Col>
+          </Grid>
+
+          {/* 月別内訳 */}
+          <Box>
+            <Text size="sm" fw={600} c="dimmed" mb="sm">月別内訳</Text>
+            <Stack gap="xs">
+              {yearSummary.monthlyBreakdown.map((monthData) => {
+                const balance = monthData.income - monthData.expense;
+                return (
+                  <Card 
+                    key={monthData.month} 
+                    withBorder 
+                    p="sm"
+                    style={{
+                      backgroundColor: monthData.month === selectedMonth 
+                        ? 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-7))' 
+                        : undefined
+                    }}
+                  >
+                    <Group justify="space-between">
+                      <Box>
+                        <Group gap="xs" align="center">
+                          <Text size="sm" fw={600}>
+                            {getMonthName(monthData.month)}
+                          </Text>
+                          {monthData.month === selectedMonth && (
+                            <Badge size="xs" color="blue">今月</Badge>
+                          )}
+                        </Group>
+                        <Group gap="md" mt="xs">
+                          <Text size="xs" c="dimmed">
+                            収入: <Text component="span" c="blue" fw={600}>¥{monthData.income.toLocaleString()}</Text>
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            支出: <Text component="span" c="red" fw={600}>¥{monthData.expense.toLocaleString()}</Text>
+                          </Text>
+                        </Group>
+                      </Box>
+                      <Text 
+                        size="lg" 
+                        fw={700} 
+                        c={balance >= 0 ? 'green' : 'red'}
+                      >
+                        {balance >= 0 ? '+' : ''}¥{balance.toLocaleString()}
+                      </Text>
+                    </Group>
+                  </Card>
+                );
+              })}
+            </Stack>
+          </Box>
+
+          {/* 平均値 */}
+          <Box 
+            p="md" 
+            style={{ 
+              backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))', 
+              borderRadius: '8px',
+              border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))'
+            }}
+          >
+            <Text size="sm" fw={600} mb="sm">月平均</Text>
+            <Group gap="md">
+              <Text size="xs" c="dimmed">
+                収入: <Text component="span" fw={600} c="blue">
+                  ¥{Math.round(yearSummary.income / 12).toLocaleString()}
+                </Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                支出: <Text component="span" fw={600} c="red">
+                  ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
+                </Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                収支: <Text component="span" fw={600} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
+                  {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
+                </Text>
+              </Text>
+            </Group>
+          </Box>
+        </Stack>
+      </Modal>
     </Container>
   );
 }

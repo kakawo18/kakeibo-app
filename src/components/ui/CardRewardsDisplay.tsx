@@ -58,7 +58,14 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
           {/* 総合サマリー */}
           <Grid>
             <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box p="sm" style={{ backgroundColor: 'var(--mantine-color-orange-0)', borderRadius: '8px' }}>
+              <Box 
+                p="sm" 
+                style={{ 
+                  backgroundColor: 'light-dark(var(--mantine-color-orange-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-orange-2), var(--mantine-color-dark-4))'
+                }}
+              >
                 <Text size="xs" c="dimmed">カード利用額</Text>
                 <Text size="lg" fw={700} c="orange">
                   ¥{rewardsData.totalAmount.toLocaleString()}
@@ -66,7 +73,14 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
               </Box>
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box p="sm" style={{ backgroundColor: 'var(--mantine-color-green-0)', borderRadius: '8px' }}>
+              <Box 
+                p="sm" 
+                style={{ 
+                  backgroundColor: 'light-dark(var(--mantine-color-green-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-green-2), var(--mantine-color-dark-4))'
+                }}
+              >
                 <Text size="xs" c="dimmed">獲得ポイント</Text>
                 <Text size="lg" fw={700} c="green">
                   {rewardsData.totalPoints.toLocaleString()}pt
@@ -74,7 +88,14 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
               </Box>
             </Grid.Col>
             <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box p="sm" style={{ backgroundColor: 'var(--mantine-color-blue-0)', borderRadius: '8px' }}>
+              <Box 
+                p="sm" 
+                style={{ 
+                  backgroundColor: 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-6))', 
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-blue-2), var(--mantine-color-dark-4))'
+                }}
+              >
                 <Text size="xs" c="dimmed">実質還元率</Text>
                 <Text size="lg" fw={700} c="blue">
                   {((rewardsData.totalPoints / rewardsData.totalAmount) * 100).toFixed(2)}%
@@ -143,7 +164,14 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
           </Stack>
 
           {/* 年間予測 */}
-          <Box p="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)', borderRadius: '8px' }}>
+          <Box 
+            p="sm" 
+            style={{ 
+              backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))', 
+              borderRadius: '8px',
+              border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))'
+            }}
+          >
             <Group gap="xs" mb="xs">
               <IconTrendingUp size={16} />
               <Text size="sm" fw={600}>年間予測</Text>
