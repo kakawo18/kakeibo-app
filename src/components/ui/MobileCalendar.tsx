@@ -680,7 +680,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
             >
               <Box
                 style={{
-                  backgroundColor: 'var(--mantine-color-blue-0)',
+                  backgroundColor: 'var(--mantine-color-dark-3)',
                   padding: isSmallScreen ? '8px' : '12px',
                   borderRadius: '8px',
                   marginTop: isSmallScreen ? '8px' : '16px',
