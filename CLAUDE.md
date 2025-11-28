@@ -18,7 +18,7 @@ npm run dev -- --hostname 0.0.0.0
 # Build for production
 npm run build
 
-# Start production server
+# Start productionn server
 npm run start
 
 # Run linting

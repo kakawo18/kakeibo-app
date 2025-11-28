@@ -2,7 +2,7 @@ const CACHE_NAME = 'kakeibo-app-v1';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/favicon.ico'
+  '/favicon.png'
 ];
 
 // インストール時のキャッシュ
