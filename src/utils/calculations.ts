@@ -23,8 +23,10 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     if (transaction.type === 'income') {
       monthData.income += transaction.amount;
     } else {
-      // 支出計算: affectsExpenseがtrueの取引のみ
-      if (transaction.affectsExpense !== false) {
+      // 支出計算: 投資を除外
+      const isInvestment = transaction.category === '固定費' && transaction.subcategory === '投資';
+      
+      if (!isInvestment && transaction.affectsExpense !== false) {
         monthData.expense += transaction.amount;
         const category = transaction.subcategory || transaction.category;
         monthData.categories[category] = (monthData.categories[category] || 0) + transaction.amount;
@@ -63,24 +65,26 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
       .filter(t => formatMonthLocal(t.date) === monthData.month && t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
     
-    // その月の現金支払い（カード支払いとカード引き落としを除外）
+    // その月の現金支払い（カード支払い、カード引き落とし、投資を除外）
     const monthCashExpense = transactions
       .filter(t => 
         formatMonthLocal(t.date) === monthData.month && 
         t.type === 'expense' && 
         t.transactionType !== 'card_payment' &&
         t.transactionType !== 'card_withdrawal' &&
+        !(t.category === '固定費' && t.subcategory === '投資') &&  // 投資を除外
         (t.transactionType === 'normal' || 
          (!t.transactionType && (t.paymentMethod === '現金' || !t.paymentMethod)))
       )
       .reduce((sum, t) => sum + t.amount, 0);
     
-    // 前月のカード支払い（今月の残高から引き落とし）
+    // 前月のカード支払い（今月の残高から引き落とし、投資を除外）
     const previousMonth = getPreviousMonthFromCurrent(monthData.month);
     const previousMonthCardPayments = transactions
       .filter(t => 
         formatMonthLocal(t.date) === previousMonth && 
-        t.transactionType === 'card_payment'
+        t.transactionType === 'card_payment' &&
+        !(t.category === '固定費' && t.subcategory === '投資')  // 投資を除外
       )
       .reduce((sum, t) => sum + t.amount, 0);
     
@@ -143,6 +147,11 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
   transactions
     .filter((t) => t.type === type)
     .forEach((transaction) => {
+      // 支出の場合、投資は除外（別枠で表示するため）
+      if (type === 'expense' && transaction.category === '固定費' && transaction.subcategory === '投資') {
+        return;
+      }
+      
       const category = transaction.subcategory || transaction.category;
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
       total += transaction.amount;

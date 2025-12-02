@@ -22,6 +22,8 @@ import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
 import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
 import { RecurringTransactionNotice } from '@/components/recurring/RecurringTransactionNotice';
 import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
+import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
+import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
 
 export function DashboardContent() {
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
@@ -41,6 +43,8 @@ export function DashboardContent() {
   const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
   const [cardRewardsOpened, setCardRewardsOpened] = useState(false); // カード還元ポイント詳細モーダル
   const [yearSummaryOpened, setYearSummaryOpened] = useState(false); // 年間収支サマリーモーダル
+  const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false); // 年間投資履歴モーダル
+  const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false); // 年間貯蓄率詳細モーダル
 
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
@@ -142,13 +146,12 @@ export function DashboardContent() {
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 年間の給与額（給与カテゴリの全て、ただしサブカテゴリが「その他」は除外）
+    // 年間の給与額（給与カテゴリの全て）
     const yearlySalaryAmount = transactions
       .filter(t =>
         t.date.getFullYear() === currentYear &&
         t.type === 'income' &&
-        t.category === '給与' &&
-        t.subcategory !== 'その他'
+        t.category === '給与'
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -589,8 +592,8 @@ export function DashboardContent() {
               style={{
                 minHeight: isMobile ? '80px' : undefined,
                 background: `linear-gradient(135deg, ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0
-                    ? isDark ? 'rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.25) 100%' : 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
-                    : isDark ? 'rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%' : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
+                  ? isDark ? 'rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.25) 100%' : 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
+                  : isDark ? 'rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%' : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
                   })`,
                 borderLeft: `4px solid ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? '#2196f3' : '#f44336'}`,
                 boxShadow: `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
@@ -613,8 +616,8 @@ export function DashboardContent() {
                   variant="light"
                   style={{
                     background: `linear-gradient(135deg, ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0
-                        ? '#2196f3 0%, #42a5f5 100%'
-                        : '#f44336 0%, #ef5350 100%'
+                      ? '#2196f3 0%, #42a5f5 100%'
+                      : '#f44336 0%, #ef5350 100%'
                       })`,
                     color: 'white',
                     boxShadow: `0 4px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
@@ -645,8 +648,8 @@ export function DashboardContent() {
               style={{
                 minHeight: isMobile ? '80px' : undefined,
                 background: `linear-gradient(135deg, ${(selectedMonthData?.balance || 0) >= 0
-                    ? 'rgba(0, 150, 136, 0.05) 0%, rgba(0, 150, 136, 0.15) 100%'
-                    : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
+                  ? 'rgba(0, 150, 136, 0.05) 0%, rgba(0, 150, 136, 0.15) 100%'
+                  : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
                   })`,
                 borderLeft: `4px solid ${(selectedMonthData?.balance || 0) >= 0 ? '#009688' : '#f44336'}`,
                 boxShadow: `0 2px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
@@ -669,8 +672,8 @@ export function DashboardContent() {
                   variant="light"
                   style={{
                     background: `linear-gradient(135deg, ${(selectedMonthData?.balance || 0) >= 0
-                        ? '#009688 0%, #26a69a 100%'
-                        : '#f44336 0%, #ef5350 100%'
+                      ? '#009688 0%, #26a69a 100%'
+                      : '#f44336 0%, #ef5350 100%'
                       })`,
                     color: 'white',
                     boxShadow: `0 4px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
@@ -810,6 +813,7 @@ export function DashboardContent() {
               withBorder
               p={isMobile ? "xs" : "sm"}
               className="enhanced-card"
+              onClick={() => setInvestmentHistoryOpened(true)}
               style={{
                 minHeight: isMobile ? '80px' : undefined,
                 background: isDark
@@ -862,6 +866,7 @@ export function DashboardContent() {
               withBorder
               p={isMobile ? "xs" : "sm"}
               className="enhanced-card"
+              onClick={() => setSavingsRateDetailOpened(true)}
               style={{
                 minHeight: isMobile ? '80px' : undefined,
                 background: isDark
@@ -1271,6 +1276,22 @@ export function DashboardContent() {
           </Box>
         </Stack>
       </Modal>
+
+      {/* 年間投資履歴モーダル */}
+      <InvestmentHistoryModal
+        opened={investmentHistoryOpened}
+        onClose={() => setInvestmentHistoryOpened(false)}
+        transactions={transactions}
+        year={new Date(selectedMonth).getFullYear()}
+      />
+
+      {/* 年間貯蓄率詳細モーダル */}
+      <SavingsRateDetailModal
+        opened={savingsRateDetailOpened}
+        onClose={() => setSavingsRateDetailOpened(false)}
+        transactions={transactions}
+        year={new Date(selectedMonth).getFullYear()}
+      />
     </Container>
   );
 }

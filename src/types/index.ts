@@ -63,7 +63,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
 ];
 
 export const INCOME_CATEGORIES: Category[] = [
-  { name: '給与', subcategories: ['給与', 'ボーナス'] },
+  { name: '給与', subcategories: ['給与', 'ボーナス', '配当収入'] },
   { name: 'その他' },
 ];
 
