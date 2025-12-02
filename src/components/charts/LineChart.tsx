@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from 'react';
 import { LineChart as MantineLineChart } from '@mantine/charts';
-import { Paper, Text, Group, Button, MultiSelect } from '@mantine/core';
+import { Paper, Text, Group, Button, MultiSelect, ActionIcon, Box } from '@mantine/core';
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 
@@ -15,6 +16,15 @@ interface LineChartProps {
 export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions = [] }) => {
   const [chartMode, setChartMode] = useState<'balance' | 'category'>('balance');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(['食費']);
+  const DISPLAY_MONTHS = 6; // 表示する月数
+  
+  // 初期表示を最新の6ヶ月にする
+  const initialStartIndex = useMemo(() => {
+    const totalMonths = data?.length || 0;
+    return Math.max(0, totalMonths - DISPLAY_MONTHS);
+  }, [data]);
+  
+  const [displayStartIndex, setDisplayStartIndex] = useState(initialStartIndex);
 
   // 利用可能なカテゴリを取得
   const availableCategories = useMemo(() => {
@@ -26,8 +36,8 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
     return categories.map(cat => ({ value: cat, label: cat }));
   }, [transactions]);
 
-  // カテゴリ別月間データを計算
-  const categoryData = useMemo(() => {
+  // 全データを計算（スライス前）
+  const allCategoryData = useMemo(() => {
     if (chartMode === 'balance') {
       return data?.map((item) => ({
         month: getMonthName(item.month).replace('年', '/').replace('月', ''),
@@ -62,6 +72,28 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
         ...categories,
       }));
   }, [data, transactions, chartMode]);
+
+  // 表示するデータ（6ヶ月分）
+  const categoryData = useMemo(() => {
+    const endIndex = displayStartIndex + DISPLAY_MONTHS;
+    return allCategoryData.slice(displayStartIndex, endIndex);
+  }, [allCategoryData, displayStartIndex]);
+
+  // ページング制御
+  const canGoPrev = displayStartIndex > 0;
+  const canGoNext = displayStartIndex + DISPLAY_MONTHS < allCategoryData.length;
+
+  const handlePrev = () => {
+    if (canGoPrev) {
+      setDisplayStartIndex(prev => Math.max(0, prev - DISPLAY_MONTHS));
+    }
+  };
+
+  const handleNext = () => {
+    if (canGoNext) {
+      setDisplayStartIndex(prev => Math.min(allCategoryData.length - DISPLAY_MONTHS, prev + DISPLAY_MONTHS));
+    }
+  };
 
   // チャートシリーズを動的生成
   const chartSeries = useMemo(() => {
@@ -111,6 +143,31 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
           </Button>
         </Group>
       </Group>
+
+      {/* ページングコントロール */}
+      {allCategoryData.length > DISPLAY_MONTHS && (
+        <Group justify="center" mb="md" gap="xs">
+          <ActionIcon
+            variant="light"
+            size="lg"
+            onClick={handlePrev}
+            disabled={!canGoPrev}
+          >
+            <IconChevronLeft size={18} />
+          </ActionIcon>
+          <Text size="sm" c="dimmed">
+            {displayStartIndex + 1} - {Math.min(displayStartIndex + DISPLAY_MONTHS, allCategoryData.length)} / {allCategoryData.length}ヶ月
+          </Text>
+          <ActionIcon
+            variant="light"
+            size="lg"
+            onClick={handleNext}
+            disabled={!canGoNext}
+          >
+            <IconChevronRight size={18} />
+          </ActionIcon>
+        </Group>
+      )}
 
       {/* カテゴリ選択（カテゴリモード時のみ表示） */}
       {chartMode === 'category' && (
