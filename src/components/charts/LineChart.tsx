@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { LineChart as MantineLineChart } from '@mantine/charts';
-import { Paper, Text, Group, Button, MultiSelect, ActionIcon, Box } from '@mantine/core';
+import { Paper, Text, Group, Button, MultiSelect, ActionIcon } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
