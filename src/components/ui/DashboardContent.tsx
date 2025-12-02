@@ -1,21 +1,49 @@
+/**
+ * ダッシュボードコンテンツ - メイン画面のコンポーネント
+ * 
+ * このファイルは家計簿アプリのメイン画面を構成します。
+ * 
+ * 【構成要素】
+ * - サマリーカード（8枚）: 収入、支出、今月の収支、実残高、カード支払い、獲得ポイント、年間投資額、年間貯蓄率
+ * - 円グラフ: 収入・支出のカテゴリ別内訳
+ * - 折れ線グラフ: 残高推移
+ * - 取引履歴リスト
+ * - 各種モーダル: 取引追加、定期取引、カレンダー、CSV入出力など
+ * 
+ * 【色変更時の参照】
+ * - カードの色: 各カードのstyle内のbackground, borderLeft, boxShadowを変更
+ * - アイコンの色: ActionIconのstyle内のbackgroundを変更
+ * - 詳細は COLOR_CUSTOMIZATION_GUIDE.md を参照
+ */
 'use client';
 
+// ============================================================
+// インポート
+// ============================================================
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+// Mantine UIコンポーネント
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+// アイコン（Tabler Icons）
 import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
+// アニメーション
 import { motion } from 'framer-motion';
+// カスタムフック
 import { useTransactions } from '@/hooks/useTransactions';
+// コンポーネント
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { PieChart } from '@/components/charts/PieChart';
 import { LineChart } from '@/components/charts/LineChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
+// ユーティリティ関数
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
+// 型定義
 import { Transaction, RecurringTransaction } from '@/types';
+// その他のコンポーネント
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
 import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
@@ -25,56 +53,83 @@ import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTra
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
 
+// ============================================================
+// メインコンポーネント
+// ============================================================
 export function DashboardContent() {
+  // ------------------------------------------------------------
+  // データ取得フック
+  // ------------------------------------------------------------
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
   const {
     getActiveRecurringTransactions,
     shouldShowRecurringTransaction
   } = useRecurringTransactions();
 
-  const [transactionFormOpened, setTransactionFormOpened] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
-  const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);
+  // ------------------------------------------------------------
+  // モーダル表示状態の管理
+  // ------------------------------------------------------------
+  const [transactionFormOpened, setTransactionFormOpened] = useState(false);      // 取引追加フォーム
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);  // 編集中の取引
+  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);    // 定期取引管理モーダル
+  const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);    // 定期取引確認モーダル
   const [selectedRecurringTransaction, setSelectedRecurringTransaction] = useState<RecurringTransaction | null>(null);
-  const [csvModalOpened, setCsvModalOpened] = useState(false);
-  const [calendarOpened, setCalendarOpened] = useState(false);
+  const [csvModalOpened, setCsvModalOpened] = useState(false);                    // CSV入出力モーダル
+  const [calendarOpened, setCalendarOpened] = useState(false);                    // カレンダーモーダル
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
-  const [cardRewardsOpened, setCardRewardsOpened] = useState(false); // カード還元ポイント詳細モーダル
-  const [yearSummaryOpened, setYearSummaryOpened] = useState(false); // 年間収支サマリーモーダル
-  const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false); // 年間投資履歴モーダル
-  const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false); // 年間貯蓄率詳細モーダル
+  const [cardRewardsOpened, setCardRewardsOpened] = useState(false);              // カード還元ポイント詳細モーダル
+  const [yearSummaryOpened, setYearSummaryOpened] = useState(false);              // 年間収支サマリーモーダル
+  const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false);  // 年間投資履歴モーダル
+  const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false);  // 年間貯蓄率詳細モーダル
 
-  // モバイル表示判定
+  // ------------------------------------------------------------
+  // レスポンシブ・テーマ判定
+  // ------------------------------------------------------------
+  // モバイル表示判定（768px以下でtrue）
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   // ダークモード判定
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // ------------------------------------------------------------
+  // ルーティング・月選択
+  // ------------------------------------------------------------
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlMonth = searchParams.get('month');
-  const selectedMonth = urlMonth || getCurrentMonth();
+  const urlMonth = searchParams.get('month');  // URLパラメータから月を取得
+  const selectedMonth = urlMonth || getCurrentMonth();  // 未指定時は今月
 
+  // ------------------------------------------------------------
+  // データ計算（useMemoでパフォーマンス最適化）
+  // ------------------------------------------------------------
+
+  // 月別データの計算（全期間）
+  // → 残高推移グラフ、月別比較に使用
   const monthlyData = useMemo(() => calculateMonthlyData(transactions), [transactions]);
+
+  // 選択中の月のデータ
+  // → サマリーカードの表示に使用
   const selectedMonthData = useMemo(() =>
     monthlyData.find(data => data.month === selectedMonth),
     [monthlyData, selectedMonth]
   );
 
+  // 前月のデータ（前月比較用）
   const previousMonthData = useMemo(() => {
     const previousMonth = getPreviousMonthFromCurrent(selectedMonth);
     return monthlyData.find(data => data.month === previousMonth);
   }, [monthlyData, selectedMonth]);
 
+  // 前月比較データ（↑↓表示用）
   const monthlyComparison = useMemo(() => {
     if (!selectedMonthData) return null;
     return calculateMonthlyComparison(selectedMonthData, previousMonthData);
   }, [selectedMonthData, previousMonthData]);
 
   // 年間収支の計算
+  // → 「今月の収支」カードをクリックした時のモーダルに表示
   const yearSummary = useMemo(() => {
     const currentYear = new Date(selectedMonth).getFullYear();
     const yearTransactions = transactions.filter(t => t.date.getFullYear() === currentYear);
@@ -103,6 +158,8 @@ export function DashboardContent() {
     };
   }, [transactions, selectedMonth, monthlyData]);
 
+  // 選択月の取引データ
+  // → 円グラフ、取引履歴リストに使用
   const selectedMonthTransactions = useMemo(() =>
     transactions.filter(t => {
       // ローカルタイムゾーンで月を比較（タイムゾーン問題解決）
@@ -112,16 +169,20 @@ export function DashboardContent() {
     [transactions, selectedMonth]
   );
 
+  // 収入の円グラフデータ
   const incomeChartData = useMemo(() =>
     calculateCategoryChartData(selectedMonthTransactions, 'income'),
     [selectedMonthTransactions]
   );
 
+  // 支出の円グラフデータ（投資は除外される）
   const expenseChartData = useMemo(() =>
     calculateCategoryChartData(selectedMonthTransactions, 'expense'),
     [selectedMonthTransactions]
   );
 
+  // カード支払い合計（5社カード）
+  // → 「カード支払い」カードに表示
   const cardPaymentTotal = useMemo(() => {
     const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
     return selectedMonthTransactions
@@ -133,10 +194,12 @@ export function DashboardContent() {
   }, [selectedMonthTransactions]);
 
   // 貯蓄額と貯蓄率の計算
+  // → 「年間投資額」「年間貯蓄率」カードに表示
+  // 計算式: 年間貯蓄率 = 年間投資額 / 年間給与額 × 100
   const savingsData = useMemo(() => {
     const currentYear = new Date(selectedMonth).getFullYear();
 
-    // 年間の投資額（今年の全取引から計算）
+    // 年間の投資額（固定費カテゴリの投資サブカテゴリのみ）
     const yearlyInvestmentAmount = transactions
       .filter(t =>
         t.date.getFullYear() === currentYear &&
@@ -469,9 +532,33 @@ export function DashboardContent() {
           />
         )}
 
-        {/* 4行2列レイアウト - スペース効率最適化 */}
+        {/* ============================================================
+            サマリーカード（4行2列レイアウト）
+            
+            【レイアウト構成】
+            1行目: 収入カード（緑）| 支出カード（赤）
+            2行目: 今月の収支カード（青/赤）| 実残高カード（ティール/赤）
+            3行目: カード支払いカード（紫）| 獲得ポイントカード（オレンジ）
+            4行目: 年間投資額カード（オレンジ）| 年間貯蓄率カード（紫）
+            
+            【色変更方法】
+            各カードのstyle内の以下を変更:
+            - background: グラデーション背景色
+            - borderLeft: 左側のアクセントライン
+            - boxShadow: 影の色
+            
+            【サイズ変更方法】
+            - p={isMobile ? "xs" : "sm"}: カード内のパディング
+            - minHeight: カードの最小高さ
+            - Grid gutter="xs": カード間の隙間（xs=8px, sm=12px, md=16px）
+            ============================================================ */}
         <Grid gutter="xs">
-          {/* 1行目: 収入・支出 */}
+          {/* --------------------------------------------------------
+              1行目左: 収入カード（緑色）
+              - 表示: 選択月の収入合計
+              - クリック: なし
+              - 色: #4caf50（緑）
+              -------------------------------------------------------- */}
           <Grid.Col span={{ base: 6, sm: 6 }}>
             <Card
               withBorder

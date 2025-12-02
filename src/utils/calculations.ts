@@ -1,10 +1,37 @@
+/**
+ * 計算ユーティリティ
+ * 
+ * このファイルは家計簿アプリの各種計算ロジックを提供します。
+ * 
+ * 【主要な関数】
+ * - calculateMonthlyData: 月別の収支・残高を計算
+ * - calculateCategoryChartData: 円グラフ用のカテゴリ別データを計算
+ * - calculateMonthlyComparison: 前月比較データを計算
+ * 
+ * 【重要な計算ルール】
+ * - 投資（固定費→投資）は支出から除外される
+ * - カード支払いは翌月の残高に影響する
+ * - 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い
+ */
 import { Transaction, MonthlyData, ChartData } from '@/types';
 import { formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
 
+/**
+ * 月別データを計算する
+ * 
+ * @param transactions - 全取引データ
+ * @returns MonthlyData[] - 月別の収支・残高データ
+ * 
+ * 【計算内容】
+ * - 各月の収入合計
+ * - 各月の支出合計（投資は除外）
+ * - 各月の実残高（カード支払いの翌月反映を考慮）
+ * - カテゴリ別の支出内訳
+ */
 export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
   const monthlyMap = new Map<string, MonthlyData>();
 
-  // トランザクションがある月のデータを構築（ローカルタイムゾーン対応）
+  // ステップ1: 各月の収入・支出を集計
   transactions.forEach((transaction) => {
     const month = formatMonthLocal(transaction.date);
     
@@ -21,13 +48,15 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     const monthData = monthlyMap.get(month)!;
 
     if (transaction.type === 'income') {
+      // 収入: そのまま加算
       monthData.income += transaction.amount;
     } else {
-      // 支出計算: 投資を除外
+      // 支出計算: 投資は除外（投資は資産移動であり支出ではないため）
       const isInvestment = transaction.category === '固定費' && transaction.subcategory === '投資';
       
       if (!isInvestment && transaction.affectsExpense !== false) {
         monthData.expense += transaction.amount;
+        // カテゴリ別集計（円グラフ用）
         const category = transaction.subcategory || transaction.category;
         monthData.categories[category] = (monthData.categories[category] || 0) + transaction.amount;
       }
