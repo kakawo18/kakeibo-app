@@ -48,13 +48,17 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     const monthData = monthlyMap.get(month)!;
 
     if (transaction.type === 'income') {
-      // 収入: そのまま加算
-      monthData.income += transaction.amount;
+      // 収入: そのまま加算（立替回収は除外）
+      if (transaction.category !== '立替回収') {
+        monthData.income += transaction.amount;
+      }
     } else {
       // 支出計算: 投資は除外（投資は資産移動であり支出ではないため）
+      // 立替金も除外
       const isInvestment = transaction.category === '固定費' && transaction.subcategory === '投資';
+      const isReimbursement = transaction.category === '立替金';
 
-      if (!isInvestment && transaction.affectsExpense !== false) {
+      if (!isInvestment && !isReimbursement && transaction.affectsExpense !== false) {
         monthData.expense += transaction.amount;
         // カテゴリ別集計（円グラフ用）
         const category = transaction.subcategory || transaction.category;
@@ -89,49 +93,9 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   sortedData.forEach((monthData) => {
-    // その月の収入（ローカルタイムゾーン対応）
-    const monthIncome = transactions
-      .filter(t => formatMonthLocal(t.date) === monthData.month && t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // その月の現金支払い（カード支払い、カード引き落とし、投資を除外）
-    const monthCashExpense = transactions
-      .filter(t =>
-        formatMonthLocal(t.date) === monthData.month &&
-        t.type === 'expense' &&
-        t.transactionType !== 'card_payment' &&
-        t.transactionType !== 'card_withdrawal' &&
-        !(t.category === '固定費' && t.subcategory === '投資') &&  // 投資を除外
-        (t.transactionType === 'normal' ||
-          (!t.transactionType && (t.paymentMethod === '現金' || !t.paymentMethod)))
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // 前月のカード支払い（今月の残高から引き落とし、投資を除外）
-    const previousMonth = getPreviousMonthFromCurrent(monthData.month);
-    const previousMonthCardPayments = transactions
-      .filter(t =>
-        formatMonthLocal(t.date) === previousMonth &&
-        t.transactionType === 'card_payment' &&
-        !(t.category === '固定費' && t.subcategory === '投資')  // 投資を除外
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // 今月のカード引き落とし（従来の引き落とし取引）
-    const monthCardWithdrawal = transactions
-      .filter(t =>
-        formatMonthLocal(t.date) === monthData.month &&
-        t.transactionType === 'card_withdrawal'
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い - 今月カード引き落とし
-    // ※現在はダッシュボードで実残高を表示していないため、計算をコメントアウト
-    // runningBalance = runningBalance + monthIncome - monthCashExpense - previousMonthCardPayments - monthCardWithdrawal;
-    // monthData.balance = runningBalance;
-
-    // 代わりにその月の単月収支を入れるか、0にしておく
-    monthData.balance = monthIncome - monthCashExpense - monthCardWithdrawal; // 簡易的な月次収支（必要に応じて変更）
+    // 残高 = 収入 - 支出（発生主義）
+    // ※立替分はすでに income/expense 集計段階で除外済み
+    monthData.balance = monthData.income - monthData.expense;
   });
 
   return sortedData;
