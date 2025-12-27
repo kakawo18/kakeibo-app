@@ -149,8 +149,16 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
     .filter((t) => t.type === type)
     .forEach((transaction) => {
       // 支出の場合、投資は除外（別枠で表示するため）
-      if (type === 'expense' && transaction.category === '固定費' && transaction.subcategory === '投資') {
-        return;
+      // 立替回収、立替金も除外
+      if (type === 'expense') {
+        if ((transaction.category === '固定費' && transaction.subcategory === '投資') ||
+          transaction.category === '立替金') {
+          return;
+        }
+      } else if (type === 'income') {
+        if (transaction.category === '立替回収') {
+          return;
+        }
       }
 
       const category = transaction.subcategory || transaction.category;
