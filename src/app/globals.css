@@ -33,14 +33,14 @@ body {
   --mantine-color-body: #1a1b1e;
   --mantine-color-default: #25262b;
   --mantine-color-default-hover: #2c2e33;
-  
+
   /* テキスト */
   --mantine-color-text: #e9ecef;
   --mantine-color-dimmed: #909296;
-  
+
   /* ボーダー */
   --mantine-color-default-border: #373a40;
-  
+
   /* 入力フィールド */
   --mantine-color-input-bg: #25262b;
   --mantine-color-input-border: #373a40;
@@ -123,6 +123,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -134,16 +135,31 @@ body {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
 
+/* Glassmorphism utility */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+[data-mantine-color-scheme="dark"] .glass {
+  background: rgba(37, 38, 43, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 @keyframes shimmer {
   0% {
     background-position: -200px 0;
   }
+
   100% {
     background-position: calc(200px + 100%) 0;
   }
@@ -163,12 +179,10 @@ body {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.1),
+      transparent);
   transition: left 0.5s;
 }
 
@@ -189,12 +203,10 @@ body {
   right: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    currentColor 50%,
-    transparent 100%
-  );
+  background: linear-gradient(to bottom,
+      transparent 0%,
+      currentColor 50%,
+      transparent 100%);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
@@ -216,21 +228,26 @@ html {
 }
 
 /* PWA入力フィールド修正 */
-input, textarea, select {
+input,
+textarea,
+select {
   /* iOS PWAでの入力問題を修正 */
   -webkit-user-select: text !important;
   -webkit-touch-callout: default !important;
   -webkit-tap-highlight-color: transparent;
-  
+
   /* Android PWAでの入力問題を修正 */
   touch-action: manipulation;
-  
+
   /* フォーカス時のズーム防止（但し入力は可能） */
   font-size: 16px !important;
 }
 
 /* ボタンとクリック可能要素のタップ反応改善 */
-button, a, [role="button"], [onclick] {
+button,
+a,
+[role="button"],
+[onclick] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   user-select: none;
@@ -238,24 +255,28 @@ button, a, [role="button"], [onclick] {
 }
 
 /* Selectドロップダウンのタップ反応改善 */
-[role="option"], [role="listbox"] {
+[role="option"],
+[role="listbox"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
 /* PWA環境での入力フィールド最適化 */
 @media all and (display-mode: standalone) {
-  input, textarea, select {
+
+  input,
+  textarea,
+  select {
     /* PWAモードでの入力最適化 */
     -webkit-appearance: none;
     appearance: none;
     background-color: transparent;
-    
+
     /* iOS PWA特有の問題を修正 */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
-  
+
   /* PWAでのキーボード表示時の調整 */
   body {
     height: 100vh;
@@ -265,7 +286,10 @@ button, a, [role="button"], [onclick] {
 
 /* iOS PWA特有の修正 */
 @supports (-webkit-touch-callout: none) {
-  input, textarea, select {
+
+  input,
+  textarea,
+  select {
     /* iOS PWAでのタッチ操作改善 */
     -webkit-touch-callout: default;
     -webkit-user-select: text;
@@ -278,25 +302,26 @@ button, a, [role="button"], [onclick] {
   /* 強制的にPWA入力を有効化 */
   -webkit-user-select: text !important;
   -webkit-touch-callout: default !important;
-  -webkit-tap-highlight-color: rgba(0,0,0,0.1) !important;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
   touch-action: manipulation !important;
-  
+
   /* iOS PWA特有の問題を強制修正 */
   -webkit-appearance: none !important;
   appearance: none !important;
   background-color: white !important;
   color: black !important;
-  
+
   /* フォーカス時の問題を修正 */
   outline: 2px solid #007bff !important;
   outline-offset: 2px !important;
-  
+
   /* キーボード表示を強制 */
   inputmode: text !important;
 }
 
 /* PWAログイン画面でのフォーカス強制 */
 @media all and (display-mode: standalone) {
+
   [data-testid="email-input"] input:focus,
   [data-testid="password-input"] input:focus {
     /* PWAでのフォーカス状態を強制表示 */
@@ -305,11 +330,55 @@ button, a, [role="button"], [onclick] {
     border: 2px solid #007bff !important;
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25) !important;
   }
-  
+
   /* PWAでのタッチ時の反応を改善 */
   [data-testid="email-input"] input:active,
   [data-testid="password-input"] input:active {
     transform: scale(1.02) !important;
     transition: transform 0.1s ease !important;
   }
+}
+
+
+/* PWA Input Fixes - Class based approach */
+.pwa-input {
+  font-size: 16px !important;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  touch-action: manipulation !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  outline: none;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Glassmorphism Input */
+.glass-input input {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.glass-input input:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+[data-mantine-color-scheme="dark"] .glass-input input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-mantine-color-scheme="dark"] .glass-input input:focus {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
 }

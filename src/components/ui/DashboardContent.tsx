@@ -23,10 +23,10 @@
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 // Mantine UIコンポーネント
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme } from '@mantine/core';
+import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme, Paper } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 // アイコン（Tabler Icons）
-import { IconPlus, IconTrendingUp, IconTrendingDown, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconBuildingBank, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCreditCard, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
 // アニメーション
 import { motion } from 'framer-motion';
 // カスタムフック
@@ -181,17 +181,7 @@ export function DashboardContent() {
     [selectedMonthTransactions]
   );
 
-  // カード支払い合計（5社カード）
-  // → 「カード支払い」カードに表示
-  const cardPaymentTotal = useMemo(() => {
-    const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
-    return selectedMonthTransactions
-      .filter(t =>
-        t.type === 'expense' &&
-        cardMethods.includes(t.paymentMethod || '')
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-  }, [selectedMonthTransactions]);
+
 
   // 貯蓄額と貯蓄率の計算
   // → 「年間投資額」「年間貯蓄率」カードに表示
@@ -552,536 +542,309 @@ export function DashboardContent() {
             - minHeight: カードの最小高さ
             - Grid gutter="xs": カード間の隙間（xs=8px, sm=12px, md=16px）
             ============================================================ */}
-        <Grid gutter="xs">
-          {/* --------------------------------------------------------
-              1行目左: 収入カード（緑色）
-              - 表示: 選択月の収入合計
-              - クリック: なし
-              - 色: #4caf50（緑）
-              -------------------------------------------------------- */}
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
-              style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(76, 175, 80, 0.15) 0%, rgba(76, 175, 80, 0.25) 100%)'
-                  : 'linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.15) 100%)',
-                borderLeft: '4px solid #4caf50',
-                boxShadow: '0 2px 12px rgba(76, 175, 80, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(76, 175, 80, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(76, 175, 80, 0.1)';
-              }}
-            >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="green"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
-                  }}
-                >
-                  <IconTrendingUp size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>収入</Text>
-                    {monthlyComparison && (
-                      <TrendIndicator
-                        trend={monthlyComparison.income.trend}
-                        percentage={monthlyComparison.income.percentage}
-                      />
-                    )}
-                  </Group>
-                  <Text size={isMobile ? "md" : "xl"} fw={700} c="green">
-                    ¥{(selectedMonthData?.income || 0).toLocaleString()}
-                  </Text>
-                </div>
-              </Group>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
-              style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%)'
-                  : 'linear-gradient(135deg, rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%)',
-                borderLeft: '4px solid #f44336',
-                boxShadow: '0 2px 12px rgba(244, 67, 54, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.1s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(244, 67, 54, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(244, 67, 54, 0.1)';
-              }}
-            >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="red"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #f44336 0%, #ef5350 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(244, 67, 54, 0.3)',
-                  }}
-                >
-                  <IconTrendingDown size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>支出</Text>
-                    {monthlyComparison && (
-                      <TrendIndicator
-                        trend={monthlyComparison.expense.trend}
-                        percentage={monthlyComparison.expense.percentage}
-                      />
-                    )}
-                  </Group>
-                  <Text size={isMobile ? "md" : "xl"} fw={700} c="red">
-                    ¥{(selectedMonthData?.expense || 0).toLocaleString()}
-                  </Text>
-                </div>
-              </Group>
-            </Card>
-          </Grid.Col>
-
-          {/* 2行目: 今月の収支・実残高 */}
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
+        {/* ============================================================
+            Bento Grid Layout (Hierarchy Focused)
+            
+            1. Hero Card (Span 12): Net Balance (Most Important)
+            2. Secondary Cards (Span 6): Income vs Expense (Comparison)
+            3. Tertiary Cards (Span 6/4): Savings, Points etc. (Supplements)
+            ============================================================ */}
+        <Grid mb="lg" gutter="md">
+          {/* HERO CARD: 今月の収支/残高 */}
+          <Grid.Col span={{ base: 12 }}>
+            <Paper
+              p="xl"
+              radius="lg"
+              className="glass"
               onClick={() => setYearSummaryOpened(true)}
               style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: `linear-gradient(135deg, ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0
-                  ? isDark ? 'rgba(33, 150, 243, 0.15) 0%, rgba(33, 150, 243, 0.25) 100%' : 'rgba(33, 150, 243, 0.05) 0%, rgba(33, 150, 243, 0.15) 100%'
-                  : isDark ? 'rgba(244, 67, 54, 0.15) 0%, rgba(244, 67, 54, 0.25) 100%' : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
-                  })`,
-                borderLeft: `4px solid ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? '#2196f3' : '#f44336'}`,
-                boxShadow: `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
                 cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.2s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = `0 8px 30px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.2)' : 'rgba(244, 67, 54, 0.2)'}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = `0 2px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`;
+                background: isDark
+                  ? 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)'
+                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%)',
+                border: isDark
+                  ? '1px solid rgba(33, 150, 243, 0.2)'
+                  : '1px solid rgba(255, 255, 255, 0.6)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                minHeight: '160px', // Taller for impact
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color={(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'blue' : 'red'}
-                  variant="light"
-                  style={{
-                    background: `linear-gradient(135deg, ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0
-                      ? '#2196f3 0%, #42a5f5 100%'
-                      : '#f44336 0%, #ef5350 100%'
-                      })`,
-                    color: 'white',
-                    boxShadow: `0 4px 12px ${(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'rgba(33, 150, 243, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
-                  }}
-                >
-                  <IconWallet size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>今月の収支</Text>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード支払い含む</Text>
+              {/* Background Decoration */}
+              <Box style={{
+                position: 'absolute',
+                top: '-50%',
+                left: '-50%',
+                width: '200%',
+                height: '200%',
+                background: 'radial-gradient(circle, rgba(33,150,243,0.05) 0%, rgba(0,0,0,0) 70%)',
+                zIndex: 0,
+                pointerEvents: 'none',
+              }} />
+
+              <Stack gap={0} align="center" style={{ zIndex: 1, width: '100%' }}>
+                <Text size="sm" c="dimmed" fw={600} mb={4} style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  Current Balance
+                </Text>
+                <Group align="flex-start" gap={4}>
                   <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c={(selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0) >= 0 ? 'blue' : 'red'}
+                    span
+                    style={{
+                      fontSize: '3.5rem',
+                      fontWeight: 800,
+                      lineHeight: 1,
+                      letterSpacing: '-1px',
+                      color: ((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0
+                        ? 'var(--mantine-color-blue-6)'
+                        : 'var(--mantine-color-red-6)'
+                    }}
                   >
                     ¥{((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)).toLocaleString()}
                   </Text>
-                </div>
-              </Group>
-            </Card>
+                </Group>
+                <Group gap="xs" mt="xs">
+                  <Badge
+                    variant="light"
+                    color={((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0 ? 'blue' : 'red'}
+                    size="lg"
+                  >
+                    今月の収支
+                  </Badge>
+                  {monthlyComparison && (
+                    <TrendIndicator
+                      trend={monthlyComparison.balance.trend}
+                      percentage={monthlyComparison.balance.percentage}
+                    />
+                  )}
+                </Group>
+              </Stack>
+            </Paper>
           </Grid.Col>
 
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
+          {/* SECONDARY: Income & Expense (Side by Side) */}
+          <Grid.Col span={{ base: 6 }}>
+            <Paper
+              p="md"
+              radius="lg"
+              className="glass"
               style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: `linear-gradient(135deg, ${(selectedMonthData?.balance || 0) >= 0
-                  ? 'rgba(0, 150, 136, 0.05) 0%, rgba(0, 150, 136, 0.15) 100%'
-                  : 'rgba(244, 67, 54, 0.05) 0%, rgba(244, 67, 54, 0.15) 100%'
-                  })`,
-                borderLeft: `4px solid ${(selectedMonthData?.balance || 0) >= 0 ? '#009688' : '#f44336'}`,
-                boxShadow: `0 2px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`,
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.3s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = `0 8px 30px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.2)' : 'rgba(244, 67, 54, 0.2)'}`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = `0 2px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.1)' : 'rgba(244, 67, 54, 0.1)'}`;
+                height: '100%',
+                background: isDark
+                  ? 'rgba(33, 37, 41, 0.6)'
+                  : 'rgba(255, 255, 255, 0.5)',
+                borderLeft: '4px solid var(--mantine-color-teal-5)'
               }}
             >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color={(selectedMonthData?.balance || 0) >= 0 ? 'teal' : 'red'}
-                  variant="light"
-                  style={{
-                    background: `linear-gradient(135deg, ${(selectedMonthData?.balance || 0) >= 0
-                      ? '#009688 0%, #26a69a 100%'
-                      : '#f44336 0%, #ef5350 100%'
-                      })`,
-                    color: 'white',
-                    boxShadow: `0 4px 12px ${(selectedMonthData?.balance || 0) >= 0 ? 'rgba(0, 150, 136, 0.3)' : 'rgba(244, 67, 54, 0.3)'}`,
-                  }}
-                >
-                  <IconBuildingBank size={isMobile ? 16 : 20} />
-                </ActionIcon>
+              <Stack gap={4} h="100%" justify="space-between">
+                <Group justify="space-between">
+                  <Text size="xs" c="dimmed" fw={600}>INCOME</Text>
+                  <ThemeIcon variant="light" color="teal" size="sm" radius="xl">
+                    <IconArrowUpRight size={12} />
+                  </ThemeIcon>
+                </Group>
                 <div>
-                  <Group gap="xs" align="center">
-                    <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>実残高</Text>
-                    {monthlyComparison && (
-                      <TrendIndicator
-                        trend={monthlyComparison.balance.trend}
-                        percentage={monthlyComparison.balance.percentage}
-                      />
-                    )}
-                  </Group>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">前月カード反映済</Text>
-                  <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c={(selectedMonthData?.balance || 0) >= 0 ? 'teal' : 'red'}
-                  >
-                    ¥{(selectedMonthData?.balance || 0).toLocaleString()}
+                  <Text size="xl" fw={700} c="teal" style={{ lineHeight: 1.2 }}>
+                    ¥{(selectedMonthData?.income || 0).toLocaleString()}
                   </Text>
+                  {monthlyComparison && (
+                    <Group gap={4}>
+                      <Text size="xs" c="dimmed">前月比</Text>
+                      <Text size="xs" c={monthlyComparison.income.trend === 'up' ? 'teal' : 'red'}>
+                        {monthlyComparison.income.trend === 'up' ? '+' : ''}{monthlyComparison.income.percentage}%
+                      </Text>
+                    </Group>
+                  )}
                 </div>
-              </Group>
-            </Card>
+              </Stack>
+            </Paper>
           </Grid.Col>
 
-          {/* 3行目: カード支払い */}
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
+          <Grid.Col span={{ base: 6 }}>
+            <Paper
+              p="md"
+              radius="lg"
+              className="glass"
               style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: 'linear-gradient(135deg, rgba(156, 39, 176, 0.05) 0%, rgba(156, 39, 176, 0.15) 100%)',
-                borderLeft: '4px solid #9c27b0',
-                boxShadow: '0 2px 12px rgba(156, 39, 176, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.4s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(156, 39, 176, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(156, 39, 176, 0.1)';
+                height: '100%',
+                background: isDark
+                  ? 'rgba(33, 37, 41, 0.6)'
+                  : 'rgba(255, 255, 255, 0.5)',
+                borderLeft: '4px solid var(--mantine-color-red-5)'
               }}
             >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="violet"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #9c27b0 0%, #ab47bc 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
-                  }}
-                >
-                  <IconCreditCard size={isMobile ? 16 : 20} />
-                </ActionIcon>
+              <Stack gap={4} h="100%" justify="space-between">
+                <Group justify="space-between">
+                  <Text size="xs" c="dimmed" fw={600}>EXPENSE</Text>
+                  <ThemeIcon variant="light" color="red" size="sm" radius="xl">
+                    <IconArrowDownRight size={12} />
+                  </ThemeIcon>
+                </Group>
                 <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>カード支払い</Text>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">5社カード合計</Text>
-                  <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c="violet"
-                  >
-                    ¥{cardPaymentTotal.toLocaleString()}
+                  <Text size="xl" fw={700} c="red" style={{ lineHeight: 1.2 }}>
+                    ¥{(selectedMonthData?.expense || 0).toLocaleString()}
                   </Text>
+                  {monthlyComparison && (
+                    <Group gap={4}>
+                      <Text size="xs" c="dimmed">前月比</Text>
+                      <Text size="xs" c={monthlyComparison.expense.trend === 'up' ? 'red' : 'teal'}>
+                        {monthlyComparison.expense.trend === 'up' ? '+' : ''}{monthlyComparison.expense.percentage}%
+                      </Text>
+                    </Group>
+                  )}
                 </div>
-              </Group>
-            </Card>
+              </Stack>
+            </Paper>
           </Grid.Col>
 
-          {/* 3行目右側: 獲得ポイント */}
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
-              style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: 'linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 152, 0, 0.15) 100%)',
-                borderLeft: '4px solid #ff9800',
-                boxShadow: '0 2px 12px rgba(255, 152, 0, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.5s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(255, 152, 0, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 152, 0, 0.1)';
-              }}
+          {/* TERTIARY: Smaller metrics */}
+          <Grid.Col span={{ base: 6 }}>
+            <Paper
+              p="md"
+              radius="lg"
+              className="glass"
               onClick={() => setCardRewardsOpened(true)}
+              style={{ cursor: 'pointer', height: '100%' }}
             >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="orange"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
-                  }}
-                >
-                  <IconCoins size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>獲得ポイント</Text>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">カード還元合計</Text>
-                  <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c="orange"
-                  >
-                    {monthlyCardPoints}pt
-                  </Text>
-                </div>
-              </Group>
-            </Card>
+              <Stack gap="xs">
+                <Group gap="xs">
+                  <ThemeIcon variant="light" color="orange" size="md" radius="md">
+                    <IconCoins size={16} />
+                  </ThemeIcon>
+                  <Text size="xs" c="dimmed" fw={600}>獲得ポイント</Text>
+                </Group>
+                <Text size="lg" fw={700}>
+                  {monthlyCardPoints.toLocaleString()} <Text span size="xs" c="dimmed">pt</Text>
+                </Text>
+              </Stack>
+            </Paper>
           </Grid.Col>
 
-          {/* 4行目: 年間貯蓄額・今月貯蓄率 */}
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
-              onClick={() => setInvestmentHistoryOpened(true)}
-              style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(255, 152, 0, 0.15) 0%, rgba(255, 152, 0, 0.25) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 152, 0, 0.15) 100%)',
-                borderLeft: '4px solid #ff9800',
-                boxShadow: '0 2px 12px rgba(255, 152, 0, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.6s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(255, 152, 0, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(255, 152, 0, 0.1)';
-              }}
-            >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="orange"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #ff9800 0%, #ffa726 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(255, 152, 0, 0.3)',
-                  }}
-                >
-                  <IconCoins size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>年間投資額</Text>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">固定費の投資</Text>
-                  <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c="orange"
-                  >
-                    ¥{savingsData.yearlyInvestmentAmount.toLocaleString()}
-                  </Text>
-                </div>
-              </Group>
-            </Card>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 6, sm: 6 }}>
-            <Card
-              withBorder
-              p={isMobile ? "xs" : "sm"}
-              className="enhanced-card"
+          <Grid.Col span={{ base: 6 }}>
+            <Paper
+              p="md"
+              radius="lg"
+              className="glass"
               onClick={() => setSavingsRateDetailOpened(true)}
-              style={{
-                minHeight: isMobile ? '80px' : undefined,
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(156, 39, 176, 0.15) 0%, rgba(156, 39, 176, 0.25) 100%)'
-                  : 'linear-gradient(135deg, rgba(156, 39, 176, 0.05) 0%, rgba(156, 39, 176, 0.15) 100%)',
-                borderLeft: '4px solid #9c27b0',
-                boxShadow: '0 2px 12px rgba(156, 39, 176, 0.1)',
-                cursor: 'pointer',
-                animation: 'fadeInScale 0.5s ease-out 0.7s both',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 30px rgba(156, 39, 176, 0.2)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(156, 39, 176, 0.1)';
-              }}
+              style={{ cursor: 'pointer', height: '100%' }}
             >
-              <Group>
-                <ActionIcon
-                  size={isMobile ? "md" : "lg"}
-                  color="violet"
-                  variant="light"
-                  style={{
-                    background: 'linear-gradient(135deg, #9c27b0 0%, #ab47bc 100%)',
-                    color: 'white',
-                    boxShadow: '0 4px 12px rgba(156, 39, 176, 0.3)',
-                  }}
-                >
-                  <IconTrendingUp size={isMobile ? 16 : 20} />
-                </ActionIcon>
-                <div>
-                  <Text size={isMobile ? "xs" : "sm"} c="dimmed" fw={600}>年間貯蓄率</Text>
-                  <Text size={isMobile ? "xs" : "xs"} c="dimmed">
-                    投資: ¥{savingsData.yearlyInvestmentAmount.toLocaleString()}
-                  </Text>
-                  <Text
-                    size={isMobile ? "md" : "xl"}
-                    fw={700}
-                    c="violet"
-                  >
-                    {savingsData.yearlySavingsRate.toFixed(1)}%
-                  </Text>
-                </div>
+              <Stack gap="xs">
+                <Group gap="xs">
+                  <ThemeIcon variant="light" color="violet" size="md" radius="md">
+                    <IconTrendingUp size={16} />
+                  </ThemeIcon>
+                  <Text size="xs" c="dimmed" fw={600}>貯蓄率</Text>
+                </Group>
+                <Text size="lg" fw={700}>
+                  {savingsData.yearlySavingsRate.toFixed(1)} <Text span size="xs" c="dimmed">%</Text>
+                </Text>
+              </Stack>
+            </Paper>
+          </Grid.Col>
+
+          <Grid.Col span={{ base: 12 }}>
+            <Paper
+              p="xs"
+              radius="lg"
+              style={{
+                background: 'transparent',
+                border: '1px dashed var(--mantine-color-gray-4)',
+                cursor: 'pointer'
+              }}
+              onClick={() => setInvestmentHistoryOpened(true)}
+            >
+              <Group justify="center" gap="xs">
+                <Text size="xs" c="dimmed">年間投資額: </Text>
+                <Text size="sm" fw={600}>¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
+                <IconChevronRight size={12} color="gray" />
               </Group>
-            </Card>
+            </Paper>
           </Grid.Col>
         </Grid>
 
         {/* 円グラフセクション - モバイル対応 */}
-        {isMobile ? (
-          /* モバイル: 切り替え式円グラフ */
-          <Stack gap="md">
-            {/* 切り替えボタン */}
-            <Group justify="center" gap="xs">
-              <Button
-                variant={mobileChartType === 'expense' ? 'filled' : 'light'}
-                color="red"
-                size="sm"
-                onClick={() => setMobileChartType('expense')}
-                style={{
-                  borderRadius: '20px',
-                  transition: 'all 0.3s ease',
-                  transform: mobileChartType === 'expense' ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                📊 支出内訳
-              </Button>
-              <Button
-                variant={mobileChartType === 'income' ? 'filled' : 'light'}
-                color="green"
-                size="sm"
-                onClick={() => setMobileChartType('income')}
-                style={{
-                  borderRadius: '20px',
-                  transition: 'all 0.3s ease',
-                  transform: mobileChartType === 'income' ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                💰 収入内訳
-              </Button>
-            </Group>
+        {
+          isMobile ? (
+            /* モバイル: 切り替え式円グラフ */
+            <Stack gap="md">
+              {/* 切り替えボタン */}
+              <Group justify="center" gap="xs">
+                <Button
+                  variant={mobileChartType === 'expense' ? 'filled' : 'light'}
+                  color="red"
+                  size="sm"
+                  onClick={() => setMobileChartType('expense')}
+                  style={{
+                    borderRadius: '20px',
+                    transition: 'all 0.3s ease',
+                    transform: mobileChartType === 'expense' ? 'scale(1.05)' : 'scale(1)',
+                  }}
+                >
+                  📊 支出内訳
+                </Button>
+                <Button
+                  variant={mobileChartType === 'income' ? 'filled' : 'light'}
+                  color="green"
+                  size="sm"
+                  onClick={() => setMobileChartType('income')}
+                  style={{
+                    borderRadius: '20px',
+                    transition: 'all 0.3s ease',
+                    transform: mobileChartType === 'income' ? 'scale(1.05)' : 'scale(1)',
+                  }}
+                >
+                  💰 収入内訳
+                </Button>
+              </Group>
 
-            {/* 選択された円グラフを表示 */}
-            <div style={{
-              animation: 'fadeInScale 0.4s ease-out',
-              transform: 'translateY(0)',
-            }}>
-              {mobileChartType === 'expense' ? (
+              {/* 選択された円グラフを表示 */}
+              <div style={{
+                animation: 'fadeInScale 0.4s ease-out',
+                transform: 'translateY(0)',
+              }}>
+                {mobileChartType === 'expense' ? (
+                  <PieChart
+                    title={`${getMonthName(selectedMonth)}の支出内訳`}
+                    data={expenseChartData}
+                    totalAmount={selectedMonthData?.expense || 0}
+                    color="red"
+                  />
+                ) : (
+                  <PieChart
+                    title={`${getMonthName(selectedMonth)}の収入内訳`}
+                    data={incomeChartData}
+                    totalAmount={selectedMonthData?.income || 0}
+                    color="green"
+                  />
+                )}
+              </div>
+            </Stack>
+          ) : (
+            /* デスクトップ: 並列表示 */
+            <Grid>
+              <Grid.Col span={{ base: 12, lg: 6 }}>
                 <PieChart
                   title={`${getMonthName(selectedMonth)}の支出内訳`}
                   data={expenseChartData}
                   totalAmount={selectedMonthData?.expense || 0}
                   color="red"
                 />
-              ) : (
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 12, lg: 6 }}>
                 <PieChart
                   title={`${getMonthName(selectedMonth)}の収入内訳`}
                   data={incomeChartData}
                   totalAmount={selectedMonthData?.income || 0}
                   color="green"
                 />
-              )}
-            </div>
-          </Stack>
-        ) : (
-          /* デスクトップ: 並列表示 */
-          <Grid>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <PieChart
-                title={`${getMonthName(selectedMonth)}の支出内訳`}
-                data={expenseChartData}
-                totalAmount={selectedMonthData?.expense || 0}
-                color="red"
-              />
-            </Grid.Col>
-
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <PieChart
-                title={`${getMonthName(selectedMonth)}の収入内訳`}
-                data={incomeChartData}
-                totalAmount={selectedMonthData?.income || 0}
-                color="green"
-              />
-            </Grid.Col>
-          </Grid>
-        )}
+              </Grid.Col>
+            </Grid>
+          )
+        }
 
         <LineChart
           title="残高推移"
@@ -1148,74 +911,77 @@ export function DashboardContent() {
         />
 
         {/* モバイル用フローティングアクションボタン */}
-        {isMobile && (
-          <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
-            <Group gap="xs">
-              <Button
-                variant="light"
-                leftSection={<IconCalendar size={16} />}
-                onClick={() => setCalendarOpened(true)}
-                size="md"
-                color="blue"
-                style={{
-                  borderRadius: '25px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  paddingLeft: '16px',
-                  paddingRight: '20px',
-                  opacity: transactionFormOpened ? 0.3 : 1,
-                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                }}
-              >
-                📅
-              </Button>
-              <Button
-                variant="light"
-                leftSection={<IconRepeat size={16} />}
-                onClick={() => setRecurringManagerOpened(true)}
-                size="md"
-                color="orange"
-                style={{
-                  borderRadius: '25px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  paddingLeft: '16px',
-                  paddingRight: '20px',
-                  opacity: transactionFormOpened ? 0.3 : 1,
-                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                }}
-              >
-                定期
-              </Button>
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={() => setTransactionFormOpened(true)}
-                size="md"
-                style={{
-                  borderRadius: '25px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  paddingLeft: '16px',
-                  paddingRight: '20px',
-                  opacity: transactionFormOpened ? 0.3 : 1,
-                  pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                }}
-              >
-                追加
-              </Button>
-            </Group>
-          </Affix>
-        )}
-      </Stack>
+        {
+          isMobile && (
+            <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
+              <Group gap="xs">
+                <Button
+                  variant="light"
+                  leftSection={<IconCalendar size={16} />}
+                  onClick={() => setCalendarOpened(true)}
+                  size="md"
+                  color="blue"
+                  style={{
+                    borderRadius: '25px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    paddingLeft: '16px',
+                    paddingRight: '20px',
+                    opacity: transactionFormOpened ? 0.3 : 1,
+                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                  }}
+                >
+                  📅
+                </Button>
+                <Button
+                  variant="light"
+                  leftSection={<IconRepeat size={16} />}
+                  onClick={() => setRecurringManagerOpened(true)}
+                  size="md"
+                  color="orange"
+                  style={{
+                    borderRadius: '25px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    paddingLeft: '16px',
+                    paddingRight: '20px',
+                    opacity: transactionFormOpened ? 0.3 : 1,
+                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                  }}
+                >
+                  定期
+                </Button>
+                <Button
+                  leftSection={<IconPlus size={16} />}
+                  onClick={() => setTransactionFormOpened(true)}
+                  size="md"
+                  style={{
+                    borderRadius: '25px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    paddingLeft: '16px',
+                    paddingRight: '20px',
+                    opacity: transactionFormOpened ? 0.3 : 1,
+                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                  }}
+                >
+                  追加
+                </Button>
+              </Group>
+            </Affix>
+          )
+        }
+      </Stack >
 
       {/* 年間収支サマリーモーダル */}
-      <Modal
+      < Modal
         opened={yearSummaryOpened}
-        onClose={() => setYearSummaryOpened(false)}
+        onClose={() => setYearSummaryOpened(false)
+        }
         title={
-          <Group gap="sm">
+          < Group gap="sm" >
             <ThemeIcon size="lg" color="blue" variant="light">
               <IconTrendingUp size={20} />
             </ThemeIcon>
             <Text size="lg" fw={600}>{yearSummary.year}年 年間収支</Text>
-          </Group>
+          </Group >
         }
         size="lg"
         centered
@@ -1330,36 +1096,35 @@ export function DashboardContent() {
                   </Card>
                 );
               })}
-            </Stack>
-          </Box>
 
-          {/* 平均値 */}
-          <Box
-            p="md"
-            style={{
-              backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-              borderRadius: '8px',
-              border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))'
-            }}
-          >
-            <Text size="sm" fw={600} mb="sm">月平均</Text>
-            <Group gap="md">
-              <Text size="xs" c="dimmed">
-                収入: <Text component="span" fw={600} c="blue">
-                  ¥{Math.round(yearSummary.income / 12).toLocaleString()}
-                </Text>
-              </Text>
-              <Text size="xs" c="dimmed">
-                支出: <Text component="span" fw={600} c="red">
-                  ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
-                </Text>
-              </Text>
-              <Text size="xs" c="dimmed">
-                収支: <Text component="span" fw={600} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
-                  {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
-                </Text>
-              </Text>
-            </Group>
+              <Box
+                p="md"
+                style={{
+                  backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+                  borderRadius: '8px',
+                  border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))'
+                }}
+              >
+                <Text size="sm" fw={600} mb="sm">月平均</Text>
+                <Group gap="md">
+                  <Text size="xs" c="dimmed">
+                    収入: <Text component="span" fw={600} c="blue">
+                      ¥{Math.round(yearSummary.income / 12).toLocaleString()}
+                    </Text>
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    支出: <Text component="span" fw={600} c="red">
+                      ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
+                    </Text>
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    収支: <Text component="span" fw={600} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
+                      {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
+                    </Text>
+                  </Text>
+                </Group>
+              </Box>
+            </Stack>
           </Box>
         </Stack>
       </Modal>

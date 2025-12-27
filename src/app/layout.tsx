@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import '@mantine/core/styles.css';
@@ -51,7 +51,6 @@ export const metadata: Metadata = {
   title: "家計簿アプリ",
   description: "シンプルで使いやすい家計簿管理アプリ",
   manifest: "/manifest.json",
-  themeColor: "#1976d2",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -66,7 +65,8 @@ export const metadata: Metadata = {
   },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
+  themeColor: "#1976d2",
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5, // ズーム可能にして入力時の問題を回避

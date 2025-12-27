@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button, TextInput, Stack, Paper, Title, Text, Alert } from '@mantine/core';
+import { Button, TextInput, Stack, Paper, Title, Text, Alert, PasswordInput, Container, Group } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { IconMail, IconLock } from '@tabler/icons-react';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -25,32 +26,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       }
     }, 100);
 
-    // PWA環境での強制入力有効化
+    // PWA環境での強制入力有効化（CSSクラスとの併用）
     const enablePWAInput = () => {
       const inputs = document.querySelectorAll('[data-testid="email-input"] input, [data-testid="password-input"] input');
       inputs.forEach((input) => {
         const htmlInput = input as HTMLInputElement;
-        
-        // 強制的に入力可能にする
-        htmlInput.readOnly = false;
-        htmlInput.disabled = false;
-        htmlInput.style.pointerEvents = 'auto';
-        htmlInput.style.userSelect = 'text';
-        htmlInput.style.setProperty('-webkit-user-select', 'text');
-        htmlInput.style.setProperty('-webkit-touch-callout', 'default');
-        htmlInput.style.setProperty('touch-action', 'manipulation');
-        
-        // PWA環境での特別処理
+
+        // PWA環境での特別処理（イベントリスナーのみJSで制御）
         if (typeof window !== 'undefined') {
           const isStandalone = 'standalone' in window.navigator && (window.navigator as { standalone?: boolean }).standalone;
           if (isStandalone || window.matchMedia('(display-mode: standalone)').matches) {
-            htmlInput.addEventListener('touchstart', (e) => {
-              e.preventDefault();
+            htmlInput.addEventListener('touchstart', () => {
+              // e.preventDefault(); // preventDefaultはスクロールを阻害する場合があるため慎重に
               htmlInput.focus();
-              // キーボードを強制表示
-              htmlInput.click();
-            }, { passive: false });
-            
+            }, { passive: true });
+
             htmlInput.addEventListener('click', (e) => {
               e.stopPropagation();
               htmlInput.focus();
@@ -92,125 +82,100 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       }
       onSuccess?.();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'エラーが発生しました');
+      console.error(error);
+      setError('メールアドレスまたはパスワードが正しくありません。');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Paper withBorder shadow="md" p={30} mt={30} radius="md">
-      <Title order={2} ta="center" mb="md">
-        {isLogin ? 'ログイン' : 'アカウント作成'}
-      </Title>
-
-      {error && (
-        <Alert color="red" mb="md">
-          {error}
-        </Alert>
-      )}
-
-      <form onSubmit={form.onSubmit(handleSubmit)}>
-        <Stack>
-          <TextInput
-            ref={emailInputRef}
-            label="メールアドレス"
-            placeholder="your-email@example.com"
-            required
-            {...form.getInputProps('email')}
-            styles={{
-              input: {
-                fontSize: '16px !important', // PWA自動ズーム防止
-                WebkitUserSelect: 'text !important',
-                WebkitTouchCallout: 'default !important',
-                touchAction: 'manipulation !important',
-                WebkitAppearance: 'none !important',
-                appearance: 'none !important',
-                transform: 'translateZ(0)',
-                WebkitTransform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                outline: 'none',
-                border: '1px solid #ced4da',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                backgroundColor: '#ffffff !important',
-                color: '#000000 !important',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } as any // PWA対応のため!importantが必要
-            }}
-            inputMode="email"
-            autoComplete="email"
-            data-testid="email-input"
-            onTouchStart={(e) => {
-              // PWA環境でのタッチ開始時の処理
-              e.currentTarget.focus();
-            }}
-            onFocus={(e) => {
-              // フォーカス時の強制処理
-              e.currentTarget.style.backgroundColor = '#ffffff';
-              e.currentTarget.style.color = '#000000';
-            }}
-          />
-
-          <TextInput
-            label="パスワード"
-            placeholder="パスワード（6文字以上）"
-            type="password"
-            required
-            {...form.getInputProps('password')}
-            styles={{
-              input: {
-                fontSize: '16px !important', // PWA自動ズーム防止
-                WebkitUserSelect: 'text !important',
-                WebkitTouchCallout: 'default !important',
-                touchAction: 'manipulation !important',
-                WebkitAppearance: 'none !important',
-                appearance: 'none !important',
-                transform: 'translateZ(0)',
-                WebkitTransform: 'translateZ(0)',
-                backfaceVisibility: 'hidden',
-                WebkitBackfaceVisibility: 'hidden',
-                outline: 'none',
-                border: '1px solid #ced4da',
-                borderRadius: '4px',
-                padding: '8px 12px',
-                backgroundColor: '#ffffff !important',
-                color: '#000000 !important',
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              } as any // PWA対応のため!importantが必要
-            }}
-            autoComplete="current-password"
-            data-testid="password-input"
-            onTouchStart={(e) => {
-              // PWA環境でのタッチ開始時の処理
-              e.currentTarget.focus();
-            }}
-            onFocus={(e) => {
-              // フォーカス時の強制処理
-              e.currentTarget.style.backgroundColor = '#ffffff';
-              e.currentTarget.style.color = '#000000';
-            }}
-          />
-
-          <Button type="submit" loading={loading} fullWidth>
-            {isLogin ? 'ログイン' : 'アカウント作成'}
-          </Button>
-        </Stack>
-      </form>
-
-      <Text ta="center" mt="md">
-        {isLogin ? 'アカウントをお持ちでない方は' : 'すでにアカウントをお持ちの方は'}
-        <Text
-          component="button"
-          type="button"
-          c="blue"
-          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-          onClick={() => setIsLogin(!isLogin)}
+    <Container size="xs" my={60}>
+      <Stack align="center" mb="lg">
+        <Title
+          order={1}
+          style={{
+            background: 'linear-gradient(45deg, #2196F3 0%, #21CBF3 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+          }}
         >
-          {isLogin ? 'こちら' : 'ログイン'}
+          Kakeibo App
+        </Title>
+        <Text c="dimmed" size="sm">
+          シンプルで使いやすい家計簿アプリ
         </Text>
-      </Text>
-    </Paper>
+      </Stack>
+
+      <Paper
+        className="glass"
+        radius="lg"
+        p={30}
+        shadow="xl"
+      >
+        <Title order={2} ta="center" mb="md" size="h3">
+          {isLogin ? 'ログイン' : 'アカウント作成'}
+        </Title>
+
+        {error && (
+          <Alert color="red" mb="md" variant="light" radius="md">
+            {error}
+          </Alert>
+        )}
+
+        <form onSubmit={form.onSubmit(handleSubmit)}>
+          <Stack gap="md">
+            <TextInput
+              ref={emailInputRef}
+              label="メールアドレス"
+              placeholder="hello@example.com"
+              required
+              {...form.getInputProps('email')}
+              classNames={{ input: 'pwa-input glass-input' }}
+              leftSection={<IconMail size={16} />}
+              data-testid="email-input"
+              inputMode="email"
+            />
+
+            <PasswordInput
+              label="パスワード"
+              placeholder="パスワード（6文字以上）"
+              required
+              {...form.getInputProps('password')}
+              classNames={{ input: 'pwa-input glass-input' }}
+              leftSection={<IconLock size={16} />}
+              data-testid="password-input"
+            />
+
+            <Button
+              type="submit"
+              loading={loading}
+              fullWidth
+              size="md"
+              radius="md"
+              variant="gradient"
+              gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
+            >
+              {isLogin ? 'ログイン' : '登録する'}
+            </Button>
+          </Stack>
+        </form>
+
+        <Group justify="center" mt="xl" gap="xs">
+          <Text size="sm" c="dimmed">
+            {isLogin ? 'アカウントをお持ちでない方は' : 'すでにアカウントをお持ちの方は'}
+          </Text>
+          <Button
+            variant="subtle"
+            size="sm"
+            onClick={() => setIsLogin(!isLogin)}
+            color="blue"
+          >
+            {isLogin ? '新規登録' : 'ログイン'}
+          </Button>
+        </Group>
+      </Paper>
+    </Container>
   );
 };
