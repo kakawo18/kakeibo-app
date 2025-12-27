@@ -101,10 +101,52 @@ export const useRecurringTransactions = () => {
     return recurringTransactions.filter((transaction) => transaction.isEnabled);
   };
 
-  const shouldShowRecurringTransaction = (transaction: RecurringTransaction) => {
+  const shouldShowRecurringTransaction = (
+    recurring: RecurringTransaction,
+    existingTransactions: any[] = []
+  ) => {
     const today = new Date();
     const currentDay = today.getDate();
-    return currentDay >= transaction.dayOfMonth;
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    // 1. 日付チェック: 設定日を過ぎているか
+    if (currentDay < recurring.dayOfMonth) {
+      return false;
+    }
+
+    // 2. 済みチェック: 今月すでに登録済みか
+    // (金額、カテゴリ、サブカテゴリ、そして説明文(名前)が一致する取引が今月に存在するか確認)
+    const alreadyRecorded = existingTransactions.some((t) => {
+      const tDate = new Date(t.date);
+      const isSameMonth =
+        tDate.getFullYear() === currentYear &&
+        tDate.getMonth() === currentMonth;
+
+      if (!isSameMonth) return false;
+
+      // カテゴリ・金額の一致
+      const isBasicMatch =
+        t.category === recurring.category &&
+        t.amount === recurring.amount &&
+        (recurring.subcategory ? t.subcategory === recurring.subcategory : true);
+
+      if (!isBasicMatch) return false;
+
+      // 名前（description）による厳密なチェック
+      // 登録時に description に recurring.name が入るようになったため、
+      // これが一致すれば「この定期取引から生成された」とみなせる。
+      // ※古いデータなどはdescriptionがないかもしれないので、その場合はBasicMatchだけで判定せざるを得ないが、
+      // 今回の修正で「同じ金額の別定期取引」が消えるのを防ぐにはこれが必須。
+      if (recurring.name && t.description) {
+        return t.description.includes(recurring.name);
+      }
+
+      // descriptionがない場合は、BasicMatchだけで緩く判定（従来通り）
+      return true;
+    });
+
+    return !alreadyRecorded;
   };
 
   return {

@@ -59,10 +59,11 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
       category: transaction.category,
       subcategory: transaction.subcategory || '',
       paymentMethod: transaction.paymentMethod || '',
-      description: '',
+      // メモの初期値として定期取引名を設定
+      description: transaction.name || '',
     });
     form.resetDirty();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, transaction]);
 
   const categories = useMemo(() => EXPENSE_CATEGORIES, []);

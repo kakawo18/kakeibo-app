@@ -250,8 +250,9 @@ export function DashboardContent() {
   // 表示すべき定期取引を取得
   const displayRecurringTransactions = useMemo(() => {
     const active = getActiveRecurringTransactions();
-    return active.filter(transaction => shouldShowRecurringTransaction(transaction));
-  }, [getActiveRecurringTransactions, shouldShowRecurringTransaction]);
+    // 全取引履歴（transactions）を渡して、今月登録済みかをチェック
+    return active.filter(transaction => shouldShowRecurringTransaction(transaction, transactions));
+  }, [getActiveRecurringTransactions, shouldShowRecurringTransaction, transactions]);
 
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
