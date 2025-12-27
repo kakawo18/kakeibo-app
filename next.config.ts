@@ -2,33 +2,29 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
-  
+
   // Vercelデプロイ最適化
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', '@tabler/icons-react'],
   },
-  
+
   // TypeScript設定
   typescript: {
     // ビルド時の型チェックを厳密に
     ignoreBuildErrors: false,
   },
-  
-  // ESLint設定
-  eslint: {
-    // ビルド時のESLintチェックを有効化
-    ignoreDuringBuilds: false,
-  },
-  
+
+
+
   // 環境変数の検証
   env: {
     CUSTOM_KEY: process.env.CUSTOM_KEY,
   },
-  
+
   // パフォーマンス最適化
   compress: true,
   poweredByHeader: false,
-  
+
   // PWA設定
   async headers() {
     return [
