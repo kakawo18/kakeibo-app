@@ -905,7 +905,7 @@ export function DashboardContent() {
           onClose={() => setCalendarOpened(false)}
           value={calendarSelectedDate}
           onChange={handleCalendarDateChange}
-          mode="view" // 閲覧モード（取引詳細表示可能）
+
           transactions={transactions.map(t => ({
             id: t.id,
             date: t.date,

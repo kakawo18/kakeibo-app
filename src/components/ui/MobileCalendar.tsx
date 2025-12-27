@@ -14,17 +14,20 @@ import {
   Badge,
   Card,
   Divider,
+  Drawer,
+  ScrollArea,
+  ThemeIcon,
+  useMantineTheme,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { motion } from 'framer-motion';
+import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MobileCalendarProps {
   opened: boolean;
   onClose: () => void;
   value: Date;
   onChange: (date: Date) => void;
-  mode?: 'select' | 'view'; // 新しいモードプロパティ
   transactions?: Array<{
     id: string;
     date: Date;
@@ -33,7 +36,9 @@ interface MobileCalendarProps {
     category: string;
     subcategory?: string;
     description?: string;
+    paymentMethod?: string;
   }>;
+  isSelector?: boolean;
 }
 
 export const MobileCalendar: React.FC<MobileCalendarProps> = ({
@@ -41,18 +46,17 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   onClose,
   value,
   onChange,
-  mode = 'view', // デフォルトは閲覧モード
   transactions = [],
+  isSelector = false,
 }) => {
+  const theme = useMantineTheme();
   const [currentDate, setCurrentDate] = useState(value);
   const [selectedDate, setSelectedDate] = useState(value);
-  const [showDayTransactions, setShowDayTransactions] = useState(false);
-  const [dayTransactionsDate, setDayTransactionsDate] = useState<Date | null>(null);
+  const [drawerOpened, setDrawerOpened] = useState(false);
 
   // レスポンシブ対応
-  const isLandscape = useMediaQuery('(orientation: landscape)');
-  const isSmallScreen = useMediaQuery('(max-width: 480px)');
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const isSmallScreen = useMediaQuery('(max-width: 380px)');
 
   // propsが変更された時にselectedDateを更新
   useEffect(() => {
@@ -60,51 +64,14 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     setCurrentDate(value);
   }, [value]);
 
-  const handleDateSelect = (date: Date) => {
-    try {
-      // 日付の妥当性チェック
-      if (!date || isNaN(date.getTime())) {
-        console.error('Invalid date selected:', date);
-        return;
-      }
-      
-      setSelectedDate(date);
+  const handleDateClick = (date: Date) => {
+    setSelectedDate(date);
+
+    if (isSelector) {
       onChange(date);
-      onClose();
-    } catch (error) {
-      console.error('Error in handleDateSelect:', error);
-    }
-  };
-
-
-
-  const handleShowDayTransactions = (date: Date) => {
-    if (mode === 'select') {
-      // 選択モード: 常に日付選択（取引があっても詳細表示しない）
-      handleDateSelect(date);
-      return;
-    }
-    
-    // 閲覧モード: 取引がある場合は詳細表示、ない場合は日付選択
-    // ローカルタイムゾーンでの日付比較
-    const dayTransactions = transactions.filter(t => 
-      t.date.getFullYear() === date.getFullYear() &&
-      t.date.getMonth() === date.getMonth() &&
-      t.date.getDate() === date.getDate()
-    );
-    
-    if (dayTransactions.length > 0) {
-      setDayTransactionsDate(date);
-      setShowDayTransactions(true);
     } else {
-      handleDateSelect(date);
+      setDrawerOpened(true);
     }
-  };
-
-  const handleQuickSelect = (daysBack: number) => {
-    const date = new Date();
-    date.setDate(date.getDate() - daysBack);
-    handleDateSelect(date);
   };
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
@@ -115,23 +82,6 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
       newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
-  };
-
-  const handleYearChange = (year: string | null) => {
-    if (year) {
-      const newDate = new Date(currentDate);
-      newDate.setFullYear(parseInt(year));
-      setCurrentDate(newDate);
-    }
-  };
-
-  const generateYearOptions = () => {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = currentYear - 2; i <= currentYear + 1; i++) {
-      years.push({ value: i.toString(), label: `${i}年` });
-    }
-    return years;
   };
 
   const monthNames = [
@@ -145,20 +95,15 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
-    const endDate = new Date(lastDay);
 
-    // 月の最初の日の曜日まで前月の日付で埋める
     startDate.setDate(firstDay.getDate() - firstDay.getDay());
-
-    // 月の最後の日の後を次月の日付で埋める
-    endDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
 
     const days = [];
     const currentDateLoop = new Date(startDate);
 
-    while (currentDateLoop <= endDate) {
+    // 42日固定
+    for (let i = 0; i < 42; i++) {
       days.push(new Date(currentDateLoop));
       currentDateLoop.setDate(currentDateLoop.getDate() + 1);
     }
@@ -169,641 +114,308 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   const isToday = (date: Date) => {
     const today = new Date();
     return date.getFullYear() === today.getFullYear() &&
-           date.getMonth() === today.getMonth() &&
-           date.getDate() === today.getDate();
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
   };
 
   const isSelected = (date: Date) => {
     return date.getFullYear() === selectedDate.getFullYear() &&
-           date.getMonth() === selectedDate.getMonth() &&
-           date.getDate() === selectedDate.getDate();
+      date.getMonth() === selectedDate.getMonth() &&
+      date.getDate() === selectedDate.getDate();
   };
 
   const isCurrentMonth = (date: Date) => {
     return date.getMonth() === currentDate.getMonth();
   };
 
-  const isWeekend = (date: Date) => {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  };
-
-  // 日別の収支を計算（ローカルタイムゾーン対応）
+  // 日別の収支を計算
   const getDailyBalance = (date: Date) => {
-    const dayTransactions = transactions.filter(t => 
+    const dayTransactions = transactions.filter(t =>
       t.date.getFullYear() === date.getFullYear() &&
       t.date.getMonth() === date.getMonth() &&
       t.date.getDate() === date.getDate()
     );
 
     const income = dayTransactions
-      .filter(t => t.type === 'income')
+      .filter(t =>
+        t.type === 'income' &&
+        t.category !== '立替回収'
+      )
       .reduce((sum, t) => sum + t.amount, 0);
 
     const expense = dayTransactions
-      .filter(t => t.type === 'expense')
+      .filter(t =>
+        t.type === 'expense' &&
+        t.category !== '立替金' &&
+        !(t.category === '固定費' && t.subcategory === '投資')
+      )
       .reduce((sum, t) => sum + t.amount, 0);
 
     return { income, expense, balance: income - expense };
   };
 
   const calendarDays = generateCalendarDays();
+  const { income: selectedIncome, expense: selectedExpense, balance: selectedBalance } = getDailyBalance(selectedDate);
+  const selectedDayTransactions = transactions.filter(t =>
+    t.date.getFullYear() === selectedDate.getFullYear() &&
+    t.date.getMonth() === selectedDate.getMonth() &&
+    t.date.getDate() === selectedDate.getDate()
+  );
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title="日付を選択"
-      size={isMobile ? "full" : "lg"}
-      fullScreen={isMobile}
-      radius={isMobile ? 0 : 8}
-      styles={{
-        body: {
-          padding: isMobile ? (isLandscape ? '12px' : '16px') : '20px',
-          height: isMobile ? '100%' : 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: isMobile ? 'hidden' : 'visible',
-        },
-        content: {
-          height: isMobile ? '100vh' : 'auto',
-          width: isMobile ? '100vw' : 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: isMobile ? 'hidden' : 'visible',
-        },
-        header: {
-          padding: isMobile ? (isLandscape ? '12px 16px' : '16px') : '20px 20px 0 20px',
-          flexShrink: 0,
-        },
-      }}
-    >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        style={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: isLandscape ? 'row' : 'column',
-          overflow: 'hidden'
-        }}
+    <>
+      <Modal
+        opened={opened}
+        onClose={onClose}
+        withCloseButton={false}
+        fullScreen={true}
+        padding={0}
+        transitionProps={{ duration: 200, transition: 'fade' }}
       >
-        {isMobile && isLandscape ? (
-          // 横画面レイアウト
-          <>
-            {/* 左側: クイック選択とナビゲーション */}
-            <Box style={{
-              width: '200px',
-              padding: '16px 12px',
-              borderRight: '1px solid var(--mantine-color-gray-3)',
-              flexShrink: 0
-            }}>
-              <Stack gap="md">
-                {/* クイック選択ボタン */}
-                <Stack gap="xs">
-                  <Text size="sm" fw={600} c="dimmed">クイック選択</Text>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => handleQuickSelect(0)}
-                    fullWidth
-                  >
-                    今日
-                  </Button>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => handleQuickSelect(1)}
-                    fullWidth
-                  >
-                    昨日
-                  </Button>
-                  <Button
-                    variant="light"
-                    size="xs"
-                    onClick={() => handleQuickSelect(2)}
-                    fullWidth
-                  >
-                    一昨日
-                  </Button>
-                </Stack>
+        <Box style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--mantine-color-body)' }}>
 
-                {/* 年月選択 */}
-                <Stack gap="xs">
-                  <Text size="sm" fw={600} c="dimmed">年月選択</Text>
-                  <Select
-                    data={generateYearOptions()}
-                    value={currentDate.getFullYear().toString()}
-                    onChange={handleYearChange}
-                    size="xs"
-                  />
-                  <Group gap="xs">
-                    <ActionIcon
-                      variant="light"
-                      size="sm"
-                      onClick={() => handleMonthChange('prev')}
-                    >
-                      <IconChevronLeft size={16} />
-                    </ActionIcon>
-                    <Text size="sm" fw={600} style={{ flex: 1, textAlign: 'center' }}>
-                      {monthNames[currentDate.getMonth()]}
-                    </Text>
-                    <ActionIcon
-                      variant="light"
-                      size="sm"
-                      onClick={() => handleMonthChange('next')}
-                    >
-                      <IconChevronRight size={16} />
-                    </ActionIcon>
-                  </Group>
-                </Stack>
-              </Stack>
-            </Box>
-
-            {/* 右側: カレンダー */}
-            <Box style={{ flex: 1, padding: '16px 12px', overflow: 'hidden' }}>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, delay: 0.3 }}
-                style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-              >
-                <Box style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                  {/* 曜日ヘッダー */}
-                  <SimpleGrid cols={7} spacing={4} style={{ marginBottom: '8px', flexShrink: 0 }}>
-                    {weekdays.map((day, index) => (
-                      <Box
-                        key={day}
-                        style={{
-                          textAlign: 'center',
-                          padding: '4px 2px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: index === 0 || index === 6 ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)',
-                          minHeight: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {day}
-                      </Box>
-                    ))}
-                  </SimpleGrid>
-
-                  {/* カレンダーグリッド */}
-                  <SimpleGrid cols={7} spacing={4} style={{ flex: 1 }}>
-                    {calendarDays.map((date, index) => {
-                      const today = isToday(date);
-                      const selected = isSelected(date);
-                      const currentMonth = isCurrentMonth(date);
-                      const weekend = isWeekend(date);
-                      const { income, expense, balance } = getDailyBalance(date);
-
-                      return (
-                        <Box
-                          key={index}
-                          onClick={() => handleShowDayTransactions(date)}
-                          style={{
-                            aspectRatio: '1',
-                            width: '100%',
-                            maxWidth: '50px',
-                            minHeight: '45px',
-                            fontSize: '11px',
-                            fontWeight: selected ? 700 : 500,
-                            borderRadius: '4px',
-                            border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
-                            color: !currentMonth
-                              ? 'var(--mantine-color-gray-4)'
-                              : weekend
-                                ? 'var(--mantine-color-red-6)'
-                                : selected
-                                  ? 'white'
-                                  : 'var(--mantine-color-gray-8)',
-                            backgroundColor: selected
-                              ? 'var(--mantine-color-blue-6)'
-                              : today
-                                ? 'var(--mantine-color-blue-0)'
-                                : 'transparent',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            opacity: currentMonth ? 1 : 0.6,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                            userSelect: 'none',
-                            margin: '0 auto',
-                            padding: '2px',
-                          }}
-                        >
-                          <Text size="xs" fw={selected ? 700 : 600}>
-                            {date.getDate()}
-                          </Text>
-                          {currentMonth && (income > 0 || expense > 0) && (
-                            <Text
-                              size="8px"
-                              c={selected ? 'white' : balance >= 0 ? 'green' : 'red'}
-                              fw={500}
-                              style={{
-                                lineHeight: 1,
-                                marginTop: '1px',
-                                opacity: 0.8
-                              }}
-                            >
-                              {balance >= 0 ? '+' : ''}¥{Math.abs(balance) >= 10000
-                                ? `${Math.floor(Math.abs(balance) / 1000)}k`
-                                : Math.abs(balance).toLocaleString()}
-                            </Text>
-                          )}
-                        </Box>
-                      );
-                    })}
-                  </SimpleGrid>
-                </Box>
-              </motion.div>
-            </Box>
-          </>
-        ) : (
-          // 縦画面レイアウト（元のデザイン）
-          <Stack style={{ flex: 1, overflow: 'hidden' }}>
-            {/* クイック選択ボタン */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              style={{ flexShrink: 0 }}
-            >
-              <Group gap="xs" style={{ marginBottom: isSmallScreen ? '12px' : '16px' }}>
-                <Button
-                  variant="light"
-                  size={isSmallScreen ? "xs" : "sm"}
-                  onClick={() => handleQuickSelect(0)}
-                  style={{ flex: 1 }}
-                >
-                  今日
-                </Button>
-                <Button
-                  variant="light"
-                  size={isSmallScreen ? "xs" : "sm"}
-                  onClick={() => handleQuickSelect(1)}
-                  style={{ flex: 1 }}
-                >
-                  昨日
-                </Button>
-                <Button
-                  variant="light"
-                  size={isSmallScreen ? "xs" : "sm"}
-                  onClick={() => handleQuickSelect(2)}
-                  style={{ flex: 1 }}
-                >
-                  一昨日
-                </Button>
+          {/* Header */}
+          <Box
+            px="md"
+            pt="md"
+            pb="xs"
+            style={{
+              borderBottom: '1px solid var(--mantine-color-gray-2)',
+              backgroundColor: 'var(--mantine-color-body)',
+              zIndex: 10
+            }}
+          >
+            <Group justify="space-between" align="center" mb="xs">
+              <ActionIcon variant="subtle" color="gray" onClick={onClose} size="lg">
+                <IconX />
+              </ActionIcon>
+              <Group gap={4}>
+                <Text size="lg" fw={400} c="dimmed">{currentDate.getFullYear()}年</Text>
+                <Text size="xl" fw={700}>{monthNames[currentDate.getMonth()]}</Text>
               </Group>
-            </motion.div>
-
-            {/* 年月選択 - スワイプ対応 */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              style={{ flexShrink: 0 }}
-            >
-              <Group justify="space-between" style={{ marginBottom: isSmallScreen ? '12px' : '16px' }}>
-                <ActionIcon
-                  variant="light"
-                  size="xl"
-                  onClick={() => handleMonthChange('prev')}
-                  style={{ 
-                    minWidth: '48px', 
-                    minHeight: '48px',
-                    touchAction: 'manipulation',
-                  }}
-                >
-                  <IconChevronLeft size={24} />
+              <Group gap={0}>
+                <ActionIcon variant="subtle" color="gray" onClick={() => handleMonthChange('prev')} size="lg">
+                  <IconChevronLeft />
                 </ActionIcon>
-
-                <motion.div
-                  drag="x"
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.2}
-                  dragMomentum={false}
-                  onDragEnd={(e, info) => {
-                    // 50px以上スワイプしたら月を変更
-                    if (info.offset.x > 50) {
-                      handleMonthChange('prev');
-                    } else if (info.offset.x < -50) {
-                      handleMonthChange('next');
-                    }
-                  }}
-                  style={{
-                    cursor: 'grab',
-                    touchAction: 'none',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    WebkitTouchCallout: 'none',
-                  }}
-                  whileTap={{ cursor: 'grabbing', scale: 0.98 }}
-                >
-                  <Group gap="sm" style={{ 
-                    padding: '8px 16px',
-                    pointerEvents: 'none',
-                  }}>
-                    <Box style={{ pointerEvents: 'auto' }}>
-                      <Select
-                        data={generateYearOptions()}
-                        value={currentDate.getFullYear().toString()}
-                        onChange={handleYearChange}
-                        size={isSmallScreen ? "sm" : "md"}
-                        style={{ width: isSmallScreen ? '80px' : '90px' }}
-                        styles={{
-                          input: {
-                            fontSize: '16px',
-                            fontWeight: 600,
-                          }
-                        }}
-                      />
-                    </Box>
-                    <Text size={isSmallScreen ? "lg" : "xl"} fw={700}>
-                      {monthNames[currentDate.getMonth()]}
-                    </Text>
-                  </Group>
-                  <Text 
-                    size="xs" 
-                    c="dimmed" 
-                    ta="center"
-                    style={{ 
-                      marginTop: '-4px',
-                      fontSize: '10px',
-                      opacity: 0.6,
-                    }}
-                  >
-                    ← スワイプで移動 →
-                  </Text>
-                </motion.div>
-
-                <ActionIcon
-                  variant="light"
-                  size="xl"
-                  onClick={() => handleMonthChange('next')}
-                  style={{ 
-                    minWidth: '48px', 
-                    minHeight: '48px',
-                    touchAction: 'manipulation',
-                  }}
-                >
-                  <IconChevronRight size={24} />
+                <ActionIcon variant="subtle" color="gray" onClick={() => handleMonthChange('next')} size="lg">
+                  <IconChevronRight />
                 </ActionIcon>
               </Group>
-            </motion.div>
+            </Group>
 
-            {/* カスタムカレンダー */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.3 }}
+            {/* Weekdays */}
+            <SimpleGrid cols={7} spacing={0}>
+              {weekdays.map((day, index) => (
+                <Text
+                  key={day}
+                  ta="center"
+                  size="xs"
+                  fw={600}
+                  c={index === 0 ? 'red.6' : index === 6 ? 'blue.6' : 'dimmed'}
+                  style={{ textTransform: 'uppercase' }}
+                >
+                  {day}
+                </Text>
+              ))}
+            </SimpleGrid>
+          </Box>
+
+          {/* Calendar Grid */}
+          <motion.div
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={(e, info) => {
+              if (info.offset.x > 50) handleMonthChange('prev');
+              if (info.offset.x < -50) handleMonthChange('next');
+            }}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', touchAction: 'none' }}
+          >
+            {/* Grid with Google Calendar Style borders */}
+            <SimpleGrid
+              cols={7}
+              spacing={0}
+              h="100%"
               style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '0',
-                overflow: 'hidden'
+                borderTop: '1px solid var(--mantine-color-gray-2)',
+                borderLeft: '1px solid var(--mantine-color-gray-2)' // Close the grid
               }}
             >
-              <Box style={{ padding: '4px 0', width: '100%' }}>
-                {/* 曜日ヘッダー */}
-                <SimpleGrid cols={7} spacing={2} style={{ marginBottom: '4px', width: '100%' }}>
-                  {weekdays.map((day, index) => (
-                    <Box
-                      key={day}
-                      style={{
-                        textAlign: 'center',
-                        padding: '4px 2px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        color: index === 0 || index === 6 ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-gray-6)',
-                        minHeight: '20px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {day}
-                    </Box>
-                  ))}
-                </SimpleGrid>
+              {calendarDays.map((date, index) => {
+                const today = isToday(date);
+                const selected = isSelected(date);
+                const currentMonth = isCurrentMonth(date);
+                const isSun = date.getDay() === 0;
+                const isSat = date.getDay() === 6;
+                const { income, expense, balance } = getDailyBalance(date);
+                const hasIncome = income > 0;
+                const hasExpense = expense > 0;
+                const isFirstDay = date.getDate() === 1;
 
-                {/* カレンダーグリッド */}
-                <SimpleGrid cols={7} spacing={2} style={{ width: '100%' }}>
-                  {calendarDays.map((date, index) => {
-                    const today = isToday(date);
-                    const selected = isSelected(date);
-                    const currentMonth = isCurrentMonth(date);
-                    const weekend = isWeekend(date);
-                    const { income, expense, balance } = getDailyBalance(date);
-
-                    return (
-                      <Box
-                        key={index}
-                        onClick={() => handleShowDayTransactions(date)}
+                return (
+                  <Box
+                    key={index}
+                    onClick={() => handleDateClick(date)}
+                    style={{
+                      borderBottom: '1px solid var(--mantine-color-gray-2)',
+                      borderRight: '1px solid var(--mantine-color-gray-2)',
+                      // Selected state: Tinted background + Inner shadow border
+                      backgroundColor: selected
+                        ? 'rgba(33, 150, 243, 0.1)'
+                        : (today ? 'rgba(33, 150, 243, 0.05)' : 'transparent'),
+                      boxShadow: selected ? 'inset 0 0 0 2px var(--mantine-color-blue-5)' : 'none',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start', // Top aligned content
+                      padding: '4px',
+                      opacity: currentMonth ? 1 : 0.3,
+                      minHeight: '80px', // Taller per user preference
+                    }}
+                  >
+                    {/* Date Number */}
+                    <Box mt={2} mb={2}>
+                      <Text
+                        size="sm"
+                        fw={today ? 700 : 500}
+                        c={today ? 'blue.6' : isSun ? 'red.6' : isSat ? 'blue.6' : 'var(--mantine-color-text)'}
                         style={{
-                          aspectRatio: '1',
-                          width: '100%',
-                          maxWidth: '44px',
-                          minHeight: '48px',
-                          fontSize: '12px',
-                          fontWeight: selected ? 700 : 500,
-                          borderRadius: '6px',
-                          border: today ? '2px solid var(--mantine-color-blue-5)' : '1px solid transparent',
-                          color: !currentMonth
-                            ? 'var(--mantine-color-gray-4)'
-                            : weekend
-                              ? 'var(--mantine-color-red-6)'
-                              : selected
-                                ? 'white'
-                                : 'var(--mantine-color-gray-8)',
-                          backgroundColor: selected
-                            ? 'var(--mantine-color-blue-6)'
-                            : today
-                              ? 'var(--mantine-color-blue-0)'
-                              : 'transparent',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.15s ease, transform 0.1s ease',
-                          opacity: currentMonth ? 1 : 0.6,
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
                           textAlign: 'center',
-                          userSelect: 'none',
-                          WebkitUserSelect: 'none',
-                          WebkitTapHighlightColor: 'transparent',
-                          margin: '0 auto',
-                          padding: '2px',
-                          touchAction: 'manipulation',
+                          lineHeight: '1.2',
                         }}
                       >
-                        <Text size="sm" fw={selected ? 700 : 600}>
-                          {date.getDate()}
-                        </Text>
-                        {currentMonth && (income > 0 || expense > 0) && (
-                          <Text
-                            size="9px"
-                            c={selected ? 'white' : balance >= 0 ? 'green' : 'red'}
-                            fw={500}
-                            style={{
-                              lineHeight: 1,
-                              marginTop: '1px',
-                              opacity: 0.8
-                            }}
-                          >
-                            {balance >= 0 ? '+' : ''}¥{Math.abs(balance) >= 10000
-                              ? `${Math.floor(Math.abs(balance) / 1000)}k`
-                              : Math.abs(balance).toLocaleString()}
-                          </Text>
-                        )}
-                      </Box>
-                    );
-                  })}
-                </SimpleGrid>
-              </Box>
-            </motion.div>
-
-            {/* 選択した日付の表示 */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
-              style={{ flexShrink: 0 }}
-            >
-              <Box
-                style={{
-                  backgroundColor: 'var(--mantine-color-dark-3)',
-                  padding: isSmallScreen ? '8px' : '12px',
-                  borderRadius: '8px',
-                  marginTop: isSmallScreen ? '8px' : '16px',
-                }}
-              >
-                <Text size="xs" c="dimmed">選択した日付</Text>
-                <Text size={isSmallScreen ? "md" : "lg"} fw={600} c="blue">
-                  {selectedDate.toLocaleDateString('ja-JP', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    weekday: 'long',
-                  })}
-                </Text>
-              </Box>
-            </motion.div>
-          </Stack>
-        )}
-      </motion.div>
-
-      {/* 日別取引詳細表示モーダル */}
-      <Modal
-        opened={showDayTransactions}
-        onClose={() => setShowDayTransactions(false)}
-        title={dayTransactionsDate ? `${dayTransactionsDate.toLocaleDateString('ja-JP', {
-          month: 'long',
-          day: 'numeric',
-          weekday: 'short',
-        })}の取引履歴` : '取引履歴'}
-        size="md"
-        centered
-      >
-        {dayTransactionsDate && (
-          <Stack gap="sm">
-            {transactions
-              .filter(t => 
-                dayTransactionsDate &&
-                t.date.getFullYear() === dayTransactionsDate.getFullYear() &&
-                t.date.getMonth() === dayTransactionsDate.getMonth() &&
-                t.date.getDate() === dayTransactionsDate.getDate()
-              )
-              .map((transaction) => (
-                <Card key={transaction.id} withBorder p="sm">
-                  <Group justify="space-between" align="flex-start">
-                    <Box>
-                      <Group gap="xs" mb="xs">
-                        <Badge
-                          color={transaction.type === 'income' ? 'green' : 'red'}
-                          size="sm"
-                        >
-                          {transaction.type === 'income' ? '収入' : '支出'}
-                        </Badge>
-                      </Group>
-                      <Text fw={600} size="sm" mb={2}>
-                        {transaction.category}
+                        {/* Display Month for 1st day (e.g. 4月 1日) */}
+                        {isFirstDay ? `${date.getMonth() + 1}月 ${date.getDate()}日` : date.getDate()}
                       </Text>
-                      {transaction.subcategory && (
-                        <Text size="xs" c="dimmed" mb={2}>
-                          📂 {transaction.subcategory}
-                        </Text>
-                      )}
-                      {transaction.description && (
-                        <Text size="xs" c="dimmed" style={{ fontStyle: 'italic' }}>
-                          💭 {transaction.description}
-                        </Text>
-                      )}
                     </Box>
-                    <Text
-                      c={transaction.type === 'income' ? 'green' : 'red'}
-                      fw={700}
-                      size="lg"
-                    >
-                      {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
-                    </Text>
-                  </Group>
-                </Card>
-              ))}
 
-            {/* 日別合計 */}
-            <Divider />
-            <Card withBorder p="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
-              <Group justify="space-between">
-                <Text fw={600}>この日の合計</Text>
-                <Box style={{ textAlign: 'right' }}>
-                  {(() => {
-                    const dayTransactions = transactions.filter(t =>
-                      dayTransactionsDate &&
-                      t.date.getFullYear() === dayTransactionsDate.getFullYear() &&
-                      t.date.getMonth() === dayTransactionsDate.getMonth() &&
-                      t.date.getDate() === dayTransactionsDate.getDate()
-                    );
-                    const income = dayTransactions
-                      .filter(t => t.type === 'income')
-                      .reduce((sum, t) => sum + t.amount, 0);
-                    const expense = dayTransactions
-                      .filter(t => t.type === 'expense')
-                      .reduce((sum, t) => sum + t.amount, 0);
-                    const balance = income - expense;
+                    {/* Dot Indicators & Balance */}
+                    {(hasIncome || hasExpense) && (
+                      <Stack gap={2} mt="auto" mb={2} align="center" w="100%">
+                        {/* Dots */}
+                        <Group gap={4} h={6}>
+                          {hasIncome && (
+                            <Box style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--mantine-color-teal-5)'
+                            }} />
+                          )}
+                          {hasExpense && (
+                            <Box style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--mantine-color-red-5)'
+                            }} />
+                          )}
+                        </Group>
 
-                    return (
-                      <Stack gap="xs" align="flex-end">
-                        {income > 0 && (
-                          <Text size="sm" c="green">
-                            収入: +¥{income.toLocaleString()}
-                          </Text>
-                        )}
-                        {expense > 0 && (
-                          <Text size="sm" c="red">
-                            支出: -¥{expense.toLocaleString()}
-                          </Text>
-                        )}
-                        <Text fw={700} c={balance >= 0 ? 'green' : 'red'}>
-                          収支: {balance >= 0 ? '+' : ''}¥{balance.toLocaleString()}
+                        {/* Balance Text */}
+                        <Text
+                          size={isSmallScreen ? "8px" : "10px"} // Small but crisp
+                          fw={600}
+                          c={balance >= 0 ? 'teal.7' : 'red.7'}
+                          style={{ lineHeight: 1 }}
+                        >
+                          {balance >= 0 ? '+' : '▲'}{Math.abs(balance) >= 10000 ? `${Math.round(Math.abs(balance) / 1000)}k` : Math.abs(balance).toLocaleString()}
                         </Text>
                       </Stack>
-                    );
-                  })()}
-                </Box>
+                    )}
+                  </Box>
+                );
+              })}
+            </SimpleGrid>
+          </motion.div>
+        </Box>
+      </Modal>
+
+      {/* Detail Drawer - Unchanged */}
+      <Drawer
+        opened={drawerOpened}
+        onClose={() => setDrawerOpened(false)}
+        position="bottom"
+        size="60%"
+        title={
+          <Group gap="xs">
+            <Text fw={700} size="xl" style={{ fontFamily: 'monospace' }}>
+              {selectedDate.getDate()}
+            </Text>
+            <Text fw={600} size="lg" c="dimmed">
+              {selectedDate.toLocaleString('ja-JP', { month: 'long', weekday: 'short' })}
+            </Text>
+          </Group>
+        }
+        styles={{
+          body: { padding: 0 },
+          header: { borderBottom: '1px solid var(--mantine-color-gray-2)' }
+        }}
+      >
+        <ScrollArea h="100%">
+          <Box p="md">
+            <Card withBorder p="md" mb="md" radius="md" bg="var(--mantine-color-gray-0)">
+              <Group justify="space-between" align="center">
+                <Stack gap={0} align="center" style={{ flex: 1 }}>
+                  <Text size="xs" c="green.7" fw={600}>INCOME</Text>
+                  <Text fw={700} size="lg" c="green.8">+{selectedIncome.toLocaleString()}</Text>
+                </Stack>
+                <Divider orientation="vertical" />
+                <Stack gap={0} align="center" style={{ flex: 1 }}>
+                  <Text size="xs" c="red.7" fw={600}>EXPENSE</Text>
+                  <Text fw={700} size="lg" c="red.8">{selectedExpense > 0 ? '-' : ''}{selectedExpense.toLocaleString()}</Text>
+                </Stack>
+                <Divider orientation="vertical" />
+                <Stack gap={0} align="center" style={{ flex: 1 }}>
+                  <Text size="xs" c="dimmed" fw={600}>TOTAL</Text>
+                  <Text fw={800} size="lg" c={selectedBalance >= 0 ? 'green.8' : 'red.8'}>
+                    {selectedBalance >= 0 ? '+' : ''}{selectedBalance.toLocaleString()}
+                  </Text>
+                </Stack>
               </Group>
             </Card>
-          </Stack>
-        )}
-      </Modal>
-    </Modal>
+
+            {selectedDayTransactions.length > 0 ? (
+              <Stack gap="sm">
+                {selectedDayTransactions.map((t) => (
+                  <Card key={t.id} withBorder p="sm" radius="md" shadow="sm">
+                    <Group justify="space-between">
+                      <Group gap="sm">
+                        <ThemeIcon
+                          color={t.type === 'income' ? 'green' : (t.category === '立替金' ? 'orange' : 'red')}
+                          variant="light"
+                          size="lg"
+                          radius="xl"
+                        >
+                          {t.type === 'income' ? '+' : '-'}
+                        </ThemeIcon>
+                        <Box>
+                          <Text size="sm" fw={600}>
+                            {t.category}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {t.description || t.subcategory || t.paymentMethod || '詳細なし'}
+                          </Text>
+                        </Box>
+                      </Group>
+                      <Text fw={700} c={t.type === 'income' ? 'green.7' : 'red.7'}>
+                        {t.type === 'income' ? '+' : '-'}¥{t.amount.toLocaleString()}
+                      </Text>
+                    </Group>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <Stack align="center" py="xl" gap="xs">
+                <Text size="xl">🍃</Text>
+                <Text c="dimmed" size="sm">取引はありません</Text>
+              </Stack>
+            )}
+            <Box h={40} />
+          </Box>
+        </ScrollArea>
+      </Drawer>
+    </>
   );
 };

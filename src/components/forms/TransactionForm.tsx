@@ -35,7 +35,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const { addTransaction, updateTransaction, transactions } = useTransactions();
   const [loading, setLoading] = useState(false);
   const [mobileCalendarOpened, setMobileCalendarOpened] = useState(false);
-  
+
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -67,7 +67,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         date: editingTransaction.date,
         description: editingTransaction.description || '',
       });
-    } 
+    }
     // 新規作成時: フォームをリセット
     else {
       form.setValues({
@@ -82,8 +82,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     }
     // フォームのisDirtyフラグをリセット
     form.resetDirty();
-    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, editingTransaction]);
 
   // パフォーマンス最適化: カテゴリ関連の計算をメモ化
@@ -115,7 +115,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       });
       return;
     }
-    
+
     if (!values.category || values.category.trim() === '') {
       notifications.show({
         title: '入力エラー',
@@ -193,7 +193,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       });
     } catch (error) {
       console.error('Error saving transaction:', error);
-      
+
       // エラー通知
       notifications.show({
         title: 'エラー',
@@ -459,14 +459,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </Group>
         </Stack>
       </form>
-      
+
       {/* モバイル専用カレンダー */}
       <MobileCalendar
         opened={mobileCalendarOpened}
         onClose={() => setMobileCalendarOpened(false)}
         value={form.values.date}
         onChange={handleMobileCalendarChange}
-        mode="select" // 選択モード（日付選択専用）
+        isSelector={true} // 選択モード（日付選択専用）
         transactions={transactions?.map(t => ({
           id: t.id,
           date: t.date,
