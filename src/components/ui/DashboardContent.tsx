@@ -132,7 +132,12 @@ export function DashboardContent() {
   // → 「今月の収支」カードをクリックした時のモーダルに表示
   const yearSummary = useMemo(() => {
     const currentYear = new Date(selectedMonth).getFullYear();
-    const yearTransactions = transactions.filter(t => t.date.getFullYear() === currentYear);
+    // 年間収支の計算（立替分は除外）
+    const yearTransactions = transactions.filter(t =>
+      t.date.getFullYear() === currentYear &&
+      t.category !== '立替回収' &&
+      t.category !== '立替金'
+    );
 
     const income = yearTransactions
       .filter(t => t.type === 'income')

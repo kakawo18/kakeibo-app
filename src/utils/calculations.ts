@@ -167,6 +167,10 @@ const CATEGORY_COLORS = {
   'EPOSカード': '#6B7280',
   '楽天カード': '#6B7280',
   'カード引き落とし': '#6B7280',
+
+  // 立替（グレー系で目立たなくする）
+  '立替金': '#9CA3AF',
+  '立替回収': '#9CA3AF',
 } as const;
 
 export const getCategoryColor = (categoryName: string): string => {

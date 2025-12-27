@@ -101,7 +101,7 @@ export interface Category {
  */
 export const EXPENSE_CATEGORIES: Category[] = [
   { name: '食費' },                                                              // 食事、外食
-  { name: '交際費', subcategories: ['飲み会費']},                                 // 交際費
+  { name: '交際費', subcategories: ['飲み会費'] },                                 // 交際費
   { name: '固定費', subcategories: ['家賃', '投資', '通信費', '電気代', 'ガス代', '水道代'] },  // 固定費（投資は支出から除外）
   { name: '日用品' },                                                            // 日用品
   { name: '交通費' },                                                            // 交通費
@@ -109,6 +109,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   { name: '旅行代' },                                                            // 旅行
   { name: '医療費' },                                                            // 医療費
   { name: 'その他' },                                                            // その他
+  { name: '立替金' },                                                              // 立て替え払い（収支から除外）
 ];
 
 /**
@@ -118,7 +119,8 @@ export const EXPENSE_CATEGORIES: Category[] = [
  * 給与カテゴリの全サブカテゴリが年間収入として計算される
  */
 export const INCOME_CATEGORIES: Category[] = [
-  { name: '給与', subcategories: ['給与', 'ボーナス', '配当収入'] },  // 給与関連（貯蓄率計算に使用）
+  { name: '給与', subcategories: ['給与', 'ボーナス', '賞与', '配当収入'] },           // 給与関連（貯蓄率計算に使用）
+  { name: '立替回収' },                                                             // 立て替え分の回収（収支から除外）
   { name: 'その他' },                                                // その他の収入
 ];
 
