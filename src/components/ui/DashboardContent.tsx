@@ -758,7 +758,7 @@ export function DashboardContent() {
               onClick={() => setInvestmentHistoryOpened(true)}
             >
               <Group justify="center" gap="xs">
-                <Text size="xs" c="dimmed">年間投資額(投資含む): </Text>
+                <Text size="xs" c="dimmed">年間投資額: </Text>
                 <Text size="sm" fw={600}>¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
                 <IconChevronRight size={12} color="gray" />
               </Group>
@@ -1019,7 +1019,7 @@ export function DashboardContent() {
               >
                 <Group gap="xs" mb="xs">
                   <IconArrowUpRight size={16} color="var(--mantine-color-red-6)" />
-                  <Text size="xs" c="dimmed" fw={600}>年間支出</Text>
+                  <Text size="xs" c="dimmed" fw={600}>年間支出(投資含む)</Text>
                 </Group>
                 <Text size="xl" fw={700} c="red">
                   ¥{yearSummary.expense.toLocaleString()}
