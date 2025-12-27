@@ -34,7 +34,7 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   // ステップ1: 各月の収入・支出を集計
   transactions.forEach((transaction) => {
     const month = formatMonthLocal(transaction.date);
-    
+
     if (!monthlyMap.has(month)) {
       monthlyMap.set(month, {
         month,
@@ -53,7 +53,7 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     } else {
       // 支出計算: 投資は除外（投資は資産移動であり支出ではないため）
       const isInvestment = transaction.category === '固定費' && transaction.subcategory === '投資';
-      
+
       if (!isInvestment && transaction.affectsExpense !== false) {
         monthData.expense += transaction.amount;
         // カテゴリ別集計（円グラフ用）
@@ -68,7 +68,7 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     const months = Array.from(monthlyMap.keys()).sort();
     const startMonth = months[0];
     const endMonth = getNextMonth(months[months.length - 1]); // 最後の月の次月まで
-    
+
     let currentMonth = startMonth;
     while (currentMonth <= endMonth) {
       if (!monthlyMap.has(currentMonth)) {
@@ -87,47 +87,51 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   // 残高計算: 累積で計算
   let runningBalance = 0;
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
-  
+
   sortedData.forEach((monthData) => {
     // その月の収入（ローカルタイムゾーン対応）
     const monthIncome = transactions
       .filter(t => formatMonthLocal(t.date) === monthData.month && t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     // その月の現金支払い（カード支払い、カード引き落とし、投資を除外）
     const monthCashExpense = transactions
-      .filter(t => 
-        formatMonthLocal(t.date) === monthData.month && 
-        t.type === 'expense' && 
+      .filter(t =>
+        formatMonthLocal(t.date) === monthData.month &&
+        t.type === 'expense' &&
         t.transactionType !== 'card_payment' &&
         t.transactionType !== 'card_withdrawal' &&
         !(t.category === '固定費' && t.subcategory === '投資') &&  // 投資を除外
-        (t.transactionType === 'normal' || 
-         (!t.transactionType && (t.paymentMethod === '現金' || !t.paymentMethod)))
+        (t.transactionType === 'normal' ||
+          (!t.transactionType && (t.paymentMethod === '現金' || !t.paymentMethod)))
       )
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     // 前月のカード支払い（今月の残高から引き落とし、投資を除外）
     const previousMonth = getPreviousMonthFromCurrent(monthData.month);
     const previousMonthCardPayments = transactions
-      .filter(t => 
-        formatMonthLocal(t.date) === previousMonth && 
+      .filter(t =>
+        formatMonthLocal(t.date) === previousMonth &&
         t.transactionType === 'card_payment' &&
         !(t.category === '固定費' && t.subcategory === '投資')  // 投資を除外
       )
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     // 今月のカード引き落とし（従来の引き落とし取引）
     const monthCardWithdrawal = transactions
-      .filter(t => 
-        formatMonthLocal(t.date) === monthData.month && 
+      .filter(t =>
+        formatMonthLocal(t.date) === monthData.month &&
         t.transactionType === 'card_withdrawal'
       )
       .reduce((sum, t) => sum + t.amount, 0);
-    
+
     // 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い - 今月カード引き落とし
-    runningBalance = runningBalance + monthIncome - monthCashExpense - previousMonthCardPayments - monthCardWithdrawal;
-    monthData.balance = runningBalance;
+    // ※現在はダッシュボードで実残高を表示していないため、計算をコメントアウト
+    // runningBalance = runningBalance + monthIncome - monthCashExpense - previousMonthCardPayments - monthCardWithdrawal;
+    // monthData.balance = runningBalance;
+
+    // 代わりにその月の単月収支を入れるか、0にしておく
+    monthData.balance = monthIncome - monthCashExpense - monthCardWithdrawal; // 簡易的な月次収支（必要に応じて変更）
   });
 
   return sortedData;
@@ -139,7 +143,7 @@ const CATEGORY_COLORS = {
   '給与': '#10B981',
   'ボーナス': '#059669',
   'その他': '#047857',
-  
+
   // 支出カテゴリ
   '食費': '#EF4444',
   '飲み会費': '#DC2626',
@@ -180,7 +184,7 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
       if (type === 'expense' && transaction.category === '固定費' && transaction.subcategory === '投資') {
         return;
       }
-      
+
       const category = transaction.subcategory || transaction.category;
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
       total += transaction.amount;
@@ -207,7 +211,7 @@ export const calculatePreviousMonthComparison = (
   Object.keys(currentMonth.categories).forEach((category) => {
     const current = currentMonth.categories[category] || 0;
     const previous = previousMonth.categories[category] || 0;
-    
+
     if (previous > 0) {
       comparison[category] = Math.round(((current - previous) / previous) * 100);
     } else if (current > 0) {

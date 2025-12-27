@@ -199,12 +199,13 @@ export function DashboardContent() {
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 年間の給与額（給与カテゴリの全て）
+    // 年間の給与額（給与・ボーナス・賞与カテゴリの全て）
+    // ※貯蓄率の分母として使用
     const yearlySalaryAmount = transactions
       .filter(t =>
         t.date.getFullYear() === currentYear &&
         t.type === 'income' &&
-        t.category === '給与'
+        ['給与', '賞与', 'ボーナス'].includes(t.category)
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -757,7 +758,7 @@ export function DashboardContent() {
               onClick={() => setInvestmentHistoryOpened(true)}
             >
               <Group justify="center" gap="xs">
-                <Text size="xs" c="dimmed">年間投資額: </Text>
+                <Text size="xs" c="dimmed">年間投資額(投資含む): </Text>
                 <Text size="sm" fw={600}>¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
                 <IconChevronRight size={12} color="gray" />
               </Group>
