@@ -158,10 +158,11 @@ export const PieChart: React.FC<PieChartProps> = ({
 
   // スマホの場合はラベルをシンプルにするなどの調整が必要だが、
   // リクエストの画像はPCレイアウトっぽいので、ResponsiveContainerで縮小させる。
-  // 余白を埋めるために半径をさらに攻める (90/140)
-  const outerRadius = isMobile ? 90 : 140;
+  // 余白を埋めるために半径をさらに攻める (105/150)
+  // 105px = 直径210px. iPhone SE(320px)でも 320-210 = 110px余白 -> 片側55px. ラベルには十分.
+  const outerRadius = isMobile ? 105 : 150;
   // リングの太さはある程度維持
-  const innerRadius = isMobile ? 55 : 90;
+  const innerRadius = isMobile ? 65 : 100;
 
   return (
     <motion.div
@@ -172,7 +173,7 @@ export const PieChart: React.FC<PieChartProps> = ({
       <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
         <Text size="lg" fw={600} mt="sm" ml="sm">{title}</Text>
 
-        <Box pos="relative" h={isMobile ? 380 : 450} w="100%">
+        <Box pos="relative" h={isMobile ? 380 : 500} w="100%">
           {/* Center Text */}
           <Stack
             gap={0}
