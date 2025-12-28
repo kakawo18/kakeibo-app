@@ -375,8 +375,8 @@ export function DashboardContent() {
   }
 
   return (
-    <Container size="xl" py="xl" style={{ paddingBottom: isMobile ? '100px' : undefined }}>
-      <Stack>
+    <Container size="xl" py={isMobile ? "md" : "lg"} style={{ paddingBottom: isMobile ? '80px' : undefined }}>
+      <Stack gap={isMobile ? "sm" : "md"}>
         <Group justify="space-between">
           <Group gap={isMobile ? "xs" : "md"}>
             <ActionIcon
@@ -556,11 +556,11 @@ export function DashboardContent() {
             2. Secondary Cards (Span 6): Income vs Expense (Comparison)
             3. Tertiary Cards (Span 6/4): Savings, Points etc. (Supplements)
             ============================================================ */}
-        <Grid mb="lg" gutter="md">
+        <Grid mb={isMobile ? "md" : "lg"} gutter={isMobile ? "xs" : "md"}>
           {/* HERO CARD: 今月の収支/残高 */}
           <Grid.Col span={{ base: 12 }}>
             <Paper
-              p="xl"
+              p={isMobile ? "md" : "lg"}
               radius="lg"
               className="glass"
               onClick={() => setYearSummaryOpened(true)}
@@ -635,7 +635,7 @@ export function DashboardContent() {
           {/* SECONDARY: Income & Expense (Side by Side) */}
           <Grid.Col span={{ base: 6 }}>
             <Paper
-              p="md"
+              p={isMobile ? "sm" : "md"}
               radius="lg"
               className="glass"
               style={{
@@ -672,7 +672,7 @@ export function DashboardContent() {
 
           <Grid.Col span={{ base: 6 }}>
             <Paper
-              p="md"
+              p={isMobile ? "sm" : "md"}
               radius="lg"
               className="glass"
               style={{
@@ -710,7 +710,7 @@ export function DashboardContent() {
           {/* TERTIARY: Smaller metrics */}
           <Grid.Col span={{ base: 6 }}>
             <Paper
-              p="md"
+              p={isMobile ? "sm" : "md"}
               radius="lg"
               className="glass"
               onClick={() => setCardRewardsOpened(true)}
@@ -732,7 +732,7 @@ export function DashboardContent() {
 
           <Grid.Col span={{ base: 6 }}>
             <Paper
-              p="md"
+              p={isMobile ? "sm" : "md"}
               radius="lg"
               className="glass"
               onClick={() => setSavingsRateDetailOpened(true)}
@@ -776,7 +776,7 @@ export function DashboardContent() {
         {
           isMobile ? (
             /* モバイル: 切り替え式円グラフ */
-            <Stack gap="md">
+            <Stack gap="sm">
               {/* 切り替えボタン */}
               <Group justify="center" gap="xs">
                 <Button

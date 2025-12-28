@@ -39,6 +39,11 @@ const renderCustomizedLabel = (props: any) => {
   const ey = my;
   const textAnchor = cos >= 0 ? 'start' : 'end';
 
+  // パーセンテージの計算: payload.percentage (0-100) があればそれを使用、なければ percent (0-1) から計算
+  const percentageValue = payload.percentage !== undefined && !isNaN(payload.percentage)
+    ? payload.percentage
+    : (percent || 0) * 100;
+
   return (
     <g>
       <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={payload.color || '#888'} fill="none" />
@@ -62,7 +67,7 @@ const renderCustomizedLabel = (props: any) => {
         fill="var(--mantine-color-dimmed)"
         fontSize={isMobile ? 9 : 11}
       >
-        {`¥${value.toLocaleString()}`}
+        {`¥${(value || 0).toLocaleString()} (${Number(percentageValue).toFixed(1)}%)`}
       </text>
     </g>
   );
@@ -98,6 +103,7 @@ export const PieChart: React.FC<PieChartProps> = ({
 
     const threshold = 3;
     let othersValue = 0;
+    let othersPercentage = 0;
 
     // ソート: 降順
     const sortedData = [...data].sort((a, b) => b.value - a.value);
@@ -107,6 +113,7 @@ export const PieChart: React.FC<PieChartProps> = ({
     for (const item of sortedData) {
       if (item.name === 'その他' || item.percentage < threshold) {
         othersValue += item.value;
+        othersPercentage += item.percentage;
       } else {
         mainItems.push({ ...item });
       }
@@ -116,7 +123,7 @@ export const PieChart: React.FC<PieChartProps> = ({
       mainItems.push({
         name: 'その他',
         value: othersValue,
-        percentage: 0, // Rechartsが計算するのでダミー
+        percentage: Number(othersPercentage.toFixed(1)), // 正しいパーセンテージを渡す
         color: 'gray.5'
       });
     }
@@ -173,7 +180,8 @@ export const PieChart: React.FC<PieChartProps> = ({
       <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
         <Text size="lg" fw={600} mt="sm" ml="sm">{title}</Text>
 
-        <Box pos="relative" h={isMobile ? 380 : 500} w="100%">
+        {/* 高さを調整して、無駄な上下の余白を削除 (380 -> 300) */}
+        <Box pos="relative" h={isMobile ? 300 : 400} w="100%">
           {/* Center Text */}
           <Stack
             gap={0}
