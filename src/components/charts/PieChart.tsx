@@ -227,10 +227,15 @@ export const PieChart: React.FC<PieChartProps> = ({
                          */}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string, props: any) => [
-                  `¥${value.toLocaleString()} (${(props.payload.percent * 100).toFixed(1)}%)`, // percentage is missing in re-calc? Recharts calculates 'percent' (0-1)
-                  name
-                ]}
+                formatter={(value: number, name: string, props: any) => {
+                  const percentage = props.payload.percentage !== undefined && !isNaN(props.payload.percentage)
+                    ? props.payload.percentage
+                    : (props.payload.percent || 0) * 100;
+                  return [
+                    `¥${value.toLocaleString()} (${Number(percentage).toFixed(1)}%)`,
+                    name
+                  ];
+                }}
               />
             </RechartsPieChart>
           </ResponsiveContainer>
