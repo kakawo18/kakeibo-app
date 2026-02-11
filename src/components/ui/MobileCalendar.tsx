@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Button,
@@ -22,6 +22,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import dayjs, { Dayjs } from 'dayjs';
 
 interface MobileCalendarProps {
   opened: boolean;
@@ -50,8 +51,8 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   isSelector = false,
 }) => {
   const theme = useMantineTheme();
-  const [currentDate, setCurrentDate] = useState(value);
-  const [selectedDate, setSelectedDate] = useState(value);
+  const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
+  const [selectedDate, setSelectedDate] = useState(() => dayjs(value));
   const [drawerOpened, setDrawerOpened] = useState(false);
 
   // レスポンシブ対応
@@ -60,81 +61,57 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
 
   // propsが変更された時にselectedDateを更新
   useEffect(() => {
-    setSelectedDate(value);
-    setCurrentDate(value);
+    setSelectedDate(dayjs(value));
+    setCurrentMonth(dayjs(value));
   }, [value]);
 
-  const handleDateClick = (date: Date) => {
+  const handleDateClick = (date: Dayjs) => {
     setSelectedDate(date);
 
     if (isSelector) {
-      onChange(date);
+      onChange(date.toDate());
     } else {
       setDrawerOpened(true);
     }
   };
 
   const handleMonthChange = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
+    setCurrentMonth(prev =>
+      direction === 'prev' ? prev.subtract(1, 'month') : prev.add(1, 'month')
+    );
   };
-
-  const monthNames = [
-    '1月', '2月', '3月', '4月', '5月', '6月',
-    '7月', '8月', '9月', '10月', '11月', '12月'
-  ];
 
   const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
 
-  const generateCalendarDays = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const startDate = new Date(firstDay);
+  // カレンダーの日付グリッド生成（42日固定）
+  const calendarDays = useMemo(() => {
+    const firstDayOfMonth = currentMonth.startOf('month');
+    const startDate = firstDayOfMonth.subtract(firstDayOfMonth.day(), 'day');
 
-    startDate.setDate(firstDay.getDate() - firstDay.getDay());
+    return Array.from({ length: 42 }, (_, i) => startDate.add(i, 'day'));
+  }, [currentMonth]);
 
-    const days = [];
-    const currentDateLoop = new Date(startDate);
+  // 取引データをdayjsで事前インデックス化（パフォーマンス向上）
+  const transactionsByDate = useMemo(() => {
+    const map = new Map<string, typeof transactions>();
+    transactions.forEach(t => {
+      const key = dayjs(t.date).format('YYYY-MM-DD');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(t);
+    });
+    return map;
+  }, [transactions]);
 
-    // 42日固定
-    for (let i = 0; i < 42; i++) {
-      days.push(new Date(currentDateLoop));
-      currentDateLoop.setDate(currentDateLoop.getDate() + 1);
-    }
+  const today = dayjs();
 
-    return days;
-  };
-
-  const isToday = (date: Date) => {
-    const today = new Date();
-    return date.getFullYear() === today.getFullYear() &&
-      date.getMonth() === today.getMonth() &&
-      date.getDate() === today.getDate();
-  };
-
-  const isSelected = (date: Date) => {
-    return date.getFullYear() === selectedDate.getFullYear() &&
-      date.getMonth() === selectedDate.getMonth() &&
-      date.getDate() === selectedDate.getDate();
-  };
-
-  const isCurrentMonth = (date: Date) => {
-    return date.getMonth() === currentDate.getMonth();
-  };
+  const isToday = (date: Dayjs) => date.isSame(today, 'day');
+  const isSelected = (date: Dayjs) => date.isSame(selectedDate, 'day');
+  const isCurrentMonthDay = (date: Dayjs) => date.month() === currentMonth.month();
 
   // 日別の収支を計算
-  const getDailyBalance = (date: Date) => {
-    const dayTransactions = transactions.filter(t =>
-      t.date.getFullYear() === date.getFullYear() &&
-      t.date.getMonth() === date.getMonth() &&
-      t.date.getDate() === date.getDate()
-    );
+  const getDailyBalance = (date: Dayjs) => {
+    const key = date.format('YYYY-MM-DD');
+    const dayTransactions = transactionsByDate.get(key) || [];
 
     const income = dayTransactions
       .filter(t =>
@@ -154,13 +131,9 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     return { income, expense, balance: income - expense };
   };
 
-  const calendarDays = generateCalendarDays();
   const { income: selectedIncome, expense: selectedExpense, balance: selectedBalance } = getDailyBalance(selectedDate);
-  const selectedDayTransactions = transactions.filter(t =>
-    t.date.getFullYear() === selectedDate.getFullYear() &&
-    t.date.getMonth() === selectedDate.getMonth() &&
-    t.date.getDate() === selectedDate.getDate()
-  );
+  const selectedKey = selectedDate.format('YYYY-MM-DD');
+  const selectedDayTransactions = transactionsByDate.get(selectedKey) || [];
 
   return (
     <>
@@ -190,8 +163,8 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                 <IconX />
               </ActionIcon>
               <Group gap={4}>
-                <Text size="lg" fw={400} c="dimmed">{currentDate.getFullYear()}年</Text>
-                <Text size="xl" fw={700}>{monthNames[currentDate.getMonth()]}</Text>
+                <Text size="lg" fw={400} c="dimmed">{currentMonth.year()}年</Text>
+                <Text size="xl" fw={700}>{currentMonth.format('M')}月</Text>
               </Group>
               <Group gap={0}>
                 <ActionIcon variant="subtle" color="gray" onClick={() => handleMonthChange('prev')} size="lg">
@@ -242,15 +215,15 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
               }}
             >
               {calendarDays.map((date, index) => {
-                const today = isToday(date);
+                const todayFlag = isToday(date);
                 const selected = isSelected(date);
-                const currentMonth = isCurrentMonth(date);
-                const isSun = date.getDay() === 0;
-                const isSat = date.getDay() === 6;
+                const inCurrentMonth = isCurrentMonthDay(date);
+                const isSun = date.day() === 0;
+                const isSat = date.day() === 6;
                 const { income, expense, balance } = getDailyBalance(date);
                 const hasIncome = income > 0;
                 const hasExpense = expense > 0;
-                const isFirstDay = date.getDate() === 1;
+                const isFirstDay = date.date() === 1;
 
                 return (
                   <Box
@@ -262,7 +235,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                       // Selected state: Tinted background + Inner shadow border
                       backgroundColor: selected
                         ? 'rgba(33, 150, 243, 0.1)'
-                        : (today ? 'rgba(33, 150, 243, 0.05)' : 'transparent'),
+                        : (todayFlag ? 'rgba(33, 150, 243, 0.05)' : 'transparent'),
                       boxShadow: selected ? 'inset 0 0 0 2px var(--mantine-color-blue-5)' : 'none',
                       cursor: 'pointer',
                       display: 'flex',
@@ -270,7 +243,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                       alignItems: 'center',
                       justifyContent: 'flex-start', // Top aligned content
                       padding: '4px',
-                      opacity: currentMonth ? 1 : 0.3,
+                      opacity: inCurrentMonth ? 1 : 0.3,
                       minHeight: '80px', // Taller per user preference
                     }}
                   >
@@ -278,15 +251,15 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                     <Box mt={2} mb={2}>
                       <Text
                         size="sm"
-                        fw={today ? 700 : 500}
-                        c={today ? 'blue.6' : isSun ? 'red.6' : isSat ? 'blue.6' : 'var(--mantine-color-text)'}
+                        fw={todayFlag ? 700 : 500}
+                        c={todayFlag ? 'blue.6' : isSun ? 'red.6' : isSat ? 'blue.6' : 'var(--mantine-color-text)'}
                         style={{
                           textAlign: 'center',
                           lineHeight: '1.2',
                         }}
                       >
                         {/* Display Month for 1st day (e.g. 4月 1日) */}
-                        {isFirstDay ? `${date.getMonth() + 1}月 ${date.getDate()}日` : date.getDate()}
+                        {isFirstDay ? `${date.month() + 1}月 ${date.date()}日` : date.date()}
                       </Text>
                     </Box>
 
@@ -332,7 +305,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
         </Box>
       </Modal>
 
-      {/* Detail Drawer - Unchanged */}
+      {/* Detail Drawer */}
       <Drawer
         opened={drawerOpened}
         onClose={() => setDrawerOpened(false)}
@@ -341,10 +314,10 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
         title={
           <Group gap="xs">
             <Text fw={700} size="xl" style={{ fontFamily: 'monospace' }}>
-              {selectedDate.getDate()}
+              {selectedDate.date()}
             </Text>
             <Text fw={600} size="lg" c="dimmed">
-              {selectedDate.toLocaleString('ja-JP', { month: 'long', weekday: 'short' })}
+              {selectedDate.format('M月')} ({weekdays[selectedDate.day()]})
             </Text>
           </Group>
         }
@@ -355,7 +328,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
       >
         <ScrollArea h="100%">
           <Box p="md">
-            <Card withBorder p="md" mb="md" radius="md" bg="var(--mantine-color-gray-0)">
+            <Card withBorder p="md" mb="md" radius="md" bg="light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))">
               <Group justify="space-between" align="center">
                 <Stack gap={0} align="center" style={{ flex: 1 }}>
                   <Text size="xs" c="green.7" fw={600}>INCOME</Text>

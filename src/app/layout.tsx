@@ -3,13 +3,14 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
-import '@mantine/charts/styles.css';
 import '@mantine/notifications/styles.css';
+
 
 import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { TransactionFormWrapper } from '@/components/TransactionFormWrapper';
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -87,7 +88,9 @@ export default function RootLayout({
           <ModalsProvider>
             <Notifications />
             <AuthProvider>
-              {children}
+              <TransactionFormWrapper>
+                {children}
+              </TransactionFormWrapper>
             </AuthProvider>
           </ModalsProvider>
         </MantineProvider>

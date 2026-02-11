@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { LineChart as MantineLineChart } from '@mantine/charts';
+import {
+  LineChart as RechartsLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 import { Paper, Text, Group, MultiSelect, ActionIcon, Box } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
@@ -121,14 +130,6 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
     }
   };
 
-  // チャートシリーズを動的生成
-  const chartSeries = useMemo(() => {
-    return selectedCategories.map((category) => ({
-      name: category,
-      color: getCategoryColor(category), // 定義済みの色を使用（#形式だがMantineは対応可）
-    }));
-  }, [selectedCategories]);
-
   if (!data || data.length === 0) {
     return (
       <Paper withBorder p="md" radius="md">
@@ -139,6 +140,11 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       </Paper>
     );
   }
+
+  // ツールチップのフォーマッター
+  const tooltipFormatter = (value: number, name: string) => {
+    return [`¥${value.toLocaleString()}`, name];
+  };
 
   return (
     <Paper withBorder p="md" radius="md">
@@ -188,20 +194,45 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       />
 
       <Box h={300}>
-        <MantineLineChart
-          h={300}
-          data={categoryData}
-          dataKey="month"
-          series={chartSeries}
-          curveType="monotone" // 滑らかな曲線
-          withLegend
-          withTooltip
-          withDots
-          gridAxis="xy"
-          tickLine="xy"
-          strokeWidth={3}
-          valueFormatter={(value) => `¥${value.toLocaleString()}`}
-        />
+        <ResponsiveContainer width="100%" height="100%">
+          <RechartsLineChart
+            data={categoryData}
+            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+            />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              tickLine={false}
+              tickFormatter={(value) => `¥${(value / 1000).toFixed(0)}k`}
+            />
+            <Tooltip
+              formatter={tooltipFormatter}
+              contentStyle={{
+                backgroundColor: 'var(--mantine-color-body)',
+                border: '1px solid var(--mantine-color-default-border)',
+                borderRadius: '8px',
+              }}
+            />
+            <Legend />
+            {selectedCategories.map((category) => (
+              <Line
+                key={category}
+                type="monotone"
+                dataKey={category}
+                stroke={getCategoryColor(category)}
+                strokeWidth={3}
+                dot={{ r: 4 }}
+                activeDot={{ r: 6 }}
+                connectNulls={false}
+              />
+            ))}
+          </RechartsLineChart>
+        </ResponsiveContainer>
       </Box>
     </Paper>
   );

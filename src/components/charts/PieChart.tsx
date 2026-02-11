@@ -1,13 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   PieChart as RechartsPieChart,
   Pie,
   Cell,
   Tooltip,
-  ResponsiveContainer,
-  Sector
+  ResponsiveContainer
 } from 'recharts';
 import { Paper, Text, Stack, Box } from '@mantine/core';
 import { motion } from 'framer-motion';
@@ -70,22 +69,6 @@ const renderCustomizedLabel = (props: any) => {
         {`¥${(value || 0).toLocaleString()} (${Number(percentageValue).toFixed(1)}%)`}
       </text>
     </g>
-  );
-};
-
-// 内側のラベル（カテゴリ名のみ）
-const renderInnerLabel = (props: any) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, payload, percent } = props;
-  if (percent < 0.05) return null; // 小さいセグメントは表示しない
-
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
-  return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
-      {payload.name.substring(0, 4)}
-    </text>
   );
 };
 

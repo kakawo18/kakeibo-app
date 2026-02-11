@@ -38,24 +38,6 @@ export interface Transaction {
   updatedAt: Date;               // 更新日時
 }
 
-/**
- * 取引テンプレート（現在未使用）
- */
-export interface TransactionTemplate {
-  id: string;
-  userId: string;
-  name: string;
-  type: 'income' | 'expense';
-  category: string;
-  subcategory?: string;
-  paymentMethod?: string;
-  description?: string;
-  amount?: number;
-  createdAt: Date;
-  updatedAt: Date;
-  lastUsed: Date;
-  usageCount: number;
-}
 
 /**
  * 定期取引

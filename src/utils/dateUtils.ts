@@ -1,4 +1,7 @@
 import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat';
+
+dayjs.extend(customParseFormat);
 
 export const formatDate = (date: Date | string): string => {
   return dayjs(date).format('YYYY-MM-DD');
@@ -28,14 +31,14 @@ export const isCurrentMonth = (date: Date | string): boolean => {
 export const getMonthOptions = (yearsBack: number = 2, yearsForward: number = 1): { value: string; label: string }[] => {
   const options: { value: string; label: string }[] = [];
   const today = dayjs();
-  
+
   for (let i = -yearsBack * 12; i <= yearsForward * 12; i++) {
     const date = today.add(i, 'month');
     const value = date.format('YYYY-MM');
     const label = date.format('YYYY年MM月');
     options.push({ value, label });
   }
-  
+
   return options;
 };
 
@@ -50,23 +53,18 @@ export const getPreviousMonthFromCurrent = (month: string): string => {
 // YYYYMMDD形式の文字列をDate型に変換
 export const parseYYYYMMDD = (dateString: string): Date | null => {
   if (dateString.length !== 8) return null;
-  
-  const year = parseInt(dateString.substring(0, 4));
-  const month = parseInt(dateString.substring(4, 6));
-  const day = parseInt(dateString.substring(6, 8));
-  
+
+  const parsed = dayjs(dateString, 'YYYYMMDD');
+
+  if (!parsed.isValid()) return null;
+
+  // 入力値と一致するかチェック（2月30日等の無効な日付を検出）
+  if (parsed.format('YYYYMMDD') !== dateString) return null;
+
+  const year = parsed.year();
   if (year < 1900 || year > 2100) return null;
-  if (month < 1 || month > 12) return null;
-  if (day < 1 || day > 31) return null;
-  
-  const date = new Date(year, month - 1, day);
-  
-  // 実際に作成された日付が入力と一致するかチェック
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    return null;
-  }
-  
-  return date;
+
+  return parsed.toDate();
 };
 
 // Date型をYYYYMMDD形式の文字列に変換
@@ -74,23 +72,7 @@ export const formatToYYYYMMDD = (date: Date): string => {
   return dayjs(date).format('YYYYMMDD');
 };
 
-// 【新機能】ローカルタイムゾーンでの月フォーマット（タイムゾーン問題解決）
+// ローカルタイムゾーンでの月フォーマット
 export const formatMonthLocal = (date: Date): string => {
-  // ローカルタイムゾーンで年月を取得
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  return `${year}-${month}`;
-};
-
-// 【新機能】ローカルタイムゾーンでの日付文字列比較
-export const isSameDay = (date1: Date, date2: Date): boolean => {
-  return date1.getFullYear() === date2.getFullYear() &&
-         date1.getMonth() === date2.getMonth() &&
-         date1.getDate() === date2.getDate();
-};
-
-// 【新機能】ローカルタイムゾーンでの月判定
-export const isSameMonth = (date: Date, monthString: string): boolean => {
-  const dateMonth = formatMonthLocal(date);
-  return dateMonth === monthString;
+  return dayjs(date).format('YYYY-MM');
 };

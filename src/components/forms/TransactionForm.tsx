@@ -414,7 +414,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   padding: '12px',
                   minHeight: '48px',
                   cursor: 'pointer',
-                  backgroundColor: 'var(--mantine-color-gray-0)',
+                  backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
                 },
                 label: {
                   fontSize: '14px',

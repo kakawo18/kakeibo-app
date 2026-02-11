@@ -118,7 +118,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
         {/* フィルター・ソートボタン - モバイル対応 */}
         {isMobile ? (
           <Collapse in={showFilters}>
-            <Stack gap="xs" p="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)', borderRadius: '8px' }}>
+            <Stack gap="xs" p="sm" style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))', borderRadius: '8px' }}>
               {/* フィルター */}
               <Text size="sm" c="dimmed" fw={600}>種別フィルター</Text>
               <Group gap="xs">
@@ -246,7 +246,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                   </Button>
                 </Group>
               </Group>
-              
+
               {/* デスクトップ用カテゴリフィルター */}
               <Group gap="xs" align="center">
                 <Text size="sm" c="dimmed">カテゴリ:</Text>
@@ -311,16 +311,16 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
         {isMobile ? (
           <Stack gap="xs">
             {sortedTransactions.map((transaction, index) => (
-              <Card 
-                key={transaction.id} 
-                withBorder 
-                p="sm" 
-                style={{ 
+              <Card
+                key={transaction.id}
+                withBorder
+                p="sm"
+                style={{
                   cursor: 'pointer',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   background: `linear-gradient(135deg, 
-                    ${transaction.type === 'income' 
-                      ? 'rgba(76, 175, 80, 0.02) 0%, rgba(76, 175, 80, 0.08) 100%' 
+                    ${transaction.type === 'income'
+                      ? 'rgba(76, 175, 80, 0.02) 0%, rgba(76, 175, 80, 0.08) 100%'
                       : 'rgba(244, 67, 54, 0.02) 0%, rgba(244, 67, 54, 0.08) 100%'
                     })`,
                   borderLeft: `4px solid ${transaction.type === 'income' ? '#4caf50' : '#f44336'}`,
@@ -348,39 +348,39 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                       <Text size="xs" c="dimmed" fw={500} style={{ minWidth: isMobile ? '25px' : '35px' }}>
                         {transaction.date.getDate()}日
                       </Text>
-                      
+
                       {/* デスクトップのみ: 種別バッジ */}
                       {!isMobile && (
-                        <Badge 
-                          color={transaction.type === 'income' ? 'green' : 'red'} 
+                        <Badge
+                          color={transaction.type === 'income' ? 'green' : 'red'}
                           size="xs"
                           variant="dot"
                         />
                       )}
-                      
-                      <Text 
-                        fw={600} 
-                        size={isMobile ? "sm" : "xs"} 
-                        truncate 
+
+                      <Text
+                        fw={600}
+                        size={isMobile ? "sm" : "xs"}
+                        truncate
                         style={{ maxWidth: isMobile ? '100px' : '60px' }}
                       >
                         {transaction.category}
                       </Text>
-                      
+
                       {/* メモ表示 */}
                       {transaction.description && (
-                        <Text 
-                          size="xs" 
-                          c="dimmed" 
-                          truncate 
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          truncate
                           style={{ maxWidth: isMobile ? '120px' : '80px' }}
                         >
                           {transaction.description.length > (isMobile ? 15 : 10)
-                            ? `${transaction.description.substring(0, isMobile ? 15 : 10)}...` 
+                            ? `${transaction.description.substring(0, isMobile ? 15 : 10)}...`
                             : transaction.description}
                         </Text>
                       )}
-                      
+
                       {/* デスクトップのみ: カード支払いバッジ */}
                       {!isMobile && transaction.transactionType === 'card_payment' && (
                         <Badge variant="outline" color="blue" size="xs" style={{ fontSize: '9px', height: '16px' }}>
@@ -396,9 +396,9 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                       c={transaction.type === 'income' ? 'green' : 'red'}
                       fw={700}
                       size={isMobile ? "md" : "sm"}
-                      style={{ 
-                        minWidth: isMobile ? '80px' : '70px', 
-                        textAlign: 'right' 
+                      style={{
+                        minWidth: isMobile ? '80px' : '70px',
+                        textAlign: 'right'
                       }}
                     >
                       {transaction.type === 'income' ? '+' : ''}¥{transaction.amount.toLocaleString()}
@@ -524,7 +524,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
           </Text>
         ) : (
           /* 統計情報 */
-          <Paper withBorder p="sm" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+          <Paper withBorder p="sm" style={{ backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))' }}>
             <Group justify="space-between" align="center">
               <Text size="sm" c="dimmed">
                 表示中: {sortedTransactions.length}件

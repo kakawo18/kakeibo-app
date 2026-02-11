@@ -1,47 +1,11 @@
 'use client';
 
 import { Paper, Group, Text, UnstyledButton, rem } from '@mantine/core';
-import { IconHome, IconChartBar, IconPlus, IconSettings, IconCalendar } from '@tabler/icons-react';
-import { useRouter, usePathname } from 'next/navigation';
+import { IconHome, IconPlus } from '@tabler/icons-react';
+import { useTransactionForm } from '@/contexts/TransactionFormContext';
 
 export const BottomNav = () => {
-    const router = useRouter();
-    const pathname = usePathname();
-
-    const links = [
-        { icon: IconHome, label: 'ホーム', href: '/' },
-        { icon: IconCalendar, label: 'カレンダー', href: '/calendar' },
-        { icon: IconChartBar, label: '分析', href: '/analysis' },
-        { icon: IconSettings, label: '設定', href: '/settings' },
-    ];
-
-    const mainLinks = links.map((link) => {
-        const isActive = pathname === link.href;
-        return (
-            <UnstyledButton
-                key={link.label}
-                onClick={() => router.push(link.href)}
-                style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '8px 4px',
-                    flex: 1,
-                    color: isActive ? 'var(--mantine-color-blue-filled)' : 'var(--mantine-color-dimmed)',
-                    transition: 'all 0.2s ease',
-                }}
-            >
-                <link.icon
-                    style={{ width: rem(24), height: rem(24) }}
-                    stroke={isActive ? 2 : 1.5}
-                />
-                <Text size="xs" mt={4} fw={isActive ? 600 : 400}>
-                    {link.label}
-                </Text>
-            </UnstyledButton>
-        );
-    });
+    const { openForm } = useTransactionForm();
 
     return (
         <Paper
@@ -59,15 +23,30 @@ export const BottomNav = () => {
             hiddenFrom="sm"
         >
             <Group justify="space-around" gap={0} h={60} px="xs">
-                {mainLinks.slice(0, 2)}
+                <UnstyledButton
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '8px 4px',
+                        flex: 1,
+                        color: 'var(--mantine-color-blue-filled)',
+                        transition: 'all 0.2s ease',
+                    }}
+                >
+                    <IconHome
+                        style={{ width: rem(24), height: rem(24) }}
+                        stroke={2}
+                    />
+                    <Text size="xs" mt={4} fw={600}>
+                        ホーム
+                    </Text>
+                </UnstyledButton>
 
                 <div style={{ position: 'relative', top: -20 }}>
                     <UnstyledButton
-                        onClick={() => {
-                            // TODO: Implement Add Transaction Modal trigger
-                            const event = new CustomEvent('open-transaction-modal');
-                            window.dispatchEvent(event);
-                        }}
+                        onClick={openForm}
                         style={{
                             width: 56,
                             height: 56,
@@ -83,9 +62,8 @@ export const BottomNav = () => {
                         <IconPlus style={{ width: rem(32), height: rem(32) }} stroke={2} />
                     </UnstyledButton>
                 </div>
-
-                {mainLinks.slice(2)}
             </Group>
         </Paper>
     );
 };
+

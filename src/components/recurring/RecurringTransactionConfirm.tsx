@@ -264,7 +264,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
                 fontSize: isMobile ? '16px' : undefined,
                 padding: isMobile ? '12px' : undefined,
                 minHeight: isMobile ? '48px' : undefined,
-                backgroundColor: 'var(--mantine-color-gray-0)',
+                backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
                 cursor: 'not-allowed',
               },
               label: {

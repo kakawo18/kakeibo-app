@@ -20,8 +20,9 @@
 // ============================================================
 // インポート
 // ============================================================
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTransactionForm } from '@/contexts/TransactionFormContext';
 // Mantine UIコンポーネント
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme, Paper } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -67,9 +68,21 @@ export function DashboardContent() {
   } = useRecurringTransactions();
 
   // ------------------------------------------------------------
+  // 取引フォーム状態（Context経由 + ローカル状態の統合）
+  // ------------------------------------------------------------
+  const { isFormOpen, closeForm } = useTransactionForm();
+  const [transactionFormOpened, setTransactionFormOpened] = useState(false);      // 取引追加フォーム
+
+  // Context経由でフォームが開かれた場合にローカル状態を同期
+  useEffect(() => {
+    if (isFormOpen) {
+      setTransactionFormOpened(true);
+    }
+  }, [isFormOpen]);
+
+  // ------------------------------------------------------------
   // モーダル表示状態の管理
   // ------------------------------------------------------------
-  const [transactionFormOpened, setTransactionFormOpened] = useState(false);      // 取引追加フォーム
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);  // 編集中の取引
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);    // 定期取引管理モーダル
   const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);    // 定期取引確認モーダル
@@ -262,6 +275,7 @@ export function DashboardContent() {
   const handleCloseTransactionForm = () => {
     setTransactionFormOpened(false);
     setEditingTransaction(null);
+    closeForm(); // Context側も閉じる
   };
 
   const handleRecordRecurringTransaction = (transaction: RecurringTransaction) => {
