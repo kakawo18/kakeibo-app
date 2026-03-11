@@ -37,6 +37,7 @@ import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { PieChart } from '@/components/charts/PieChart';
 import { LineChart } from '@/components/charts/LineChart';
+import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 // ユーティリティ関数
@@ -392,7 +393,7 @@ export function DashboardContent() {
     <Container size="xl" py={isMobile ? "md" : "lg"} style={{ paddingBottom: isMobile ? '80px' : undefined }}>
       <Stack gap={isMobile ? "sm" : "md"}>
         <Group justify="space-between">
-          <Group gap={isMobile ? "xs" : "md"}>
+          <Group gap={isMobile ? "lg" : "md"}> {/* Increased gap for mobile to prevent accidental clicks */}
             <ActionIcon
               variant="light"
               size={isMobile ? "xl" : "lg"}
@@ -402,8 +403,9 @@ export function DashboardContent() {
                 minHeight: '48px',
                 touchAction: 'manipulation',
               } : undefined}
+              aria-label="前の月へ"
             >
-              <IconChevronLeft size={isMobile ? 20 : 18} />
+              <IconChevronLeft size={isMobile ? 24 : 18} /> {/* Slightly larger icon for better visibility */}
             </ActionIcon>
             {isMobile ? (
               <motion.div
@@ -435,7 +437,7 @@ export function DashboardContent() {
                       value={selectedMonth}
                       onChange={handleMonthChange}
                       searchable={false}
-                      w={140}
+                      w={130} // Slightly narrower to allow more space for buttons
                       size="sm"
                       styles={{
                         input: {
@@ -443,6 +445,8 @@ export function DashboardContent() {
                           fontWeight: 600,
                           minHeight: '40px',
                           textAlign: 'center',
+                          paddingLeft: 0,
+                          paddingRight: 0,
                         },
                         dropdown: {
                           maxHeight: '60vh',
@@ -485,8 +489,9 @@ export function DashboardContent() {
                 minHeight: '48px',
                 touchAction: 'manipulation',
               } : undefined}
+              aria-label="次の月へ"
             >
-              <IconChevronRight size={isMobile ? 20 : 18} />
+              <IconChevronRight size={isMobile ? 24 : 18} /> {/* Slightly larger icon */}
             </ActionIcon>
           </Group>
           {!isMobile && (
@@ -866,6 +871,13 @@ export function DashboardContent() {
             </Grid>
           )
         }
+
+        {/* 月次支出ペースグラフ */}
+        <SpendingPaceChart
+          transactions={selectedMonthTransactions}
+          selectedMonth={selectedMonth}
+          budget={100000}
+        />
 
         <LineChart
           title="残高推移"
