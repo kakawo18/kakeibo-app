@@ -172,6 +172,8 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
 
     transactions.forEach((t) => {
       if (t.type !== 'expense') return;
+      // 定期課金の固定費を除外（家賃・投資は毎月自動で発生するため）
+      if (t.category === '固定費' && t.subcategory === '家賃') return;
       if (t.category === '固定費' && t.subcategory === '投資') return;
       if (t.category === '立替金') return;
       if (t.affectsExpense === false) return;
@@ -252,7 +254,7 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
         <Group justify="space-between" mb="sm" wrap="wrap" gap="xs">
           <Stack gap={2}>
             <Text size="lg" fw={600}>月次支出ペース</Text>
-            <Text size="xs" c="dimmed">週ごと色分けの累計支出 · 点線 = 理想ペース</Text>
+            <Text size="xs" c="dimmed">変動支出の累計（家賃・投資を除く）· 青点線 = 理想ペース</Text>
           </Stack>
           <Stack gap={4} align="flex-end">
             <Group gap="xs">
