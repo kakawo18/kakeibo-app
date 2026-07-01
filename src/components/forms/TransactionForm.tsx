@@ -39,7 +39,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
 
+  // uncontrolledモードでは form.values が再レンダリングをトリガーしないため、
+  // 画面内で直接参照する項目（種別・カテゴリ・日付）のみローカルstateで管理する
+  const [selectedType, setSelectedType] = useState<'income' | 'expense'>('expense');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
   const form = useForm({
+    // controlledモードだと金額・メモの1文字入力ごとにフォーム全体が再レンダリングされ、
+    // スマホ(PWA)など描画が遅延する環境で入力イベントに追いつかず数字が重複することがあるため、
+    // uncontrolledモードにして入力欄の再レンダリングを避ける
+    mode: 'uncontrolled',
     initialValues: {
       type: 'expense' as 'income' | 'expense',
       amount: '',
@@ -67,6 +77,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         date: editingTransaction.date,
         description: editingTransaction.description || '',
       });
+      setSelectedType(editingTransaction.type);
+      setSelectedCategory(editingTransaction.category);
+      setSelectedDate(editingTransaction.date);
     }
     // 新規作成時: フォームをリセット
     else {
@@ -79,6 +92,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         date: new Date(),
         description: '',
       });
+      setSelectedType('expense');
+      setSelectedCategory('');
+      setSelectedDate(new Date());
     }
     // フォームのisDirtyフラグをリセット
     form.resetDirty();
@@ -89,13 +105,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   // パフォーマンス最適化: カテゴリ関連の計算をメモ化
   // メモ欄入力でのフリーズ防止のため、dependencyを制限
   const categories = useMemo(() => {
-    return form.values.type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-  }, [form.values.type]);
+    return selectedType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  }, [selectedType]);
 
   const subcategories = useMemo(() => {
-    const selected = categories.find(cat => cat.name === form.values.category);
+    const selected = categories.find(cat => cat.name === selectedCategory);
     return selected?.subcategories || [];
-  }, [form.values.category, categories]);
+  }, [selectedCategory, categories]);
 
   const handleSubmit = async (values: {
     type: 'income' | 'expense';
@@ -208,6 +224,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const handleCategoryChange = (category: string | null) => {
     form.setFieldValue('category', category || '');
     form.setFieldValue('subcategory', '');
+    setSelectedCategory(category || '');
   };
 
   const handleClose = () => {
@@ -223,6 +240,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const handleMobileCalendarChange = (date: Date) => {
     form.setFieldValue('date', date);
+    setSelectedDate(date);
     setMobileCalendarOpened(false);
   };
 
@@ -259,11 +277,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               { label: '支出', value: 'expense' },
               { label: '収入', value: 'income' },
             ]}
+            key={form.key('type')}
             {...form.getInputProps('type')}
             onChange={(value) => {
               form.setFieldValue('type', value as 'income' | 'expense');
               form.setFieldValue('category', '');
               form.setFieldValue('subcategory', '');
+              setSelectedType(value as 'income' | 'expense');
+              setSelectedCategory('');
               // 収入に切り替えた場合は支払方法をクリア
               if (value === 'income') {
                 form.setFieldValue('paymentMethod', '');
@@ -288,6 +309,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             placeholder="金額を入力"
             min={0}
             required
+            key={form.key('amount')}
             {...form.getInputProps('amount')}
             styles={{
               input: {
@@ -306,7 +328,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <NativeSelect
               label="カテゴリ"
               required
-              value={form.values.category}
+              value={selectedCategory}
               onChange={(event) => handleCategoryChange(event.currentTarget.value)}
               data={[
                 { value: '', label: 'カテゴリを選択', disabled: true },
@@ -330,7 +352,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               placeholder="カテゴリを選択"
               data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
               required
-              value={form.values.category}
+              value={selectedCategory}
               onChange={handleCategoryChange}
               searchable
             />
@@ -340,6 +362,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             isMobile ? (
               <NativeSelect
                 label="サブカテゴリ"
+                key={form.key('subcategory')}
                 {...form.getInputProps('subcategory')}
                 data={[
                   { value: '', label: 'サブカテゴリを選択（任意）' },
@@ -362,6 +385,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 label="サブカテゴリ"
                 placeholder="サブカテゴリを選択（任意）"
                 data={subcategories.map(sub => ({ value: sub, label: sub }))}
+                key={form.key('subcategory')}
                 {...form.getInputProps('subcategory')}
                 searchable
               />
@@ -369,10 +393,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           )}
 
           {/* 支払方法は支出の場合のみ表示 */}
-          {form.values.type === 'expense' && (
+          {selectedType === 'expense' && (
             isMobile ? (
               <NativeSelect
                 label="支払方法"
+                key={form.key('paymentMethod')}
                 {...form.getInputProps('paymentMethod')}
                 data={[
                   { value: '', label: '支払方法を選択（任意）' },
@@ -395,6 +420,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                 label="支払方法"
                 placeholder="支払方法を選択（任意）"
                 data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+                key={form.key('paymentMethod')}
                 {...form.getInputProps('paymentMethod')}
                 searchable
               />
@@ -405,7 +431,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <TextInput
               label="日付"
               required
-              value={formatDateForDisplay(form.values.date)}
+              value={formatDateForDisplay(selectedDate)}
               onClick={handleMobileDateInputClick}
               readOnly
               styles={{
@@ -426,6 +452,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <DateInput
               label="日付"
               required
+              key={form.key('date')}
               {...form.getInputProps('date')}
             />
           )}
@@ -433,6 +460,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           <Textarea
             label="メモ（任意）"
             placeholder="メモを入力"
+            key={form.key('description')}
             {...form.getInputProps('description')}
             autosize
             minRows={isMobile ? 2 : 3}
@@ -464,7 +492,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       <MobileCalendar
         opened={mobileCalendarOpened}
         onClose={() => setMobileCalendarOpened(false)}
-        value={form.values.date}
+        value={selectedDate}
         onChange={handleMobileCalendarChange}
         isSelector={true} // 選択モード（日付選択専用）
         transactions={transactions?.map(t => ({
