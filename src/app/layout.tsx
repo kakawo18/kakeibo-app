@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
@@ -13,8 +13,30 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { TransactionFormWrapper } from '@/components/TransactionFormWrapper';
 
 const theme = createTheme({
-  primaryColor: 'blue',
+  primaryColor: 'indigo',
   defaultRadius: 'md',
+  fontFamily: 'var(--font-noto-sans-jp), var(--font-geist-sans), system-ui, sans-serif',
+  headings: {
+    fontFamily: 'var(--font-noto-sans-jp), var(--font-geist-sans), system-ui, sans-serif',
+    fontWeight: '700',
+  },
+  components: {
+    Paper: {
+      defaultProps: {
+        radius: 'lg',
+      },
+    },
+    Card: {
+      defaultProps: {
+        radius: 'lg',
+      },
+    },
+    Button: {
+      defaultProps: {
+        radius: 'md',
+      },
+    },
+  },
   colors: {
     dark: [
       '#f1f3f5', // 0: 最も明るい（テキスト用）
@@ -46,6 +68,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const notoSansJP = Noto_Sans_JP({
+  variable: "--font-noto-sans-jp",
+  subsets: ["latin"],
+  weight: ["400", "500", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -82,7 +110,7 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSansJP.variable} antialiased`}
       >
         <MantineProvider theme={theme} defaultColorScheme="auto">
           <ModalsProvider>

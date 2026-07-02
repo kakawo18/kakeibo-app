@@ -22,9 +22,24 @@
 
 /* 基本スタイル */
 body {
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: var(--background);
+  font-family: var(--font-noto-sans-jp), var(--font-geist-sans), system-ui, sans-serif;
   color: var(--foreground);
+  /* やわらかいグラデーション背景（ライト） */
+  background-color: #f4f6fb;
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(99, 102, 241, 0.08), transparent 60%),
+    radial-gradient(1000px 500px at -10% 10%, rgba(34, 197, 194, 0.07), transparent 60%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+[data-mantine-color-scheme="dark"] body {
+  background-color: #141517;
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(99, 102, 241, 0.12), transparent 60%),
+    radial-gradient(1000px 500px at -10% 10%, rgba(34, 197, 194, 0.06), transparent 60%),
+    linear-gradient(180deg, #1a1b1e 0%, #141517 100%);
 }
 
 /* Mantineコンポーネントのダークモード対応 */
@@ -144,15 +159,36 @@ body {
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
 }
 
 [data-mantine-color-scheme="dark"] .glass {
-  background: rgba(37, 38, 43, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(37, 38, 43, 0.72) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* カードの浮き上がりホバー */
+.lift-card {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.lift-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+[data-mantine-color-scheme="dark"] .lift-card:hover {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* 数値のタブラー表示（金額の桁ブレ防止） */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes shimmer {

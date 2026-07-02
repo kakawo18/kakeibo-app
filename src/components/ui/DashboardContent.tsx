@@ -27,11 +27,12 @@ import { useTransactionForm } from '@/contexts/TransactionFormContext';
 import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme, Paper } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 // アイコン（Tabler Icons）
-import { IconPlus, IconTrendingUp, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
+import { IconPlus, IconTrendingUp, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCalendar, IconCoins, IconRepeat, IconLogout, IconSun, IconMoon } from '@tabler/icons-react';
 // アニメーション
 import { motion } from 'framer-motion';
 // カスタムフック
 import { useTransactions } from '@/hooks/useTransactions';
+import { useAuth } from '@/contexts/AuthContext';
 // コンポーネント
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -98,6 +99,7 @@ export function DashboardContent() {
   // データ取得フック
   // ------------------------------------------------------------
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
+  const { user, logout } = useAuth();
   const {
     getActiveRecurringTransactions,
     shouldShowRecurringTransaction
@@ -135,8 +137,8 @@ export function DashboardContent() {
   // モバイル表示判定（768px以下でtrue）
   const isMobile = useMediaQuery('(max-width: 768px)');
 
-  // ダークモード判定
-  const { colorScheme } = useMantineColorScheme();
+  // ダークモード判定・切り替え
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
   // ------------------------------------------------------------
@@ -379,6 +381,50 @@ export function DashboardContent() {
   return (
     <Container size="xl" py={isMobile ? "md" : "lg"} style={{ paddingBottom: isMobile ? '80px' : undefined }}>
       <Stack gap={isMobile ? "sm" : "md"}>
+        {/* アプリヘッダー: タイトル + テーマ切替 + ログアウト */}
+        <Group justify="space-between" align="center" mb={isMobile ? 0 : "xs"}>
+          <Group gap="sm">
+            <ThemeIcon
+              size={isMobile ? "lg" : "xl"}
+              radius="md"
+              variant="gradient"
+              gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
+            >
+              <IconWallet size={isMobile ? 20 : 24} />
+            </ThemeIcon>
+            <div>
+              <Text fw={800} size={isMobile ? "lg" : "xl"} style={{ letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                家計簿
+              </Text>
+              {!isMobile && user?.email && (
+                <Text size="xs" c="dimmed">{user.email}</Text>
+              )}
+            </div>
+          </Group>
+          <Group gap="xs">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              radius="md"
+              onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+              aria-label="テーマ切り替え"
+            >
+              {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+            </ActionIcon>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              radius="md"
+              onClick={logout}
+              aria-label="ログアウト"
+            >
+              <IconLogout size={18} />
+            </ActionIcon>
+          </Group>
+        </Group>
+
         <Group justify="space-between">
           <Group gap={isMobile ? "lg" : "md"}> {/* Increased gap for mobile to prevent accidental clicks */}
             <ActionIcon
@@ -487,6 +533,8 @@ export function DashboardContent() {
                 leftSection={<IconPlus size={14} />}
                 onClick={() => setTransactionFormOpened(true)}
                 size={isMobile ? "sm" : "md"}
+                variant="gradient"
+                gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
               >
                 {isMobile ? '追加' : '取引を追加'}
               </Button>
@@ -568,16 +616,10 @@ export function DashboardContent() {
             <Paper
               p={isMobile ? "md" : "lg"}
               radius="lg"
-              className="glass"
+              className="glass lift-card"
               onClick={() => setYearSummaryOpened(true)}
               style={{
                 cursor: 'pointer',
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%)',
-                border: isDark
-                  ? '1px solid rgba(33, 150, 243, 0.2)'
-                  : '1px solid rgba(255, 255, 255, 0.6)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -594,45 +636,43 @@ export function DashboardContent() {
                 left: '-50%',
                 width: '200%',
                 height: '200%',
-                background: 'radial-gradient(circle, rgba(33,150,243,0.05) 0%, rgba(0,0,0,0) 70%)',
+                background: 'radial-gradient(circle, rgba(99,102,241,0.07) 0%, rgba(0,0,0,0) 70%)',
                 zIndex: 0,
                 pointerEvents: 'none',
               }} />
 
               <Stack gap={0} align="center" style={{ zIndex: 1, width: '100%' }}>
-                <Text size="sm" c="dimmed" fw={600} mb={4} style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>
-                  Current Balance
+                <Text size="sm" c="dimmed" fw={600} mb={4} style={{ letterSpacing: '1px' }}>
+                  {getMonthName(selectedMonth)}の収支
                 </Text>
                 <Group align="flex-start" gap={4}>
                   <Text
                     span
+                    className="tabular-nums"
                     style={{
-                      fontSize: '3.5rem',
+                      fontSize: isMobile ? '2.75rem' : '3.5rem',
                       fontWeight: 800,
                       lineHeight: 1,
                       letterSpacing: '-1px',
                       color: ((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0
-                        ? 'var(--mantine-color-blue-6)'
+                        ? 'var(--mantine-color-indigo-6)'
                         : 'var(--mantine-color-red-6)'
                     }}
                   >
+                    {((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0 ? '+' : ''}
                     ¥{((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)).toLocaleString()}
                   </Text>
                 </Group>
                 <Group gap="xs" mt="xs">
-                  <Badge
-                    variant="light"
-                    color={((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0 ? 'blue' : 'red'}
-                    size="lg"
-                  >
-                    今月の収支
-                  </Badge>
                   {monthlyComparison && (
                     <TrendIndicator
                       trend={monthlyComparison.balance.trend}
                       percentage={monthlyComparison.balance.percentage}
                     />
                   )}
+                  <Badge variant="light" color="gray" size="sm">
+                    タップで年間収支を表示
+                  </Badge>
                 </Group>
               </Stack>
             </Paper>
@@ -643,24 +683,21 @@ export function DashboardContent() {
             <Paper
               p={isMobile ? "sm" : "md"}
               radius="lg"
-              className="glass"
+              className="glass lift-card"
               style={{
                 height: '100%',
-                background: isDark
-                  ? 'rgba(33, 37, 41, 0.6)'
-                  : 'rgba(255, 255, 255, 0.5)',
                 borderLeft: '4px solid var(--mantine-color-teal-5)'
               }}
             >
               <Stack gap={4} h="100%" justify="space-between">
                 <Group justify="space-between">
-                  <Text size="xs" c="dimmed" fw={600}>INCOME</Text>
+                  <Text size="xs" c="dimmed" fw={600}>収入</Text>
                   <ThemeIcon variant="light" color="teal" size="sm" radius="xl">
                     <IconArrowUpRight size={12} />
                   </ThemeIcon>
                 </Group>
                 <div>
-                  <Text size="xl" fw={700} c="teal" style={{ lineHeight: 1.2 }}>
+                  <Text size="xl" fw={700} c="teal" className="tabular-nums" style={{ lineHeight: 1.2 }}>
                     ¥{(selectedMonthData?.income || 0).toLocaleString()}
                   </Text>
                   {monthlyComparison && (
@@ -680,24 +717,21 @@ export function DashboardContent() {
             <Paper
               p={isMobile ? "sm" : "md"}
               radius="lg"
-              className="glass"
+              className="glass lift-card"
               style={{
                 height: '100%',
-                background: isDark
-                  ? 'rgba(33, 37, 41, 0.6)'
-                  : 'rgba(255, 255, 255, 0.5)',
                 borderLeft: '4px solid var(--mantine-color-red-5)'
               }}
             >
               <Stack gap={4} h="100%" justify="space-between">
                 <Group justify="space-between">
-                  <Text size="xs" c="dimmed" fw={600}>EXPENSE</Text>
+                  <Text size="xs" c="dimmed" fw={600}>支出</Text>
                   <ThemeIcon variant="light" color="red" size="sm" radius="xl">
                     <IconArrowDownRight size={12} />
                   </ThemeIcon>
                 </Group>
                 <div>
-                  <Text size="xl" fw={700} c="red" style={{ lineHeight: 1.2 }}>
+                  <Text size="xl" fw={700} c="red" className="tabular-nums" style={{ lineHeight: 1.2 }}>
                     ¥{(selectedMonthData?.expense || 0).toLocaleString()}
                   </Text>
                   {monthlyComparison && (
@@ -718,7 +752,7 @@ export function DashboardContent() {
             <Paper
               p={isMobile ? "sm" : "md"}
               radius="lg"
-              className="glass"
+              className="glass lift-card"
               onClick={() => setCardRewardsOpened(true)}
               style={{ cursor: 'pointer', height: '100%' }}
             >
@@ -729,7 +763,7 @@ export function DashboardContent() {
                   </ThemeIcon>
                   <Text size="xs" c="dimmed" fw={600}>獲得ポイント</Text>
                 </Group>
-                <Text size="lg" fw={700}>
+                <Text size="lg" fw={700} className="tabular-nums">
                   {monthlyCardPoints.toLocaleString()} <Text span size="xs" c="dimmed">pt</Text>
                 </Text>
               </Stack>
@@ -740,7 +774,7 @@ export function DashboardContent() {
             <Paper
               p={isMobile ? "sm" : "md"}
               radius="lg"
-              className="glass"
+              className="glass lift-card"
               onClick={() => setSavingsRateDetailOpened(true)}
               style={{ cursor: 'pointer', height: '100%' }}
             >
@@ -751,7 +785,7 @@ export function DashboardContent() {
                   </ThemeIcon>
                   <Text size="xs" c="dimmed" fw={600}>貯蓄率</Text>
                 </Group>
-                <Text size="lg" fw={700}>
+                <Text size="lg" fw={700} className="tabular-nums">
                   {savingsData.yearlySavingsRate.toFixed(1)} <Text span size="xs" c="dimmed">%</Text>
                 </Text>
               </Stack>
@@ -762,16 +796,17 @@ export function DashboardContent() {
             <Paper
               p="xs"
               radius="lg"
+              className="lift-card"
               style={{
                 background: 'transparent',
-                border: '1px dashed var(--mantine-color-gray-4)',
+                border: '1px dashed light-dark(var(--mantine-color-gray-4), var(--mantine-color-dark-4))',
                 cursor: 'pointer'
               }}
               onClick={() => setInvestmentHistoryOpened(true)}
             >
               <Group justify="center" gap="xs">
                 <Text size="xs" c="dimmed">年間投資額: </Text>
-                <Text size="sm" fw={600}>¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
+                <Text size="sm" fw={600} className="tabular-nums">¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
                 <IconChevronRight size={12} color="gray" />
               </Group>
             </Paper>
@@ -789,6 +824,7 @@ export function DashboardContent() {
                   variant={mobileChartType === 'expense' ? 'filled' : 'light'}
                   color="red"
                   size="sm"
+                  leftSection={<IconArrowDownRight size={14} />}
                   onClick={() => setMobileChartType('expense')}
                   style={{
                     borderRadius: '20px',
@@ -796,12 +832,13 @@ export function DashboardContent() {
                     transform: mobileChartType === 'expense' ? 'scale(1.05)' : 'scale(1)',
                   }}
                 >
-                  📊 支出内訳
+                  支出内訳
                 </Button>
                 <Button
                   variant={mobileChartType === 'income' ? 'filled' : 'light'}
-                  color="green"
+                  color="teal"
                   size="sm"
+                  leftSection={<IconArrowUpRight size={14} />}
                   onClick={() => setMobileChartType('income')}
                   style={{
                     borderRadius: '20px',
@@ -809,7 +846,7 @@ export function DashboardContent() {
                     transform: mobileChartType === 'income' ? 'scale(1.05)' : 'scale(1)',
                   }}
                 >
-                  💰 収入内訳
+                  収入内訳
                 </Button>
               </Group>
 
@@ -934,50 +971,60 @@ export function DashboardContent() {
         {
           isMobile && (
             <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
-              <Group gap="xs">
-                <Button
-                  variant="light"
-                  leftSection={<IconCalendar size={16} />}
+              <Group gap="sm">
+                <ActionIcon
+                  variant="default"
+                  onClick={() => setCsvModalOpened(true)}
+                  size={48}
+                  radius="xl"
+                  aria-label="CSV インポート/エクスポート"
+                  style={{
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    opacity: transactionFormOpened ? 0.3 : 1,
+                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
+                  }}
+                >
+                  <IconFileImport size={20} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="default"
                   onClick={() => setCalendarOpened(true)}
-                  size="md"
-                  color="blue"
+                  size={48}
+                  radius="xl"
+                  aria-label="カレンダー"
                   style={{
-                    borderRadius: '25px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
                     opacity: transactionFormOpened ? 0.3 : 1,
                     pointerEvents: transactionFormOpened ? 'none' : 'auto'
                   }}
                 >
-                  📅
-                </Button>
-                <Button
-                  variant="light"
-                  leftSection={<IconRepeat size={16} />}
+                  <IconCalendar size={20} />
+                </ActionIcon>
+                <ActionIcon
+                  variant="default"
                   onClick={() => setRecurringManagerOpened(true)}
-                  size="md"
-                  color="orange"
+                  size={48}
+                  radius="xl"
+                  aria-label="定期取引"
                   style={{
-                    borderRadius: '25px',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
                     opacity: transactionFormOpened ? 0.3 : 1,
                     pointerEvents: transactionFormOpened ? 'none' : 'auto'
                   }}
                 >
-                  定期
-                </Button>
+                  <IconRepeat size={20} />
+                </ActionIcon>
                 <Button
-                  leftSection={<IconPlus size={16} />}
+                  leftSection={<IconPlus size={18} />}
                   onClick={() => setTransactionFormOpened(true)}
                   size="md"
+                  variant="gradient"
+                  gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
                   style={{
                     borderRadius: '25px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
+                    boxShadow: '0 6px 16px rgba(99, 102, 241, 0.4)',
+                    paddingLeft: '18px',
+                    paddingRight: '22px',
                     opacity: transactionFormOpened ? 0.3 : 1,
                     pointerEvents: transactionFormOpened ? 'none' : 'auto'
                   }}
