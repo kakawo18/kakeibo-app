@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import { Paper, Text, Group, Badge, Box, Stack, Progress } from '@mantine/core';
 import { Transaction } from '@/types';
+import { isExcludedFromExpense } from '@/utils/transactionRules';
 
 // ============================================================
 // ヘルパー関数
@@ -120,11 +121,10 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
 
     transactions.forEach((t) => {
       if (t.type !== 'expense') return;
-      // 定期課金の固定費を除外（家賃・投資は毎月自動で発生するため）
+      // 投資・立替金・カード引き落とし等の共通除外に加え、
+      // 家賃も除外する（毎月自動で発生する固定費は「ペース」の対象外）
+      if (isExcludedFromExpense(t)) return;
       if (t.category === '固定費' && t.subcategory === '家賃') return;
-      if (t.category === '固定費' && t.subcategory === '投資') return;
-      if (t.category === '立替金') return;
-      if (t.affectsExpense === false) return;
 
       const tYear = t.date.getFullYear();
       const tMonth = t.date.getMonth() + 1;

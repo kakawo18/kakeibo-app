@@ -4,17 +4,17 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Button,
-  Select,
   NumberInput,
   Stack,
   Group,
   TextInput,
-  NativeSelect,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS, RecurringTransaction } from '@/types';
+import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
+import { getInputStyles } from '@/components/forms/formStyles';
 
 interface RecurringTransactionFormProps {
   opened: boolean;
@@ -31,6 +31,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
 }) => {
   const [loading, setLoading] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const inputStyles = getInputStyles(isMobile ?? false);
 
   const form = useForm({
     initialValues: {
@@ -78,15 +79,13 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, editingTransaction]);
 
-  const categories = useMemo(() => EXPENSE_CATEGORIES, []);
-
   const subcategories = useMemo(() => {
-    const selected = categories.find(cat => cat.name === form.values.category);
+    const selected = EXPENSE_CATEGORIES.find(cat => cat.name === form.values.category);
     return selected?.subcategories || [];
-  }, [form.values.category, categories]);
+  }, [form.values.category]);
 
-  const handleCategoryChange = (category: string | null) => {
-    form.setFieldValue('category', category || '');
+  const handleCategoryChange = (category: string) => {
+    form.setFieldValue('category', category);
     form.setFieldValue('subcategory', '');
   };
 
@@ -144,17 +143,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
             placeholder="例: 家賃、投資（積立NISA）"
             required
             {...form.getInputProps('name')}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
+            styles={inputStyles}
           />
 
           <NumberInput
@@ -163,114 +152,34 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
             min={1}
             required
             {...form.getInputProps('amount')}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
+            styles={inputStyles}
           />
 
-          {isMobile ? (
-            <NativeSelect
-              label="カテゴリ"
-              required
-              value={form.values.category}
-              onChange={(event) => handleCategoryChange(event.currentTarget.value)}
-              data={[
-                { value: '', label: 'カテゴリを選択', disabled: true },
-                ...categories.map(cat => ({ value: cat.name, label: cat.name }))
-              ]}
-              styles={{
-                input: {
-                  fontSize: '16px',
-                  padding: '12px',
-                  minHeight: '48px',
-                },
-                label: {
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }
-              }}
-            />
-          ) : (
-            <Select
-              label="カテゴリ"
-              placeholder="カテゴリを選択"
-              data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
-              required
-              value={form.values.category}
-              onChange={handleCategoryChange}
-              searchable
-            />
-          )}
+          <ResponsiveSelect
+            label="カテゴリ"
+            placeholder="カテゴリを選択"
+            required
+            data={EXPENSE_CATEGORIES.map(cat => ({ value: cat.name, label: cat.name }))}
+            value={form.values.category}
+            onChange={handleCategoryChange}
+            error={form.errors.category}
+          />
 
           {subcategories.length > 0 && (
-            isMobile ? (
-              <NativeSelect
-                label="サブカテゴリ"
-                {...form.getInputProps('subcategory')}
-                data={[
-                  { value: '', label: 'サブカテゴリを選択（任意）' },
-                  ...subcategories.map(sub => ({ value: sub, label: sub }))
-                ]}
-                styles={{
-                  input: {
-                    fontSize: '16px',
-                    padding: '12px',
-                    minHeight: '48px',
-                  },
-                  label: {
-                    fontSize: '14px',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-            ) : (
-              <Select
-                label="サブカテゴリ"
-                placeholder="サブカテゴリを選択（任意）"
-                data={subcategories.map(sub => ({ value: sub, label: sub }))}
-                {...form.getInputProps('subcategory')}
-                searchable
-              />
-            )
+            <ResponsiveSelect
+              label="サブカテゴリ"
+              placeholder="サブカテゴリを選択（任意）"
+              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              {...form.getInputProps('subcategory')}
+            />
           )}
 
-          {isMobile ? (
-            <NativeSelect
-              label="支払方法"
-              {...form.getInputProps('paymentMethod')}
-              data={[
-                { value: '', label: '支払方法を選択（任意）' },
-                ...PAYMENT_METHODS.map(method => ({ value: method, label: method }))
-              ]}
-              styles={{
-                input: {
-                  fontSize: '16px',
-                  padding: '12px',
-                  minHeight: '48px',
-                },
-                label: {
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }
-              }}
-            />
-          ) : (
-            <Select
-              label="支払方法"
-              placeholder="支払方法を選択（任意）"
-              data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
-              {...form.getInputProps('paymentMethod')}
-              searchable
-            />
-          )}
+          <ResponsiveSelect
+            label="支払方法"
+            placeholder="支払方法を選択（任意）"
+            data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+            {...form.getInputProps('paymentMethod')}
+          />
 
           <NumberInput
             label="実行日"
@@ -279,17 +188,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
             max={31}
             required
             {...form.getInputProps('dayOfMonth')}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
+            styles={inputStyles}
           />
 
           <Group justify="flex-end">

@@ -4,8 +4,28 @@ import { useState, useEffect, useRef } from 'react';
 import { Button, TextInput, Stack, Paper, Title, Text, Alert, PasswordInput, Container, Group, Box } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
 import { IconMail, IconLock } from '@tabler/icons-react';
+
+/** Firebaseの認証エラーコードをユーザー向けメッセージに変換する */
+const getAuthErrorMessage = (error: unknown): string => {
+  if (error instanceof FirebaseError) {
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        return 'このメールアドレスは既に登録されています。ログインをお試しください。';
+      case 'auth/invalid-email':
+        return 'メールアドレスの形式が正しくありません。';
+      case 'auth/weak-password':
+        return 'パスワードが弱すぎます。6文字以上で設定してください。';
+      case 'auth/too-many-requests':
+        return '試行回数が多すぎます。しばらく時間をおいてお試しください。';
+      case 'auth/network-request-failed':
+        return 'ネットワークエラーが発生しました。接続を確認してください。';
+    }
+  }
+  return 'メールアドレスまたはパスワードが正しくありません。';
+};
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -83,7 +103,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       onSuccess?.();
     } catch (error) {
       console.error(error);
-      setError('メールアドレスまたはパスワードが正しくありません。');
+      setError(getAuthErrorMessage(error));
     } finally {
       setLoading(false);
     }

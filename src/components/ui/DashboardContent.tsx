@@ -18,11 +18,9 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useTransactionForm } from '@/contexts/TransactionFormContext';
 import {
   Container, Stack, Grid, Text, Group, ActionIcon, Button, Menu, Select,
-  Affix, Badge, Box, Modal, Loader, useMantineColorScheme, Paper,
-  SimpleGrid, Divider, Card,
+  Affix, Box, Loader, useMantineColorScheme, Paper, SimpleGrid,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
@@ -31,7 +29,7 @@ import {
   IconMinus, IconCalendar, IconCoins, IconRepeat, IconLogout, IconSun, IconMoon,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions } from '@/contexts/TransactionsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -42,10 +40,12 @@ import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
+import { isInvestment, deriveTransactionFlags } from '@/utils/transactionRules';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
-import { Transaction, RecurringTransaction } from '@/types';
+import { Transaction, RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
+import { YearSummaryModal } from '@/components/ui/YearSummaryModal';
 import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
 import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
 import { RecurringTransactionNotice } from '@/components/recurring/RecurringTransactionNotice';
@@ -53,10 +53,13 @@ import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTra
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
 
+// 支出ペースチャートの月間予算（円）
+const MONTHLY_BUDGET = 100000;
+
 // ============================================================
 // 前月比トレンド（色付きの矢印 + % のみ。バッジの面は使わない）
 // ============================================================
-const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
+const TrendIndicator = ({ trend, percentage }: { trend: Trend; percentage: number }) => {
   if (percentage === 0) return null;
 
   const color = trend === 'up' ? 'var(--income)' : trend === 'down' ? 'var(--expense)' : 'var(--ink-3)';
@@ -132,15 +135,9 @@ export function DashboardContent() {
   } = useRecurringTransactions();
 
   // ------------------------------------------------------------
-  // 取引フォーム状態（Context経由 + ローカル状態の統合）
-  // ------------------------------------------------------------
-  const { isFormOpen, closeForm } = useTransactionForm();
-  const [localFormOpened, setLocalFormOpened] = useState(false);
-  const transactionFormOpened = localFormOpened || isFormOpen;
-
-  // ------------------------------------------------------------
   // モーダル表示状態の管理
   // ------------------------------------------------------------
+  const [transactionFormOpened, setTransactionFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
   const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);
@@ -191,32 +188,6 @@ export function DashboardContent() {
     return calculateMonthlyComparison(selectedMonthData, previousMonthData);
   }, [selectedMonthData, previousMonthData]);
 
-  // 年間収支（「今月の収支」バンドをクリックした時のモーダルに表示）
-  const yearSummary = useMemo(() => {
-    const yearTransactions = transactions.filter(t =>
-      t.date.getFullYear() === selectedYear &&
-      t.category !== '立替回収' &&
-      t.category !== '立替金'
-    );
-
-    const income = yearTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // カード引き落とし等（affectsExpense === false）は二重計上になるため除外
-    const expense = yearTransactions
-      .filter(t => t.type === 'expense' && t.affectsExpense !== false)
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const balance = income - expense;
-
-    const monthlyBreakdown = monthlyData
-      .filter(m => m.month.startsWith(`${selectedYear}-`))
-      .sort((a, b) => a.month.localeCompare(b.month));
-
-    return { year: selectedYear, income, expense, balance, monthlyBreakdown };
-  }, [transactions, selectedYear, monthlyData]);
-
   // 選択月の取引データ
   const selectedMonthTransactions = useMemo(() =>
     transactions.filter(t => formatMonthLocal(t.date) === selectedMonth),
@@ -239,8 +210,7 @@ export function DashboardContent() {
       .filter(t =>
         t.date.getFullYear() === selectedYear &&
         t.type === 'expense' &&
-        t.category === '固定費' &&
-        t.subcategory === '投資'
+        isInvestment(t)
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -256,7 +226,7 @@ export function DashboardContent() {
       ? (yearlyInvestmentAmount / yearlySalaryAmount) * 100
       : 0;
 
-    return { yearlyInvestmentAmount, yearlySalaryAmount, yearlySavingsRate };
+    return { yearlyInvestmentAmount, yearlySavingsRate };
   }, [transactions, selectedYear]);
 
   // 月間カード還元ポイント
@@ -271,18 +241,19 @@ export function DashboardContent() {
     return active.filter(transaction => shouldShowRecurringTransaction(transaction, transactions));
   }, [getActiveRecurringTransactions, shouldShowRecurringTransaction, transactions]);
 
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+
   // ------------------------------------------------------------
   // ハンドラー
   // ------------------------------------------------------------
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    setLocalFormOpened(true);
+    setTransactionFormOpened(true);
   };
 
   const handleCloseTransactionForm = () => {
-    setLocalFormOpened(false);
+    setTransactionFormOpened(false);
     setEditingTransaction(null);
-    closeForm();
   };
 
   const handleRecordRecurringTransaction = (transaction: RecurringTransaction) => {
@@ -298,31 +269,10 @@ export function DashboardContent() {
     date: Date;
     description?: string;
   }) => {
-    let transactionType: 'normal' | 'card_payment' | 'card_withdrawal' = 'normal';
-    let affectsExpense = true;
-    let affectsBalance = true;
-
-    if (data.category === 'カード引き落とし') {
-      transactionType = 'card_withdrawal';
-      affectsExpense = false;
-      affectsBalance = true;
-    } else if (data.paymentMethod && data.paymentMethod !== '現金') {
-      transactionType = 'card_payment';
-      affectsExpense = true;
-      affectsBalance = false;
-    }
-
     await addTransaction({
       type: 'expense',
-      amount: data.amount,
-      category: data.category,
-      subcategory: data.subcategory,
-      paymentMethod: data.paymentMethod,
-      date: data.date,
-      description: data.description,
-      transactionType,
-      affectsExpense,
-      affectsBalance,
+      ...data,
+      ...deriveTransactionFlags(data.category, data.paymentMethod),
     });
   };
 
@@ -343,10 +293,8 @@ export function DashboardContent() {
     handleMonthChange(formatMonthLocal(date));
   };
 
-  const monthOptions = getMonthOptions();
-
   // 今月の収支
-  const monthBalance = (selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0);
+  const monthBalance = selectedMonthData?.balance ?? 0;
 
   if (transactionsLoading) {
     return (
@@ -511,7 +459,7 @@ export function DashboardContent() {
               <Group gap="xs">
                 <Button
                   leftSection={<IconPlus size={16} stroke={2.2} />}
-                  onClick={() => setLocalFormOpened(true)}
+                  onClick={() => setTransactionFormOpened(true)}
                 >
                   取引を追加
                 </Button>
@@ -688,7 +636,7 @@ export function DashboardContent() {
           <SpendingPaceChart
             transactions={selectedMonthTransactions}
             selectedMonth={selectedMonth}
-            budget={100000}
+            budget={MONTHLY_BUDGET}
           />
 
           <LineChart
@@ -721,7 +669,7 @@ export function DashboardContent() {
         >
           <Button
             leftSection={<IconPlus size={18} stroke={2.2} />}
-            onClick={() => setLocalFormOpened(true)}
+            onClick={() => setTransactionFormOpened(true)}
             size="md"
             radius="xl"
             style={{
@@ -769,15 +717,7 @@ export function DashboardContent() {
         onClose={() => setCalendarOpened(false)}
         value={calendarSelectedDate}
         onChange={handleCalendarDateChange}
-        transactions={transactions.map(t => ({
-          id: t.id,
-          date: t.date,
-          amount: t.amount,
-          type: t.type,
-          category: t.category,
-          subcategory: t.subcategory,
-          description: t.description
-        }))}
+        transactions={transactions}
       />
 
       <CardRewardsDisplay
@@ -787,105 +727,14 @@ export function DashboardContent() {
         onClose={() => setCardRewardsOpened(false)}
       />
 
-      {/* 年間収支サマリーモーダル */}
-      <Modal
+      <YearSummaryModal
         opened={yearSummaryOpened}
         onClose={() => setYearSummaryOpened(false)}
-        title={<Text size="md" fw={700}>{yearSummary.year}年の収支</Text>}
-        size="lg"
-        centered
-      >
-        <Stack gap="md">
-          {/* 年間サマリー */}
-          <SimpleGrid cols={{ base: 1, sm: 3 }}>
-            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
-              <Text size="xs" c="dimmed" fw={600} mb={4}>年間収入</Text>
-              <Text size="lg" fw={700} className="tabular-nums amount-income">
-                ¥{yearSummary.income.toLocaleString()}
-              </Text>
-            </Box>
-            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
-              <Text size="xs" c="dimmed" fw={600} mb={4}>年間支出（投資含む）</Text>
-              <Text size="lg" fw={700} className="tabular-nums amount-expense">
-                ¥{yearSummary.expense.toLocaleString()}
-              </Text>
-            </Box>
-            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
-              <Text size="xs" c="dimmed" fw={600} mb={4}>年間収支</Text>
-              <Text
-                size="lg"
-                fw={700}
-                className="tabular-nums"
-                style={{ color: yearSummary.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
-              >
-                {yearSummary.balance >= 0 ? '+' : ''}¥{yearSummary.balance.toLocaleString()}
-              </Text>
-            </Box>
-          </SimpleGrid>
+        transactions={transactions}
+        monthlyData={monthlyData}
+        selectedMonth={selectedMonth}
+      />
 
-          {/* 月別内訳 */}
-          <Box>
-            <Text size="sm" fw={700} c="dimmed" mb="sm">月別内訳</Text>
-            <Stack gap={6}>
-              {yearSummary.monthlyBreakdown.map((monthData) => {
-                const balance = monthData.income - monthData.expense;
-                const isSelected = monthData.month === selectedMonth;
-                return (
-                  <Card
-                    key={monthData.month}
-                    p="sm"
-                    radius="md"
-                    style={{
-                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--hairline)'}`,
-                      background: isSelected ? 'var(--accent-soft)' : 'var(--app-surface)',
-                    }}
-                  >
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="xs">
-                        <Text size="sm" fw={700}>{getMonthName(monthData.month)}</Text>
-                        {isSelected && <Badge size="xs" color="indigo" variant="light">表示中</Badge>}
-                      </Group>
-                      <Group gap="md" wrap="nowrap">
-                        <Text size="xs" c="dimmed" className="tabular-nums" visibleFrom="sm">
-                          収入 ¥{monthData.income.toLocaleString()} / 支出 ¥{monthData.expense.toLocaleString()}
-                        </Text>
-                        <Text
-                          size="sm"
-                          fw={700}
-                          className="tabular-nums"
-                          style={{ color: balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
-                        >
-                          {balance >= 0 ? '+' : ''}¥{balance.toLocaleString()}
-                        </Text>
-                      </Group>
-                    </Group>
-                  </Card>
-                );
-              })}
-
-              <Divider my={4} />
-              <Group justify="space-between" px={4}>
-                <Text size="xs" c="dimmed" fw={600}>月平均</Text>
-                <Group gap="md">
-                  <Text size="xs" c="dimmed" className="tabular-nums">
-                    収入 ¥{Math.round(yearSummary.income / 12).toLocaleString()}
-                  </Text>
-                  <Text size="xs" c="dimmed" className="tabular-nums">
-                    支出 ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
-                  </Text>
-                  <Text size="xs" fw={700} className="tabular-nums"
-                    style={{ color: yearSummary.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
-                  >
-                    {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
-                  </Text>
-                </Group>
-              </Group>
-            </Stack>
-          </Box>
-        </Stack>
-      </Modal>
-
-      {/* 年間投資履歴モーダル */}
       <InvestmentHistoryModal
         opened={investmentHistoryOpened}
         onClose={() => setInvestmentHistoryOpened(false)}
@@ -893,7 +742,6 @@ export function DashboardContent() {
         year={selectedYear}
       />
 
-      {/* 年間貯蓄率詳細モーダル */}
       <SavingsRateDetailModal
         opened={savingsRateDetailOpened}
         onClose={() => setSavingsRateDetailOpened(false)}

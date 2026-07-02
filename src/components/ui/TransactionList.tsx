@@ -14,7 +14,9 @@ import {
   useMantineColorScheme,
 } from '@mantine/core';
 import { IconTrash, IconCreditCard } from '@tabler/icons-react';
-import { useTransactions } from '@/hooks/useTransactions';
+import { modals } from '@mantine/modals';
+import { notifications } from '@mantine/notifications';
+import { useTransactions } from '@/contexts/TransactionsContext';
 import { Transaction } from '@/types';
 import { getCategoryColor } from '@/utils/calculations';
 
@@ -94,10 +96,25 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
-  const handleDelete = async (id: string) => {
-    if (typeof window !== 'undefined' && window.confirm('この取引を削除しますか？')) {
-      await deleteTransaction(id);
-    }
+  const handleDelete = (id: string) => {
+    modals.openConfirmModal({
+      title: '取引を削除',
+      children: <Text size="sm">この取引を削除しますか？この操作は取り消せません。</Text>,
+      labels: { confirm: '削除', cancel: 'キャンセル' },
+      confirmProps: { color: 'red' },
+      onConfirm: async () => {
+        try {
+          await deleteTransaction(id);
+        } catch (error) {
+          console.error('Error deleting transaction:', error);
+          notifications.show({
+            title: 'エラー',
+            message: '削除に失敗しました。もう一度お試しください。',
+            color: 'red',
+          });
+        }
+      },
+    });
   };
 
   return (
