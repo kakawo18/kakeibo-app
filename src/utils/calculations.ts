@@ -213,38 +213,29 @@ export const calculateMonthlyComparison = (
   expense: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
   balance: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
 } => {
-  const calculateTrend = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 'up' : 'same';
-    const percentage = ((current - previous) / previous) * 100;
-    if (percentage > 0) return 'up';
-    if (percentage < 0) return 'down';
-    return 'same';
-  };
-
-  const calculatePercentage = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return Math.round(((current - previous) / previous) * 100);
+  // トレンド（矢印の向き）は増減の差分で判定し、%の符号も必ず差分と一致させる。
+  // 分母に previous をそのまま使うと、収支がマイナスの月を基準にしたとき
+  // 符号が反転する（改善したのに下矢印になる）ため、分母は絶対値を取る。
+  const calculateChange = (current: number, previous: number) => {
+    const diff = current - previous;
+    const trend: 'up' | 'down' | 'same' = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+    const percentage = previous === 0
+      ? (diff === 0 ? 0 : 100 * Math.sign(diff))
+      : Math.round((diff / Math.abs(previous)) * 100);
+    return { trend, percentage };
   };
 
   const prevIncome = previousData?.income || 0;
   const prevExpense = previousData?.expense || 0;
   const prevBalance = previousData?.balance || 0;
 
+  const income = calculateChange(currentData.income, prevIncome);
+  const expense = calculateChange(currentData.expense, prevExpense);
+  const balance = calculateChange(currentData.balance, prevBalance);
+
   return {
-    income: {
-      value: currentData.income,
-      percentage: calculatePercentage(currentData.income, prevIncome),
-      trend: calculateTrend(currentData.income, prevIncome)
-    },
-    expense: {
-      value: currentData.expense,
-      percentage: calculatePercentage(currentData.expense, prevExpense),
-      trend: calculateTrend(currentData.expense, prevExpense)
-    },
-    balance: {
-      value: currentData.balance,
-      percentage: calculatePercentage(currentData.balance, prevBalance),
-      trend: calculateTrend(currentData.balance, prevBalance)
-    }
+    income: { value: currentData.income, ...income },
+    expense: { value: currentData.expense, ...expense },
+    balance: { value: currentData.balance, ...balance },
   };
 };

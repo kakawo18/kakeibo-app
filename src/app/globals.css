@@ -28,6 +28,15 @@
   /* チャート用グリッド */
   --grid-line: #e7e8ec;
 
+  /* 角丸スケール: カード > 内側タイル > コントロール */
+  --radius-card: 16px;
+  --radius-tile: 12px;
+  --radius-control: 10px;
+
+  /* 影スケール: 静止カード / 浮遊要素 */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-raised: 0 8px 24px rgba(15, 23, 42, 0.10);
+
   --background: var(--app-page);
   --foreground: var(--ink-1);
 }
@@ -50,6 +59,9 @@
   --accent-soft: rgba(107, 131, 247, 0.14);
 
   --grid-line: #2c2d32;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45);
 
   --background: var(--app-page);
   --foreground: var(--ink-1);
@@ -116,12 +128,8 @@ body {
 .ledger-card {
   background: var(--app-surface) !important;
   border: 1px solid var(--hairline) !important;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  border-radius: 16px;
-}
-
-[data-mantine-color-scheme="dark"] .ledger-card {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
 }
 
 /* クリック可能カード */
@@ -140,28 +148,111 @@ body {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-/* スティッキーヘッダー */
+/* スティッキーヘッダー
+   z-index はモーダル（Mantine デフォルト 200）より必ず下にする。
+   200 以上にするとフルスクリーンモーダルの閉じるボタンを覆い隠し、
+   PWA（ブラウザの戻るボタンがない）でユーザーが画面から戻れなくなる */
 .app-header {
   position: sticky;
   top: 0;
-  z-index: 200;
+  z-index: 100;
   background: color-mix(in srgb, var(--app-page) 82%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--hairline);
 }
 
-/* セクション見出し */
+/* カード見出し（カード左上のタイトル） */
 .section-title {
   font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--ink-2);
+  letter-spacing: 0.01em;
+  color: var(--ink-1);
 }
 
-/* 数値のタブラー表示（金額の桁ブレ防止） */
+/* 小型ラベル（KPI名・列見出しなど、値の上に置く控えめな見出し） */
+.overline-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+}
+
+/* 数値のタブラー表示（金額の桁ブレ防止）
+   数字・ラテン文字は Geist、和文グリフは Noto にフォールバックさせ、
+   金額の字面を締める（和文フォントの数字は字幅が広く間延びするため） */
 .tabular-nums {
+  font-family: var(--font-geist-sans), var(--font-noto-sans-jp), system-ui, sans-serif;
   font-variant-numeric: tabular-nums;
+}
+
+/* 金額の通貨記号・符号: 数字より一段軽くして桁を主役にする */
+.amount-symbol {
+  font-size: 0.72em;
+  font-weight: 600;
+  margin-right: 0.06em;
+  opacity: 0.72;
+}
+
+/* 台帳リストの行: ホバーで面をわずかに持ち上げる */
+.ledger-row {
+  border-radius: 8px;
+  transition: background-color 0.12s ease;
+}
+
+@media (hover: hover) {
+  .ledger-row:hover {
+    background-color: var(--app-surface-2);
+  }
+}
+
+/* チャートのタブ切替時のクロスフェード */
+@keyframes chartSwap {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chart-swap {
+  animation: chartSwap 0.22s ease;
+}
+
+/* ============================================================
+   アンダーライン式タブ（モバイルの内訳切替など）
+   カード上端にフラッシュさせ、スライドするインジケーターで選択を示す
+   ============================================================ */
+.underline-tabs {
+  position: relative;
+  display: flex;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.underline-tab {
+  flex: 1;
+  padding: 13px 0 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+  transition: color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.underline-tab[aria-selected="true"] {
+  color: var(--ink-1);
+}
+
+.underline-tabs-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
 /* 収支の意味色 */

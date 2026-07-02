@@ -21,7 +21,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransactionForm } from '@/contexts/TransactionFormContext';
 import {
   Container, Stack, Grid, Text, Group, ActionIcon, Button, Menu, Select,
-  Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme, Paper,
+  Affix, Badge, Box, Modal, Loader, useMantineColorScheme, Paper,
   SimpleGrid, Divider, Card,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -35,7 +35,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useAuth } from '@/contexts/AuthContext';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
-import { PieChart } from '@/components/charts/PieChart';
+import { CategoryBreakdown } from '@/components/charts/CategoryBreakdown';
 import { LineChart } from '@/components/charts/LineChart';
 import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
@@ -54,54 +54,63 @@ import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
 
 // ============================================================
-// 前月比トレンドバッジ
+// 前月比トレンド（色付きの矢印 + % のみ。バッジの面は使わない）
 // ============================================================
 const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
-  const color = trend === 'up' ? 'teal' : trend === 'down' ? 'red' : 'gray';
-  const icon =
-    trend === 'up' ? <IconArrowUpRight size={12} /> :
-    trend === 'down' ? <IconArrowDownRight size={12} /> :
-    <IconMinus size={12} />;
-
   if (percentage === 0) return null;
 
+  const color = trend === 'up' ? 'var(--income)' : trend === 'down' ? 'var(--expense)' : 'var(--ink-3)';
+  const icon =
+    trend === 'up' ? <IconArrowUpRight size={13} /> :
+    trend === 'down' ? <IconArrowDownRight size={13} /> :
+    <IconMinus size={13} />;
+
   return (
-    <Badge variant="light" color={color} leftSection={icon} size="xs">
-      {Math.abs(percentage)}%
-    </Badge>
+    <Group gap={3} align="center" style={{ color }}>
+      {icon}
+      <Text size="xs" fw={600} className="tabular-nums" style={{ color }}>
+        {Math.abs(percentage)}%
+      </Text>
+      <Text size="xs" c="dimmed">前月比</Text>
+    </Group>
   );
 };
 
 // ============================================================
-// KPIタイル
+// KPIタイル（アイコンは無彩色 — 色は意味のある数値だけに使う）
 // ============================================================
 const KpiTile = ({
   label,
   value,
   unit,
   icon,
-  color,
+  compact,
   onClick,
 }: {
   label: string;
   value: string;
   unit?: string;
   icon: React.ReactNode;
-  color: string;
+  compact?: boolean;
   onClick?: () => void;
 }) => (
   <Paper
     className={`ledger-card ${onClick ? 'ledger-card-clickable' : ''}`}
-    p="md"
+    p={compact ? 12 : 'md'}
     onClick={onClick}
+    // 3列グリッドで金額が長いときにタイルがグリッドを押し広げないようにする
+    style={{ minWidth: 0 }}
   >
-    <Group gap={8} mb={6}>
-      <ThemeIcon variant="light" color={color} size="sm" radius="md">
-        {icon}
-      </ThemeIcon>
-      <Text size="xs" c="dimmed" fw={600}>{label}</Text>
+    <Group gap={6} mb={compact ? 8 : 10} c="var(--ink-3)" wrap="nowrap">
+      {icon}
+      <Text className="overline-label" truncate>{label}</Text>
     </Group>
-    <Text size="lg" fw={800} className="tabular-nums" style={{ lineHeight: 1.1 }}>
+    <Text
+      fw={700}
+      className="tabular-nums"
+      truncate
+      style={{ fontSize: compact ? 17 : 20, lineHeight: 1.1, letterSpacing: '-0.015em' }}
+    >
       {value}
       {unit && <Text component="span" size="xs" c="dimmed" fw={600}> {unit}</Text>}
     </Text>
@@ -176,7 +185,9 @@ export function DashboardContent() {
   }, [monthlyData, selectedMonth]);
 
   const monthlyComparison = useMemo(() => {
-    if (!selectedMonthData) return null;
+    // 前月データが存在しない（データ範囲外の）月では「前月比 +100%」のような
+    // 意味のない比較を出さない
+    if (!selectedMonthData || !previousMonthData) return null;
     return calculateMonthlyComparison(selectedMonthData, previousMonthData);
   }, [selectedMonthData, previousMonthData]);
 
@@ -339,8 +350,11 @@ export function DashboardContent() {
 
   if (transactionsLoading) {
     return (
-      <Container size="lg" py="xl">
-        <Text ta="center" c="dimmed">データを読み込み中...</Text>
+      <Container size="lg" py={80}>
+        <Stack align="center" gap="sm">
+          <Loader size="sm" color="indigo" />
+          <Text size="sm" c="dimmed">データを読み込み中...</Text>
+        </Stack>
       </Container>
     );
   }
@@ -357,8 +371,8 @@ export function DashboardContent() {
       variant="unstyled"
       styles={{
         input: {
-          fontSize: isMobile ? '18px' : '20px',
-          fontWeight: 800,
+          fontSize: isMobile ? '17px' : '19px',
+          fontWeight: 700,
           textAlign: 'center',
           letterSpacing: '-0.02em',
           cursor: 'pointer',
@@ -378,20 +392,30 @@ export function DashboardContent() {
         <Container size="lg">
           <Group justify="space-between" h={56}>
             <Group gap={10}>
-              <ThemeIcon
-                size="md"
-                radius="md"
-                variant="gradient"
-                gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
+              <Box
+                w={28}
+                h={28}
+                style={{
+                  borderRadius: 8,
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  lineHeight: 1,
+                }}
+                aria-hidden
               >
-                <IconWallet size={16} />
-              </ThemeIcon>
+                ¥
+              </Box>
               <div>
-                <Text fw={800} size="md" style={{ letterSpacing: '-0.3px', lineHeight: 1 }}>
+                <Text fw={700} size="sm" style={{ letterSpacing: '-0.01em', lineHeight: 1 }}>
                   家計簿
                 </Text>
                 {!isMobile && user?.email && (
-                  <Text size="10px" c="dimmed" style={{ lineHeight: 1.4 }}>{user.email}</Text>
+                  <Text size="10px" c="dimmed" style={{ lineHeight: 1.5 }}>{user.email}</Text>
                 )}
               </div>
             </Group>
@@ -486,24 +510,21 @@ export function DashboardContent() {
             {!isMobile && (
               <Group gap="xs">
                 <Button
-                  leftSection={<IconPlus size={16} />}
+                  leftSection={<IconPlus size={16} stroke={2.2} />}
                   onClick={() => setLocalFormOpened(true)}
-                  variant="gradient"
-                  gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
-                  radius="xl"
                 >
                   取引を追加
                 </Button>
-                <ActionIcon variant="default" size={36} radius="xl" onClick={() => setRecurringManagerOpened(true)} aria-label="定期取引">
-                  <IconRepeat size={16} />
+                <ActionIcon variant="default" size={36} radius={10} onClick={() => setRecurringManagerOpened(true)} aria-label="定期取引">
+                  <IconRepeat size={16} stroke={1.8} />
                 </ActionIcon>
-                <ActionIcon variant="default" size={36} radius="xl" onClick={() => setCalendarOpened(true)} aria-label="カレンダー">
-                  <IconCalendar size={16} />
+                <ActionIcon variant="default" size={36} radius={10} onClick={() => setCalendarOpened(true)} aria-label="カレンダー">
+                  <IconCalendar size={16} stroke={1.8} />
                 </ActionIcon>
-                <Menu shadow="md" width={220} position="bottom-end">
+                <Menu shadow="md" width={220} position="bottom-end" radius={12}>
                   <Menu.Target>
-                    <ActionIcon variant="default" size={36} radius="xl" aria-label="その他">
-                      <IconDotsVertical size={16} />
+                    <ActionIcon variant="default" size={36} radius={10} aria-label="その他">
+                      <IconDotsVertical size={16} stroke={1.8} />
                     </ActionIcon>
                   </Menu.Target>
                   <Menu.Dropdown>
@@ -530,55 +551,70 @@ export function DashboardContent() {
           <Paper
             className="ledger-card ledger-card-clickable"
             p={isMobile ? 'lg' : 'xl'}
+            pos="relative"
             onClick={() => setYearSummaryOpened(true)}
           >
+            {/* 右上: 年間収支への導線 */}
+            <Group
+              gap={2}
+              style={{
+                position: 'absolute',
+                top: isMobile ? 14 : 18,
+                right: isMobile ? 16 : 22,
+                color: 'var(--ink-3)',
+              }}
+            >
+              <Text size="xs" fw={600} style={{ color: 'inherit' }}>年間収支</Text>
+              <IconChevronRight size={13} />
+            </Group>
+
             <Grid gutter={isMobile ? 'lg' : 'xl'} align="center">
               {/* ヒーロー: 今月の収支 */}
               <Grid.Col span={{ base: 12, sm: 6 }}>
-                <Stack gap={6} align={isMobile ? 'center' : 'flex-start'}>
-                  <Text size="xs" c="dimmed" fw={700} style={{ letterSpacing: '0.04em' }}>
+                <Stack gap={8} align={isMobile ? 'center' : 'flex-start'}>
+                  <Text className="overline-label">
                     {getMonthName(selectedMonth)}の収支
                   </Text>
                   <Text
                     className="tabular-nums"
                     style={{
-                      fontSize: isMobile ? '2.5rem' : '3rem',
-                      fontWeight: 800,
+                      fontSize: isMobile ? '2.375rem' : '2.75rem',
+                      fontWeight: 700,
                       lineHeight: 1,
-                      letterSpacing: '-0.03em',
+                      letterSpacing: '-0.025em',
                       color: monthBalance >= 0 ? 'var(--income)' : 'var(--expense)',
                     }}
                   >
-                    {monthBalance >= 0 ? '+' : ''}¥{monthBalance.toLocaleString()}
+                    {monthBalance >= 0 ? '+' : '-'}
+                    <span className="amount-symbol">¥</span>
+                    {Math.abs(monthBalance).toLocaleString()}
                   </Text>
-                  <Group gap={8}>
-                    {monthlyComparison && (
-                      <TrendIndicator
-                        trend={monthlyComparison.balance.trend}
-                        percentage={monthlyComparison.balance.percentage}
-                      />
-                    )}
-                    <Text size="xs" c="dimmed">タップで年間収支を表示</Text>
-                  </Group>
+                  {monthlyComparison && (
+                    <TrendIndicator
+                      trend={monthlyComparison.balance.trend}
+                      percentage={monthlyComparison.balance.percentage}
+                    />
+                  )}
                 </Stack>
               </Grid.Col>
 
               {/* 収入・支出 */}
               <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Stack
-                  gap={4}
+                  gap={6}
                   pl={isMobile ? 0 : 'lg'}
                   style={isMobile ? undefined : { borderLeft: '1px solid var(--hairline)' }}
                 >
                   <Group gap={6}>
-                    <Box w={8} h={8} style={{ borderRadius: '50%', background: 'var(--income)' }} />
-                    <Text size="xs" c="dimmed" fw={600}>収入</Text>
+                    <Box w={7} h={7} style={{ borderRadius: '50%', background: 'var(--income)' }} />
+                    <Text className="overline-label">収入</Text>
                   </Group>
-                  <Text size="xl" fw={800} className="tabular-nums amount-income" style={{ lineHeight: 1.1 }}>
-                    ¥{(selectedMonthData?.income || 0).toLocaleString()}
+                  <Text fw={700} className="tabular-nums" style={{ fontSize: 19, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                    <span className="amount-symbol">¥</span>
+                    {(selectedMonthData?.income || 0).toLocaleString()}
                   </Text>
                   {monthlyComparison && (
-                    <Text size="xs" c="dimmed">
+                    <Text size="xs" c="dimmed" className="tabular-nums">
                       前月比 {monthlyComparison.income.trend === 'up' ? '+' : ''}{monthlyComparison.income.percentage}%
                     </Text>
                   )}
@@ -587,19 +623,20 @@ export function DashboardContent() {
 
               <Grid.Col span={{ base: 6, sm: 3 }}>
                 <Stack
-                  gap={4}
+                  gap={6}
                   pl={isMobile ? 0 : 'lg'}
                   style={isMobile ? undefined : { borderLeft: '1px solid var(--hairline)' }}
                 >
                   <Group gap={6}>
-                    <Box w={8} h={8} style={{ borderRadius: '50%', background: 'var(--expense)' }} />
-                    <Text size="xs" c="dimmed" fw={600}>支出</Text>
+                    <Box w={7} h={7} style={{ borderRadius: '50%', background: 'var(--expense)' }} />
+                    <Text className="overline-label">支出</Text>
                   </Group>
-                  <Text size="xl" fw={800} className="tabular-nums amount-expense" style={{ lineHeight: 1.1 }}>
-                    ¥{(selectedMonthData?.expense || 0).toLocaleString()}
+                  <Text fw={700} className="tabular-nums" style={{ fontSize: 19, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                    <span className="amount-symbol">¥</span>
+                    {(selectedMonthData?.expense || 0).toLocaleString()}
                   </Text>
                   {monthlyComparison && (
-                    <Text size="xs" c="dimmed">
+                    <Text size="xs" c="dimmed" className="tabular-nums">
                       前月比 {monthlyComparison.expense.trend === 'up' ? '+' : ''}{monthlyComparison.expense.percentage}%
                     </Text>
                   )}
@@ -616,46 +653,37 @@ export function DashboardContent() {
               label="貯蓄率"
               value={savingsData.yearlySavingsRate.toFixed(1)}
               unit="%"
-              icon={<IconTrendingUp size={14} />}
-              color="violet"
+              icon={<IconTrendingUp size={14} stroke={1.8} />}
+              compact={isMobile}
               onClick={() => setSavingsRateDetailOpened(true)}
             />
             <KpiTile
               label="獲得ポイント"
               value={monthlyCardPoints.toLocaleString()}
               unit="pt"
-              icon={<IconCoins size={14} />}
-              color="orange"
+              icon={<IconCoins size={14} stroke={1.8} />}
+              compact={isMobile}
               onClick={() => setCardRewardsOpened(true)}
             />
             <KpiTile
               label="年間投資額"
               value={`¥${savingsData.yearlyInvestmentAmount.toLocaleString()}`}
-              icon={<IconWallet size={14} />}
-              color="indigo"
+              icon={<IconWallet size={14} stroke={1.8} />}
+              compact={isMobile}
               onClick={() => setInvestmentHistoryOpened(true)}
             />
           </SimpleGrid>
 
           {/* ============================================================
               チャートセクション
+              （モバイル: タブ切替 / デスクトップ: 2カラム）
               ============================================================ */}
-          <Grid gutter={isMobile ? 'md' : 'lg'}>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <PieChart
-                title="支出の内訳"
-                data={expenseChartData}
-                totalAmount={selectedMonthData?.expense || 0}
-              />
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, lg: 6 }}>
-              <PieChart
-                title="収入の内訳"
-                data={incomeChartData}
-                totalAmount={selectedMonthData?.income || 0}
-              />
-            </Grid.Col>
-          </Grid>
+          <CategoryBreakdown
+            expenseData={expenseChartData}
+            incomeData={incomeChartData}
+            expenseTotal={selectedMonthData?.expense || 0}
+            incomeTotal={selectedMonthData?.income || 0}
+          />
 
           <SpendingPaceChart
             transactions={selectedMonthTransactions}
@@ -685,16 +713,19 @@ export function DashboardContent() {
           モバイル: フローティング追加ボタン
           ============================================================ */}
       {isMobile && (
-        <Affix position={{ bottom: 24, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 300 }}>
+        // zIndex はモーダル（Mantine デフォルト 200）より下に固定。上にするとモーダルの上に FAB が浮く
+        // bottom は iOS PWA のホームインジケーター領域（safe-area）を避ける
+        <Affix
+          position={{ bottom: 'calc(24px + env(safe-area-inset-bottom))', right: 20 }}
+          style={{ zIndex: transactionFormOpened ? 1 : 150 }}
+        >
           <Button
-            leftSection={<IconPlus size={18} />}
+            leftSection={<IconPlus size={18} stroke={2.2} />}
             onClick={() => setLocalFormOpened(true)}
             size="md"
-            variant="gradient"
-            gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
             radius="xl"
             style={{
-              boxShadow: '0 8px 24px rgba(76, 110, 245, 0.4)',
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12), 0 8px 22px rgba(76, 110, 245, 0.28)',
               opacity: transactionFormOpened ? 0 : 1,
               pointerEvents: transactionFormOpened ? 'none' : 'auto',
             }}
@@ -760,14 +791,7 @@ export function DashboardContent() {
       <Modal
         opened={yearSummaryOpened}
         onClose={() => setYearSummaryOpened(false)}
-        title={
-          <Group gap="sm">
-            <ThemeIcon size="lg" color="indigo" variant="light">
-              <IconTrendingUp size={20} />
-            </ThemeIcon>
-            <Text size="lg" fw={700}>{yearSummary.year}年の収支</Text>
-          </Group>
-        }
+        title={<Text size="md" fw={700}>{yearSummary.year}年の収支</Text>}
         size="lg"
         centered
       >
@@ -776,13 +800,13 @@ export function DashboardContent() {
           <SimpleGrid cols={{ base: 1, sm: 3 }}>
             <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
               <Text size="xs" c="dimmed" fw={600} mb={4}>年間収入</Text>
-              <Text size="lg" fw={800} className="tabular-nums amount-income">
+              <Text size="lg" fw={700} className="tabular-nums amount-income">
                 ¥{yearSummary.income.toLocaleString()}
               </Text>
             </Box>
             <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
               <Text size="xs" c="dimmed" fw={600} mb={4}>年間支出（投資含む）</Text>
-              <Text size="lg" fw={800} className="tabular-nums amount-expense">
+              <Text size="lg" fw={700} className="tabular-nums amount-expense">
                 ¥{yearSummary.expense.toLocaleString()}
               </Text>
             </Box>
@@ -790,7 +814,7 @@ export function DashboardContent() {
               <Text size="xs" c="dimmed" fw={600} mb={4}>年間収支</Text>
               <Text
                 size="lg"
-                fw={800}
+                fw={700}
                 className="tabular-nums"
                 style={{ color: yearSummary.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
               >
@@ -827,7 +851,7 @@ export function DashboardContent() {
                         </Text>
                         <Text
                           size="sm"
-                          fw={800}
+                          fw={700}
                           className="tabular-nums"
                           style={{ color: balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
                         >

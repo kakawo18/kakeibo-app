@@ -115,7 +115,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
               { label: '支出', value: 'expense' },
             ]}
             size="xs"
-            radius="xl"
+            radius={8}
           />
         </Group>
 
@@ -168,11 +168,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                   {/* 日付ヘッダー */}
                   <Group
                     justify="space-between"
-                    px={4}
+                    px={8}
                     pb={6}
                     style={{ borderBottom: '1px solid var(--hairline)' }}
                   >
-                    <Text size="xs" fw={700} c="dimmed">
+                    <Text className="overline-label">
                       {formatDayHeader(date)}
                     </Text>
                     <Group gap="sm">
@@ -203,10 +203,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                       return (
                         <Group
                           key={transaction.id}
+                          className="ledger-row"
                           justify="space-between"
                           wrap="nowrap"
                           py={10}
-                          px={4}
+                          px={8}
                           style={{
                             borderBottom: '1px solid var(--hairline)',
                             cursor: 'pointer',

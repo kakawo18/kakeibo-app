@@ -73,6 +73,7 @@ const CustomTooltip = ({
         background: 'var(--app-surface)',
         border: '1px solid var(--hairline-strong)',
         borderRadius: '10px',
+        boxShadow: 'var(--shadow-raised)',
         minWidth: '170px',
       }}
     >
@@ -195,21 +196,29 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
         </Stack>
         <Stack gap={4} align="flex-end">
           <Group gap={6} align="baseline">
-            <Text size="lg" fw={800} className="tabular-nums" c={isOverBudget ? 'red' : undefined}>
+            <Text
+              fw={700}
+              className="tabular-nums"
+              style={{
+                fontSize: 18,
+                letterSpacing: '-0.01em',
+                color: isOverBudget ? 'var(--expense)' : undefined,
+              }}
+            >
               ¥{totalExpense.toLocaleString()}
             </Text>
             <Text size="xs" c="dimmed" className="tabular-nums">/ ¥{budget.toLocaleString()}</Text>
           </Group>
           {isOverBudget && <Badge color="red" variant="light" size="sm">予算オーバー</Badge>}
-          {isWarning && <Badge color="yellow" variant="light" size="sm">予算の80%を超過</Badge>}
+          {isWarning && <Badge color="orange" variant="light" size="sm">予算の80%を超過</Badge>}
         </Stack>
       </Group>
 
       {/* 予算消化メーター */}
       <Progress
         value={Math.min(usageRate, 100)}
-        color={isOverBudget ? 'red' : isWarning ? 'yellow' : 'indigo'}
-        size="sm"
+        color={isOverBudget ? 'red' : isWarning ? 'orange' : 'indigo'}
+        size={6}
         radius="xl"
         mb="md"
       />

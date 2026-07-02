@@ -98,12 +98,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             h={36}
             style={{
               borderRadius: 10,
-              background: 'linear-gradient(135deg, var(--mantine-color-indigo-6), var(--mantine-color-cyan-5))',
+              background: 'var(--accent)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontWeight: 800,
+              fontWeight: 700,
               fontSize: 18,
             }}
           >
@@ -159,9 +159,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               loading={loading}
               fullWidth
               size="md"
-              radius="xl"
-              variant="gradient"
-              gradient={{ from: 'indigo', to: 'cyan', deg: 135 }}
             >
               {isLogin ? 'ログイン' : '登録する'}
             </Button>
@@ -176,7 +173,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             variant="subtle"
             size="sm"
             onClick={() => setIsLogin(!isLogin)}
-            color="blue"
           >
             {isLogin ? '新規登録' : 'ログイン'}
           </Button>

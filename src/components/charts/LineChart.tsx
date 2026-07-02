@@ -156,25 +156,29 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
 
       {/* ページングコントロール */}
       {allCategoryData.length > DISPLAY_MONTHS && (
-        <Group justify="center" mb="md" gap="xs">
+        <Group justify="center" mb="sm" gap="xs">
           <ActionIcon
-            variant="light"
-            size="lg"
+            variant="default"
+            size="md"
+            radius={8}
             onClick={handlePrev}
             disabled={!canGoPrev}
+            aria-label="前の期間へ"
           >
-            <IconChevronLeft size={18} />
+            <IconChevronLeft size={15} stroke={1.8} />
           </ActionIcon>
-          <Text size="sm" c="dimmed">
+          <Text size="xs" c="dimmed" className="tabular-nums">
             {displayStartIndex + 1} - {Math.min(displayStartIndex + DISPLAY_MONTHS, allCategoryData.length)} / {allCategoryData.length}ヶ月
           </Text>
           <ActionIcon
-            variant="light"
-            size="lg"
+            variant="default"
+            size="md"
+            radius={8}
             onClick={handleNext}
             disabled={!canGoNext}
+            aria-label="次の期間へ"
           >
-            <IconChevronRight size={18} />
+            <IconChevronRight size={15} stroke={1.8} />
           </ActionIcon>
         </Group>
       )}
@@ -185,7 +189,8 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
         value={selectedCategories}
         onChange={setUserSelectedCategories}
         placeholder="比較するカテゴリを選択"
-        mb="xl"
+        size="sm"
+        mb="lg"
         maxValues={5}
         searchable
         clearable
@@ -218,11 +223,13 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
                 background: 'var(--app-surface)',
                 border: '1px solid var(--hairline-strong)',
                 borderRadius: '10px',
+                boxShadow: 'var(--shadow-raised)',
                 fontSize: '12px',
                 color: 'var(--ink-1)',
+                padding: '8px 12px',
               }}
             />
-            <Legend wrapperStyle={{ fontSize: '12px' }} iconType="plainline" />
+            <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--ink-2)' }} iconType="plainline" />
             {selectedCategories.map((category) => (
               <Line
                 key={category}
