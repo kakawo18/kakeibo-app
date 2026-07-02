@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { RecurringTransaction } from '@/types';
+import { RecurringTransaction, Transaction } from '@/types';
 
 export const useRecurringTransactions = () => {
   const { user } = useAuth();
@@ -103,7 +103,7 @@ export const useRecurringTransactions = () => {
 
   const shouldShowRecurringTransaction = (
     recurring: RecurringTransaction,
-    existingTransactions: any[] = []
+    existingTransactions: Transaction[] = []
   ) => {
     const today = new Date();
     const currentDay = today.getDate();
@@ -111,7 +111,10 @@ export const useRecurringTransactions = () => {
     const currentYear = today.getFullYear();
 
     // 1. 日付チェック: 設定日を過ぎているか
-    if (currentDay < recurring.dayOfMonth) {
+    // dayOfMonth が月の日数を超える場合（例: 31日設定の2月）は月末日を実効日とする
+    const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const effectiveDay = Math.min(recurring.dayOfMonth, daysInCurrentMonth);
+    if (currentDay < effectiveDay) {
       return false;
     }
 

@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -34,15 +34,19 @@ if (typeof window === 'undefined') {
 }
 
 const firebaseConfig = {
-  apiKey: requiredEnvVars.apiKey!,
-  authDomain: requiredEnvVars.authDomain!,
-  projectId: requiredEnvVars.projectId!,
-  storageBucket: requiredEnvVars.storageBucket!,
-  messagingSenderId: requiredEnvVars.messagingSenderId!,
-  appId: requiredEnvVars.appId!,
+  // apiKeyが空だとビルド時のプリレンダリング（SSR）で getAuth が
+  // auth/invalid-api-key を投げてビルド自体が失敗するため、
+  // 環境変数未設定時はプレースホルダーで初期化する（実際の認証は環境変数が必要）
+  apiKey: requiredEnvVars.apiKey || 'missing-api-key',
+  authDomain: requiredEnvVars.authDomain || 'missing.firebaseapp.com',
+  projectId: requiredEnvVars.projectId || 'missing-project',
+  storageBucket: requiredEnvVars.storageBucket,
+  messagingSenderId: requiredEnvVars.messagingSenderId,
+  appId: requiredEnvVars.appId || 'missing-app-id',
 };
 
-const app = initializeApp(firebaseConfig);
+// HMR等での二重初期化を防止
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);

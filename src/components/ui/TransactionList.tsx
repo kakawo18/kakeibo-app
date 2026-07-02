@@ -401,7 +401,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                         textAlign: 'right'
                       }}
                     >
-                      {transaction.type === 'income' ? '+' : ''}¥{transaction.amount.toLocaleString()}
+                      {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
                     </Text>
                     <Group gap={isMobile ? 4 : 2}>
                       <ActionIcon

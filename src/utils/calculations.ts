@@ -14,7 +14,7 @@
  * - 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い
  */
 import { Transaction, MonthlyData, ChartData } from '@/types';
-import { formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
+import { formatMonthLocal, getNextMonth } from './dateUtils';
 
 /**
  * 月別データを計算する
@@ -88,8 +88,6 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     }
   }
 
-  // 残高計算: 累積で計算
-  let runningBalance = 0;
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   sortedData.forEach((monthData) => {
@@ -150,9 +148,12 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
     .forEach((transaction) => {
       // 支出の場合、投資は除外（別枠で表示するため）
       // 立替回収、立替金も除外
+      // カード引き落とし等（affectsExpense === false）も除外し、
+      // 支出サマリーカードの金額と円グラフの合計を一致させる（カード支払いとの二重計上防止）
       if (type === 'expense') {
         if ((transaction.category === '固定費' && transaction.subcategory === '投資') ||
-          transaction.category === '立替金') {
+          transaction.category === '立替金' ||
+          transaction.affectsExpense === false) {
           return;
         }
       } else if (type === 'income') {

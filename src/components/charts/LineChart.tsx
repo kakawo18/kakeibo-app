@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -24,7 +24,8 @@ interface LineChartProps {
 }
 
 export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions = [] }) => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
+  const [userSelectedCategories, setUserSelectedCategories] = useState<string[] | null>(null);
   const DISPLAY_MONTHS = 6; // 表示する月数
 
   // 初期表示を最新の6ヶ月にする
@@ -35,10 +36,8 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
 
   const [displayStartIndex, setDisplayStartIndex] = useState(initialStartIndex);
 
-  // 初回マウント時にTop 3カテゴリを自動選択
-  useEffect(() => {
-    if (transactions.length === 0) return;
-
+  // 支出Top 3カテゴリ（デフォルト選択用）
+  const defaultTopCategories = useMemo(() => {
     const categoryTotals = new Map<string, number>();
 
     transactions.forEach(t => {
@@ -51,15 +50,13 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + t.amount);
     });
 
-    const topCategories = Array.from(categoryTotals.entries())
+    return Array.from(categoryTotals.entries())
       .sort((a, b) => b[1] - a[1]) // 金額降順
       .slice(0, 3) // Top 3
       .map(entry => entry[0]);
+  }, [transactions]);
 
-    if (topCategories.length > 0) {
-      setSelectedCategories(topCategories);
-    }
-  }, []); // 初回のみ実行
+  const selectedCategories = userSelectedCategories ?? defaultTopCategories;
 
   // 利用可能なカテゴリを取得
   const availableCategories = useMemo(() => {
@@ -151,7 +148,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       <Group justify="space-between" mb="md">
         <Group gap="xs">
           <Text size="lg" fw={600}>{title}</Text>
-          <Text size="xs" c="dimmed" fw={500}>- カテゴリ別推移 -</Text>
+          <Text size="xs" c="dimmed" fw={500}>- 月別の推移を比較 -</Text>
         </Group>
       </Group>
 
@@ -184,7 +181,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       <MultiSelect
         data={availableCategories}
         value={selectedCategories}
-        onChange={setSelectedCategories}
+        onChange={setUserSelectedCategories}
         placeholder="比較するカテゴリを選択"
         mb="xl"
         maxValues={5}

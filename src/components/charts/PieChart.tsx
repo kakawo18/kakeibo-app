@@ -22,8 +22,19 @@ interface PieChartProps {
 
 const RADIAN = Math.PI / 180;
 
-const renderCustomizedLabel = (props: any) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, value, payload, percent, isMobile } = props;
+interface PieLabelProps {
+  cx: number;
+  cy: number;
+  midAngle: number;
+  outerRadius: number;
+  value?: number;
+  percent?: number;
+  payload: ChartData & { percent?: number };
+  isMobile?: boolean;
+}
+
+const renderCustomizedLabel = (props: PieLabelProps) => {
+  const { cx, cy, midAngle, outerRadius, value, payload, percent, isMobile } = props;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
 
@@ -76,7 +87,6 @@ export const PieChart: React.FC<PieChartProps> = ({
   title,
   data,
   totalAmount,
-  color = 'blue'
 }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -131,7 +141,7 @@ export const PieChart: React.FC<PieChartProps> = ({
         color: finalColor
       };
     });
-  }, [data, color]);
+  }, [data]);
 
   const displayTotal = totalAmount ?? data?.reduce((sum, item) => sum + item.value, 0) ?? 0;
 
@@ -190,8 +200,7 @@ export const PieChart: React.FC<PieChartProps> = ({
                 cx="50%"
                 cy="50%"
                 labelLine={false} // Custom renderer draws the line
-                // @ts-ignore - Recharts types are tricky with custom props
-                label={(props) => renderCustomizedLabel({ ...props, isMobile })}
+                label={(props) => renderCustomizedLabel({ ...(props as unknown as PieLabelProps), isMobile })}
                 outerRadius={outerRadius}
                 innerRadius={innerRadius}
                 fill="#8884d8"
@@ -210,10 +219,11 @@ export const PieChart: React.FC<PieChartProps> = ({
                          */}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string, props: any) => {
-                  const percentage = props.payload.percentage !== undefined && !isNaN(props.payload.percentage)
-                    ? props.payload.percentage
-                    : (props.payload.percent || 0) * 100;
+                formatter={(value: number, name: string, props: { payload?: ChartData & { percent?: number } }) => {
+                  const payload = props.payload;
+                  const percentage = payload?.percentage !== undefined && !isNaN(payload.percentage)
+                    ? payload.percentage
+                    : (payload?.percent || 0) * 100;
                   return [
                     `¥${value.toLocaleString()} (${Number(percentage).toFixed(1)}%)`,
                     name

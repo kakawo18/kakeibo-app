@@ -100,8 +100,8 @@ export const useTransactions = () => {
         snapshot.forEach((doc) => {
           const data = doc.data();
           try {
-            // データの型安全性を確保
-            if (!data.type || !data.amount || !data.category || !data.date) {
+            // データの型安全性を確保（金額0の取引は有効なので == null で判定）
+            if (!data.type || data.amount == null || !data.category || !data.date) {
               console.warn('Incomplete transaction data:', doc.id, data);
               return;
             }

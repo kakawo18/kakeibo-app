@@ -86,6 +86,12 @@ interface SpendingPaceChartProps {
 // カスタムツールチップ
 // ============================================================
 
+interface TooltipEntry {
+  dataKey: string;
+  value?: number;
+  fill?: string;
+}
+
 const CustomTooltip = ({
   active,
   payload,
@@ -93,15 +99,15 @@ const CustomTooltip = ({
   budget,
 }: {
   active?: boolean;
-  payload?: any[];
+  payload?: TooltipEntry[];
   label?: string;
   budget: number;
 }) => {
   if (!active || !payload || payload.length === 0) return null;
 
-  const weekBars = payload.filter((p) => p.dataKey !== 'idealLine' && p.value > 0);
+  const weekBars = payload.filter((p) => p.dataKey !== 'idealLine' && (p.value ?? 0) > 0);
   const idealEntry = payload.find((p) => p.dataKey === 'idealLine');
-  const cumulativeTotal = weekBars.reduce((s: number, p: any) => s + (p.value || 0), 0);
+  const cumulativeTotal = weekBars.reduce((s: number, p: TooltipEntry) => s + (p.value || 0), 0);
   const percentage = budget > 0 ? Math.round((cumulativeTotal / budget) * 100) : 0;
 
   return (
@@ -116,7 +122,7 @@ const CustomTooltip = ({
     >
       <Text size="xs" fw={700} mb={4}>{label}日（累計）</Text>
 
-      {weekBars.map((p: any) => (
+      {weekBars.map((p: TooltipEntry) => (
         <Group key={p.dataKey} justify="space-between" gap="xs">
           <Group gap={4}>
             <Box
@@ -142,7 +148,7 @@ const CustomTooltip = ({
         {idealEntry && (
           <Group justify="space-between">
             <Text size="xs" c="dimmed">理想ペース</Text>
-            <Text size="xs" c="blue">¥{Math.round(idealEntry.value).toLocaleString()}</Text>
+            <Text size="xs" c="blue">¥{Math.round(idealEntry.value ?? 0).toLocaleString()}</Text>
           </Group>
         )}
         <Text size="xs" c="dimmed" ta="right">{percentage}% / 予算</Text>
@@ -190,33 +196,32 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
     const idealPerDay = budget / daysInMonth;
 
     // 各週の累計を保持
-    let cum1 = 0, cum2 = 0, cum3 = 0, cum4 = 0;
+    const cums: [number, number, number, number] = [0, 0, 0, 0];
+    const result: DailyBarData[] = [];
 
-    return Array.from({ length: daysInMonth }, (_, i) => {
-      const dayNum = i + 1;
+    for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
       const amount = dailyPerDay.get(dayNum) || 0;
       const week = getWeekNumber(dayNum);
 
       // 当日の支出を該当週の累計に加算
-      if (week === 1) cum1 += amount;
-      else if (week === 2) cum2 += amount;
-      else if (week === 3) cum3 += amount;
-      else cum4 += amount;
+      cums[week - 1] += amount;
 
-      const cumulativeTotal = cum1 + cum2 + cum3 + cum4;
+      const cumulativeTotal = cums[0] + cums[1] + cums[2] + cums[3];
       const idealLine = idealPerDay * dayNum;
 
-      return {
+      result.push({
         day: String(dayNum),
         dayNum,
-        week1: cum1,
-        week2: cum2,
-        week3: cum3,
-        week4: cum4,
+        week1: cums[0],
+        week2: cums[1],
+        week3: cums[2],
+        week4: cums[3],
         cumulativeTotal,
         idealLine,
-      };
-    });
+      });
+    }
+
+    return result;
   }, [transactions, selectedMonth, daysInMonth, budget]);
 
   // 月の累計支出（最終日の値）

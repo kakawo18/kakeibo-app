@@ -294,7 +294,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             size={isMobile ? 'md' : 'sm'}
             styles={{
               root: {
-                backgroundColor: 'var(--mantine-color-dark-3)',
+                backgroundColor: 'light-dark(var(--mantine-color-gray-1), var(--mantine-color-dark-5))',
               },
               label: {
                 fontSize: isMobile ? '16px' : undefined,

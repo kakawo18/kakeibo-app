@@ -20,7 +20,7 @@
 // ============================================================
 // インポート
 // ============================================================
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransactionForm } from '@/contexts/TransactionFormContext';
 // Mantine UIコンポーネント
@@ -42,6 +42,7 @@ import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 // ユーティリティ関数
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
+import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
 // 型定義
 import { Transaction, RecurringTransaction } from '@/types';
@@ -54,6 +55,40 @@ import { RecurringTransactionNotice } from '@/components/recurring/RecurringTran
 import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
+
+// ============================================================
+// トレンドアイコンとバッジを表示するコンポーネント
+// ============================================================
+const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
+  const getTrendColor = (trend: 'up' | 'down' | 'same') => {
+    switch (trend) {
+      case 'up': return 'green';
+      case 'down': return 'red';
+      case 'same': return 'gray';
+    }
+  };
+
+  const getTrendIcon = (trend: 'up' | 'down' | 'same') => {
+    switch (trend) {
+      case 'up': return <IconArrowUpRight size={12} />;
+      case 'down': return <IconArrowDownRight size={12} />;
+      case 'same': return <IconMinus size={12} />;
+    }
+  };
+
+  if (percentage === 0) return null;
+
+  return (
+    <Badge
+      variant="light"
+      color={getTrendColor(trend)}
+      leftSection={getTrendIcon(trend)}
+      size="xs"
+    >
+      {Math.abs(percentage)}%
+    </Badge>
+  );
+};
 
 // ============================================================
 // メインコンポーネント
@@ -72,14 +107,11 @@ export function DashboardContent() {
   // 取引フォーム状態（Context経由 + ローカル状態の統合）
   // ------------------------------------------------------------
   const { isFormOpen, closeForm } = useTransactionForm();
-  const [transactionFormOpened, setTransactionFormOpened] = useState(false);      // 取引追加フォーム
+  const [localFormOpened, setLocalFormOpened] = useState(false);      // 取引追加フォーム（ローカル起動分）
 
-  // Context経由でフォームが開かれた場合にローカル状態を同期
-  useEffect(() => {
-    if (isFormOpen) {
-      setTransactionFormOpened(true);
-    }
-  }, [isFormOpen]);
+  // Context経由（ボトムナビ等）とローカル起動のどちらでも開く
+  const transactionFormOpened = localFormOpened || isFormOpen;
+  const setTransactionFormOpened = setLocalFormOpened;
 
   // ------------------------------------------------------------
   // モーダル表示状態の管理
@@ -145,7 +177,8 @@ export function DashboardContent() {
   // 年間収支の計算
   // → 「今月の収支」カードをクリックした時のモーダルに表示
   const yearSummary = useMemo(() => {
-    const currentYear = new Date(selectedMonth).getFullYear();
+    // "YYYY-MM" を Date に渡すと UTC 解釈でタイムゾーンにより年がずれるため文字列から直接取得
+    const currentYear = Number(selectedMonth.split('-')[0]);
     // 年間収支の計算（立替分は除外）
     const yearTransactions = transactions.filter(t =>
       t.date.getFullYear() === currentYear &&
@@ -157,15 +190,16 @@ export function DashboardContent() {
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
+    // カード引き落とし等（affectsExpense === false）はカード支払い取引と二重計上になるため除外
     const expense = yearTransactions
-      .filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense' && t.affectsExpense !== false)
       .reduce((sum, t) => sum + t.amount, 0);
 
     const balance = income - expense;
 
     // 月別データ
     const monthlyBreakdown = monthlyData
-      .filter(m => new Date(m.month).getFullYear() === currentYear)
+      .filter(m => m.month.startsWith(`${currentYear}-`))
       .sort((a, b) => a.month.localeCompare(b.month));
 
     return {
@@ -206,7 +240,7 @@ export function DashboardContent() {
   // → 「年間投資額」「年間貯蓄率」カードに表示
   // 計算式: 年間貯蓄率 = 年間投資額 / 年間給与額 × 100
   const savingsData = useMemo(() => {
-    const currentYear = new Date(selectedMonth).getFullYear();
+    const currentYear = Number(selectedMonth.split('-')[0]);
 
     // 年間の投資額（固定費カテゴリの投資サブカテゴリのみ）
     const yearlyInvestmentAmount = transactions
@@ -218,13 +252,13 @@ export function DashboardContent() {
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 年間の給与額（給与・ボーナス・賞与カテゴリの全て）
-    // ※貯蓄率の分母として使用
+    // 年間の給与額（給与カテゴリ全体。ボーナス・賞与・配当収入はサブカテゴリとして含まれる）
+    // ※貯蓄率の分母として使用（SavingsRateDetailModal と同じ判定に統一）
     const yearlySalaryAmount = transactions
       .filter(t =>
         t.date.getFullYear() === currentYear &&
         t.type === 'income' &&
-        ['給与', '賞与', 'ボーナス'].includes(t.category)
+        t.category === '給与'
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -240,26 +274,11 @@ export function DashboardContent() {
     };
   }, [transactions, selectedMonth]);
 
-  // 月間カード還元ポイント計算
-  const monthlyCardPoints = useMemo(() => {
-    const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
-    const cardTransactions = selectedMonthTransactions.filter(t =>
-      t.type === 'expense' && cardMethods.includes(t.paymentMethod || '')
-    );
-
-    const CARD_REWARD_RATES = {
-      '楽天カード': 0.01,
-      '三菱UFJカード': 0.07,
-      'EPOSカード': 0.0025,
-      'amazonカード': 0.01,
-      '三井住友カード': 0.005,
-    };
-
-    return cardTransactions.reduce((sum, t) => {
-      const rate = CARD_REWARD_RATES[t.paymentMethod as keyof typeof CARD_REWARD_RATES];
-      return sum + (rate ? Math.floor(t.amount * rate) : 0);
-    }, 0);
-  }, [selectedMonthTransactions]);
+  // 月間カード還元ポイント計算（還元率はユーティリティに一元化）
+  const monthlyCardPoints = useMemo(
+    () => calculateMonthlyCardRewards(selectedMonthTransactions).totalPoints,
+    [selectedMonthTransactions]
+  );
 
   // 表示すべき定期取引を取得
   const displayRecurringTransactions = useMemo(() => {
@@ -274,7 +293,7 @@ export function DashboardContent() {
   };
 
   const handleCloseTransactionForm = () => {
-    setTransactionFormOpened(false);
+    setLocalFormOpened(false);
     setEditingTransaction(null);
     closeForm(); // Context側も閉じる
   };
@@ -348,38 +367,6 @@ export function DashboardContent() {
   };
 
   const monthOptions = getMonthOptions();
-
-  // トレンドアイコンとバッジを表示するコンポーネント
-  const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
-    const getTrendColor = (trend: 'up' | 'down' | 'same') => {
-      switch (trend) {
-        case 'up': return 'green';
-        case 'down': return 'red';
-        case 'same': return 'gray';
-      }
-    };
-
-    const getTrendIcon = (trend: 'up' | 'down' | 'same') => {
-      switch (trend) {
-        case 'up': return <IconArrowUpRight size={12} />;
-        case 'down': return <IconArrowDownRight size={12} />;
-        case 'same': return <IconMinus size={12} />;
-      }
-    };
-
-    if (percentage === 0) return null;
-
-    return (
-      <Badge
-        variant="light"
-        color={getTrendColor(trend)}
-        leftSection={getTrendIcon(trend)}
-        size="xs"
-      >
-        {Math.abs(percentage)}%
-      </Badge>
-    );
-  };
 
   if (transactionsLoading) {
     return (
@@ -880,7 +867,7 @@ export function DashboardContent() {
         />
 
         <LineChart
-          title="残高推移"
+          title="カテゴリ別支出推移"
           data={monthlyData}
           transactions={transactions}
         />
@@ -1167,7 +1154,7 @@ export function DashboardContent() {
         opened={investmentHistoryOpened}
         onClose={() => setInvestmentHistoryOpened(false)}
         transactions={transactions}
-        year={new Date(selectedMonth).getFullYear()}
+        year={Number(selectedMonth.split('-')[0])}
       />
 
       {/* 年間貯蓄率詳細モーダル */}
@@ -1175,7 +1162,7 @@ export function DashboardContent() {
         opened={savingsRateDetailOpened}
         onClose={() => setSavingsRateDetailOpened(false)}
         transactions={transactions}
-        year={new Date(selectedMonth).getFullYear()}
+        year={Number(selectedMonth.split('-')[0])}
       />
     </Container>
   );

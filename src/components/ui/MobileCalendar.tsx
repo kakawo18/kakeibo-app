@@ -3,25 +3,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
-  Button,
   Group,
   Stack,
   ActionIcon,
-  Select,
   Text,
   Box,
   SimpleGrid,
-  Badge,
   Card,
   Divider,
   Drawer,
   ScrollArea,
   ThemeIcon,
-  useMantineTheme,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 
 interface MobileCalendarProps {
@@ -50,13 +46,11 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   transactions = [],
   isSelector = false,
 }) => {
-  const theme = useMantineTheme();
   const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
   const [selectedDate, setSelectedDate] = useState(() => dayjs(value));
   const [drawerOpened, setDrawerOpened] = useState(false);
 
   // レスポンシブ対応
-  const isMobile = useMediaQuery('(max-width: 768px)');
   const isSmallScreen = useMediaQuery('(max-width: 380px)');
 
   // propsが変更された時にselectedDateを更新
