@@ -31,7 +31,7 @@ export const BottomNav = () => {
                         justifyContent: 'center',
                         padding: '8px 4px',
                         flex: 1,
-                        color: 'var(--mantine-color-blue-filled)',
+                        color: 'var(--accent)',
                         transition: 'all 0.2s ease',
                     }}
                 >
@@ -51,7 +51,7 @@ export const BottomNav = () => {
                             width: 56,
                             height: 56,
                             borderRadius: '50%',
-                            backgroundColor: 'var(--mantine-color-blue-filled)',
+                            backgroundColor: 'var(--accent)',
                             color: 'white',
                             display: 'flex',
                             alignItems: 'center',

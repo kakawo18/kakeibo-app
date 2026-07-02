@@ -1,51 +1,49 @@
 /**
- * ダッシュボードコンテンツ - メイン画面のコンポーネント
- * 
- * このファイルは家計簿アプリのメイン画面を構成します。
- * 
- * 【構成要素】
- * - サマリーカード（8枚）: 収入、支出、今月の収支、実残高、カード支払い、獲得ポイント、年間投資額、年間貯蓄率
- * - 円グラフ: 収入・支出のカテゴリ別内訳
- * - 折れ線グラフ: 残高推移
- * - 取引履歴リスト
- * - 各種モーダル: 取引追加、定期取引、カレンダー、CSV入出力など
- * 
- * 【色変更時の参照】
- * - カードの色: 各カードのstyle内のbackground, borderLeft, boxShadowを変更
- * - アイコンの色: ActionIconのstyle内のbackgroundを変更
- * - 詳細は COLOR_CUSTOMIZATION_GUIDE.md を参照
+ * ダッシュボードコンテンツ — メイン画面のコンポーネント
+ *
+ * 【デザインシステム: "Quiet Ledger"】
+ * - フラットな面 + ヘアライン境界（グラスモーフィズム廃止）
+ * - 数字が主役: ヒーロー収支 → 収入/支出 → KPI → チャート → 台帳
+ * - デザイントークンは globals.css の CSS 変数を参照
+ *
+ * 【構成】
+ * 1. スティッキーヘッダー: ブランド + テーマ切替 + ログアウト
+ * 2. 月ナビゲーション + アクション（追加/定期/カレンダー/CSV）
+ * 3. 収支バンド: 今月の収支（ヒーロー数値）| 収入 | 支出
+ * 4. KPIタイル: 貯蓄率 / 獲得ポイント / 年間投資額
+ * 5. チャート: 支出内訳・収入内訳・支出ペース・カテゴリ別推移
+ * 6. 取引履歴（日付グループ型台帳）
  */
 'use client';
 
-// ============================================================
-// インポート
-// ============================================================
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransactionForm } from '@/contexts/TransactionFormContext';
-// Mantine UIコンポーネント
-import { Container, Stack, Grid, Card, Text, Group, ActionIcon, Button, Menu, Select, Affix, Badge, Box, Modal, ThemeIcon, useMantineColorScheme, Paper } from '@mantine/core';
+import {
+  Container, Stack, Grid, Text, Group, ActionIcon, Button, Menu, Select,
+  Affix, Badge, Box, Modal, Loader, useMantineColorScheme, Paper,
+  SimpleGrid, Divider, Card,
+} from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-// アイコン（Tabler Icons）
-import { IconPlus, IconTrendingUp, IconWallet, IconDots, IconFileImport, IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight, IconMinus, IconCalendar, IconCoins, IconRepeat } from '@tabler/icons-react';
-// アニメーション
+import {
+  IconPlus, IconTrendingUp, IconWallet, IconDotsVertical, IconFileImport,
+  IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight,
+  IconMinus, IconCalendar, IconCoins, IconRepeat, IconLogout, IconSun, IconMoon,
+} from '@tabler/icons-react';
 import { motion } from 'framer-motion';
-// カスタムフック
 import { useTransactions } from '@/hooks/useTransactions';
-// コンポーネント
+import { useAuth } from '@/contexts/AuthContext';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
-import { PieChart } from '@/components/charts/PieChart';
+import { CategoryBreakdown } from '@/components/charts/CategoryBreakdown';
 import { LineChart } from '@/components/charts/LineChart';
 import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
-// ユーティリティ関数
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
+import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
-// 型定義
 import { Transaction, RecurringTransaction } from '@/types';
-// その他のコンポーネント
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
 import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
@@ -56,6 +54,70 @@ import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
 
 // ============================================================
+// 前月比トレンド（色付きの矢印 + % のみ。バッジの面は使わない）
+// ============================================================
+const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
+  if (percentage === 0) return null;
+
+  const color = trend === 'up' ? 'var(--income)' : trend === 'down' ? 'var(--expense)' : 'var(--ink-3)';
+  const icon =
+    trend === 'up' ? <IconArrowUpRight size={13} /> :
+    trend === 'down' ? <IconArrowDownRight size={13} /> :
+    <IconMinus size={13} />;
+
+  return (
+    <Group gap={3} align="center" style={{ color }}>
+      {icon}
+      <Text size="xs" fw={600} className="tabular-nums" style={{ color }}>
+        {Math.abs(percentage)}%
+      </Text>
+      <Text size="xs" c="dimmed">前月比</Text>
+    </Group>
+  );
+};
+
+// ============================================================
+// KPIタイル（アイコンは無彩色 — 色は意味のある数値だけに使う）
+// ============================================================
+const KpiTile = ({
+  label,
+  value,
+  unit,
+  icon,
+  compact,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  icon: React.ReactNode;
+  compact?: boolean;
+  onClick?: () => void;
+}) => (
+  <Paper
+    className={`ledger-card ${onClick ? 'ledger-card-clickable' : ''}`}
+    p={compact ? 12 : 'md'}
+    onClick={onClick}
+    // 3列グリッドで金額が長いときにタイルがグリッドを押し広げないようにする
+    style={{ minWidth: 0 }}
+  >
+    <Group gap={6} mb={compact ? 8 : 10} c="var(--ink-3)" wrap="nowrap">
+      {icon}
+      <Text className="overline-label" truncate>{label}</Text>
+    </Group>
+    <Text
+      fw={700}
+      className="tabular-nums"
+      truncate
+      style={{ fontSize: compact ? 17 : 20, lineHeight: 1.1, letterSpacing: '-0.015em' }}
+    >
+      {value}
+      {unit && <Text component="span" size="xs" c="dimmed" fw={600}> {unit}</Text>}
+    </Text>
+  </Paper>
+);
+
+// ============================================================
 // メインコンポーネント
 // ============================================================
 export function DashboardContent() {
@@ -63,6 +125,7 @@ export function DashboardContent() {
   // データ取得フック
   // ------------------------------------------------------------
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
+  const { user, logout } = useAuth();
   const {
     getActiveRecurringTransactions,
     shouldShowRecurringTransaction
@@ -72,39 +135,29 @@ export function DashboardContent() {
   // 取引フォーム状態（Context経由 + ローカル状態の統合）
   // ------------------------------------------------------------
   const { isFormOpen, closeForm } = useTransactionForm();
-  const [transactionFormOpened, setTransactionFormOpened] = useState(false);      // 取引追加フォーム
-
-  // Context経由でフォームが開かれた場合にローカル状態を同期
-  useEffect(() => {
-    if (isFormOpen) {
-      setTransactionFormOpened(true);
-    }
-  }, [isFormOpen]);
+  const [localFormOpened, setLocalFormOpened] = useState(false);
+  const transactionFormOpened = localFormOpened || isFormOpen;
 
   // ------------------------------------------------------------
   // モーダル表示状態の管理
   // ------------------------------------------------------------
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);  // 編集中の取引
-  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);    // 定期取引管理モーダル
-  const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);    // 定期取引確認モーダル
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
+  const [recurringConfirmOpened, setRecurringConfirmOpened] = useState(false);
   const [selectedRecurringTransaction, setSelectedRecurringTransaction] = useState<RecurringTransaction | null>(null);
-  const [csvModalOpened, setCsvModalOpened] = useState(false);                    // CSV入出力モーダル
-  const [calendarOpened, setCalendarOpened] = useState(false);                    // カレンダーモーダル
+  const [csvModalOpened, setCsvModalOpened] = useState(false);
+  const [calendarOpened, setCalendarOpened] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
-  const [mobileChartType, setMobileChartType] = useState<'expense' | 'income'>('expense'); // モバイル用円グラフ切り替え
-  const [cardRewardsOpened, setCardRewardsOpened] = useState(false);              // カード還元ポイント詳細モーダル
-  const [yearSummaryOpened, setYearSummaryOpened] = useState(false);              // 年間収支サマリーモーダル
-  const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false);  // 年間投資履歴モーダル
-  const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false);  // 年間貯蓄率詳細モーダル
+  const [cardRewardsOpened, setCardRewardsOpened] = useState(false);
+  const [yearSummaryOpened, setYearSummaryOpened] = useState(false);
+  const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false);
+  const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false);
 
   // ------------------------------------------------------------
   // レスポンシブ・テーマ判定
   // ------------------------------------------------------------
-  // モバイル表示判定（768px以下でtrue）
   const isMobile = useMediaQuery('(max-width: 768px)');
-
-  // ダークモード判定
-  const { colorScheme } = useMantineColorScheme();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
 
   // ------------------------------------------------------------
@@ -112,43 +165,36 @@ export function DashboardContent() {
   // ------------------------------------------------------------
   const router = useRouter();
   const searchParams = useSearchParams();
-  const urlMonth = searchParams.get('month');  // URLパラメータから月を取得
-  const selectedMonth = urlMonth || getCurrentMonth();  // 未指定時は今月
+  const urlMonth = searchParams.get('month');
+  const selectedMonth = urlMonth || getCurrentMonth();
+  const selectedYear = Number(selectedMonth.split('-')[0]);
 
   // ------------------------------------------------------------
-  // データ計算（useMemoでパフォーマンス最適化）
+  // データ計算
   // ------------------------------------------------------------
-
-  // 月別データの計算（全期間）
-  // → 残高推移グラフ、月別比較に使用
   const monthlyData = useMemo(() => calculateMonthlyData(transactions), [transactions]);
 
-  // 選択中の月のデータ
-  // → サマリーカードの表示に使用
   const selectedMonthData = useMemo(() =>
     monthlyData.find(data => data.month === selectedMonth),
     [monthlyData, selectedMonth]
   );
 
-  // 前月のデータ（前月比較用）
   const previousMonthData = useMemo(() => {
     const previousMonth = getPreviousMonthFromCurrent(selectedMonth);
     return monthlyData.find(data => data.month === previousMonth);
   }, [monthlyData, selectedMonth]);
 
-  // 前月比較データ（↑↓表示用）
   const monthlyComparison = useMemo(() => {
-    if (!selectedMonthData) return null;
+    // 前月データが存在しない（データ範囲外の）月では「前月比 +100%」のような
+    // 意味のない比較を出さない
+    if (!selectedMonthData || !previousMonthData) return null;
     return calculateMonthlyComparison(selectedMonthData, previousMonthData);
   }, [selectedMonthData, previousMonthData]);
 
-  // 年間収支の計算
-  // → 「今月の収支」カードをクリックした時のモーダルに表示
+  // 年間収支（「今月の収支」バンドをクリックした時のモーダルに表示）
   const yearSummary = useMemo(() => {
-    const currentYear = new Date(selectedMonth).getFullYear();
-    // 年間収支の計算（立替分は除外）
     const yearTransactions = transactions.filter(t =>
-      t.date.getFullYear() === currentYear &&
+      t.date.getFullYear() === selectedYear &&
       t.category !== '立替回収' &&
       t.category !== '立替金'
     );
@@ -157,126 +203,86 @@ export function DashboardContent() {
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
+    // カード引き落とし等（affectsExpense === false）は二重計上になるため除外
     const expense = yearTransactions
-      .filter(t => t.type === 'expense')
+      .filter(t => t.type === 'expense' && t.affectsExpense !== false)
       .reduce((sum, t) => sum + t.amount, 0);
 
     const balance = income - expense;
 
-    // 月別データ
     const monthlyBreakdown = monthlyData
-      .filter(m => new Date(m.month).getFullYear() === currentYear)
+      .filter(m => m.month.startsWith(`${selectedYear}-`))
       .sort((a, b) => a.month.localeCompare(b.month));
 
-    return {
-      year: currentYear,
-      income,
-      expense,
-      balance,
-      monthlyBreakdown,
-    };
-  }, [transactions, selectedMonth, monthlyData]);
+    return { year: selectedYear, income, expense, balance, monthlyBreakdown };
+  }, [transactions, selectedYear, monthlyData]);
 
   // 選択月の取引データ
-  // → 円グラフ、取引履歴リストに使用
   const selectedMonthTransactions = useMemo(() =>
-    transactions.filter(t => {
-      // ローカルタイムゾーンで月を比較（タイムゾーン問題解決）
-      const transactionMonth = formatMonthLocal(t.date);
-      return transactionMonth === selectedMonth;
-    }),
+    transactions.filter(t => formatMonthLocal(t.date) === selectedMonth),
     [transactions, selectedMonth]
   );
 
-  // 収入の円グラフデータ
   const incomeChartData = useMemo(() =>
     calculateCategoryChartData(selectedMonthTransactions, 'income'),
     [selectedMonthTransactions]
   );
 
-  // 支出の円グラフデータ（投資は除外される）
   const expenseChartData = useMemo(() =>
     calculateCategoryChartData(selectedMonthTransactions, 'expense'),
     [selectedMonthTransactions]
   );
 
-
-
   // 貯蓄額と貯蓄率の計算
-  // → 「年間投資額」「年間貯蓄率」カードに表示
-  // 計算式: 年間貯蓄率 = 年間投資額 / 年間給与額 × 100
   const savingsData = useMemo(() => {
-    const currentYear = new Date(selectedMonth).getFullYear();
-
-    // 年間の投資額（固定費カテゴリの投資サブカテゴリのみ）
     const yearlyInvestmentAmount = transactions
       .filter(t =>
-        t.date.getFullYear() === currentYear &&
+        t.date.getFullYear() === selectedYear &&
         t.type === 'expense' &&
         t.category === '固定費' &&
         t.subcategory === '投資'
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 年間の給与額（給与・ボーナス・賞与カテゴリの全て）
-    // ※貯蓄率の分母として使用
     const yearlySalaryAmount = transactions
       .filter(t =>
-        t.date.getFullYear() === currentYear &&
+        t.date.getFullYear() === selectedYear &&
         t.type === 'income' &&
-        ['給与', '賞与', 'ボーナス'].includes(t.category)
+        t.category === '給与'
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // 年間貯蓄率
     const yearlySavingsRate = yearlySalaryAmount > 0
       ? (yearlyInvestmentAmount / yearlySalaryAmount) * 100
       : 0;
 
-    return {
-      yearlyInvestmentAmount: yearlyInvestmentAmount,
-      yearlySalaryAmount: yearlySalaryAmount,
-      yearlySavingsRate: yearlySavingsRate,
-    };
-  }, [transactions, selectedMonth]);
+    return { yearlyInvestmentAmount, yearlySalaryAmount, yearlySavingsRate };
+  }, [transactions, selectedYear]);
 
-  // 月間カード還元ポイント計算
-  const monthlyCardPoints = useMemo(() => {
-    const cardMethods = ['三井住友カード', '三菱UFJカード', 'amazonカード', 'EPOSカード', '楽天カード'];
-    const cardTransactions = selectedMonthTransactions.filter(t =>
-      t.type === 'expense' && cardMethods.includes(t.paymentMethod || '')
-    );
+  // 月間カード還元ポイント
+  const monthlyCardPoints = useMemo(
+    () => calculateMonthlyCardRewards(selectedMonthTransactions).totalPoints,
+    [selectedMonthTransactions]
+  );
 
-    const CARD_REWARD_RATES = {
-      '楽天カード': 0.01,
-      '三菱UFJカード': 0.07,
-      'EPOSカード': 0.0025,
-      'amazonカード': 0.01,
-      '三井住友カード': 0.005,
-    };
-
-    return cardTransactions.reduce((sum, t) => {
-      const rate = CARD_REWARD_RATES[t.paymentMethod as keyof typeof CARD_REWARD_RATES];
-      return sum + (rate ? Math.floor(t.amount * rate) : 0);
-    }, 0);
-  }, [selectedMonthTransactions]);
-
-  // 表示すべき定期取引を取得
+  // 表示すべき定期取引
   const displayRecurringTransactions = useMemo(() => {
     const active = getActiveRecurringTransactions();
-    // 全取引履歴（transactions）を渡して、今月登録済みかをチェック
     return active.filter(transaction => shouldShowRecurringTransaction(transaction, transactions));
   }, [getActiveRecurringTransactions, shouldShowRecurringTransaction, transactions]);
 
+  // ------------------------------------------------------------
+  // ハンドラー
+  // ------------------------------------------------------------
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
-    setTransactionFormOpened(true);
+    setLocalFormOpened(true);
   };
 
   const handleCloseTransactionForm = () => {
-    setTransactionFormOpened(false);
+    setLocalFormOpened(false);
     setEditingTransaction(null);
-    closeForm(); // Context側も閉じる
+    closeForm();
   };
 
   const handleRecordRecurringTransaction = (transaction: RecurringTransaction) => {
@@ -292,7 +298,6 @@ export function DashboardContent() {
     date: Date;
     description?: string;
   }) => {
-    // カード取引タイプの判定
     let transactionType: 'normal' | 'card_payment' | 'card_withdrawal' = 'normal';
     let affectsExpense = true;
     let affectsBalance = true;
@@ -329,834 +334,552 @@ export function DashboardContent() {
     }
   };
 
-  const handlePreviousMonth = () => {
-    const previousMonth = getPreviousMonthFromCurrent(selectedMonth);
-    handleMonthChange(previousMonth);
-  };
-
-  const handleNextMonth = () => {
-    const nextMonth = getNextMonth(selectedMonth);
-    handleMonthChange(nextMonth);
-  };
+  const handlePreviousMonth = () => handleMonthChange(getPreviousMonthFromCurrent(selectedMonth));
+  const handleNextMonth = () => handleMonthChange(getNextMonth(selectedMonth));
 
   const handleCalendarDateChange = (date: Date) => {
     setCalendarSelectedDate(date);
     setCalendarOpened(false);
-    // 選択した日付の取引履歴を表示するため、その月に移動
-    const selectedMonth = formatMonthLocal(date);
-    handleMonthChange(selectedMonth);
+    handleMonthChange(formatMonthLocal(date));
   };
 
   const monthOptions = getMonthOptions();
 
-  // トレンドアイコンとバッジを表示するコンポーネント
-  const TrendIndicator = ({ trend, percentage }: { trend: 'up' | 'down' | 'same'; percentage: number }) => {
-    const getTrendColor = (trend: 'up' | 'down' | 'same') => {
-      switch (trend) {
-        case 'up': return 'green';
-        case 'down': return 'red';
-        case 'same': return 'gray';
-      }
-    };
-
-    const getTrendIcon = (trend: 'up' | 'down' | 'same') => {
-      switch (trend) {
-        case 'up': return <IconArrowUpRight size={12} />;
-        case 'down': return <IconArrowDownRight size={12} />;
-        case 'same': return <IconMinus size={12} />;
-      }
-    };
-
-    if (percentage === 0) return null;
-
-    return (
-      <Badge
-        variant="light"
-        color={getTrendColor(trend)}
-        leftSection={getTrendIcon(trend)}
-        size="xs"
-      >
-        {Math.abs(percentage)}%
-      </Badge>
-    );
-  };
+  // 今月の収支
+  const monthBalance = (selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0);
 
   if (transactionsLoading) {
     return (
-      <Container size="xl" py="xl">
-        <Text ta="center">データを読み込み中...</Text>
+      <Container size="lg" py={80}>
+        <Stack align="center" gap="sm">
+          <Loader size="sm" color="indigo" />
+          <Text size="sm" c="dimmed">データを読み込み中...</Text>
+        </Stack>
       </Container>
     );
   }
 
+  // 月セレクター（モバイルはスワイプ対応）
+  const monthSelector = (
+    <Select
+      data={monthOptions}
+      value={selectedMonth}
+      onChange={handleMonthChange}
+      searchable={!isMobile}
+      w={isMobile ? 140 : 160}
+      size={isMobile ? 'sm' : 'md'}
+      variant="unstyled"
+      styles={{
+        input: {
+          fontSize: isMobile ? '17px' : '19px',
+          fontWeight: 700,
+          textAlign: 'center',
+          letterSpacing: '-0.02em',
+          cursor: 'pointer',
+        },
+        dropdown: { maxHeight: '60vh' },
+        option: { fontSize: '14px', padding: '10px' },
+      }}
+    />
+  );
+
   return (
-    <Container size="xl" py={isMobile ? "md" : "lg"} style={{ paddingBottom: isMobile ? '80px' : undefined }}>
-      <Stack gap={isMobile ? "sm" : "md"}>
-        <Group justify="space-between">
-          <Group gap={isMobile ? "lg" : "md"}> {/* Increased gap for mobile to prevent accidental clicks */}
-            <ActionIcon
-              variant="light"
-              size={isMobile ? "xl" : "lg"}
-              onClick={handlePreviousMonth}
-              style={isMobile ? {
-                minWidth: '48px',
-                minHeight: '48px',
-                touchAction: 'manipulation',
-              } : undefined}
-              aria-label="前の月へ"
-            >
-              <IconChevronLeft size={isMobile ? 24 : 18} /> {/* Slightly larger icon for better visibility */}
-            </ActionIcon>
-            {isMobile ? (
-              <motion.div
-                drag="x"
-                dragConstraints={{ left: 0, right: 0 }}
-                dragElastic={0.2}
-                dragMomentum={false}
-                onDragEnd={(e, info) => {
-                  // 50px以上スワイプしたら月を変更
-                  if (info.offset.x > 50) {
-                    handlePreviousMonth();
-                  } else if (info.offset.x < -50) {
-                    handleNextMonth();
-                  }
-                }}
+    <Box pb={isMobile ? 90 : 40}>
+      {/* ============================================================
+          スティッキーヘッダー
+          ============================================================ */}
+      <Box className="app-header" mb="md">
+        <Container size="lg">
+          <Group justify="space-between" h={56}>
+            <Group gap={10}>
+              <Box
+                w={28}
+                h={28}
                 style={{
-                  cursor: 'grab',
-                  touchAction: 'none',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
-                  WebkitTouchCallout: 'none',
+                  borderRadius: 8,
+                  background: 'var(--accent)',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: 15,
+                  lineHeight: 1,
                 }}
-                whileTap={{ cursor: 'grabbing', scale: 0.98 }}
+                aria-hidden
               >
-                <Stack gap={0} align="center" style={{ pointerEvents: 'none' }}>
-                  <Box style={{ pointerEvents: 'auto' }}>
-                    <Select
-                      data={monthOptions}
-                      value={selectedMonth}
-                      onChange={handleMonthChange}
-                      searchable={false}
-                      w={130} // Slightly narrower to allow more space for buttons
-                      size="sm"
-                      styles={{
-                        input: {
-                          fontSize: '16px',
-                          fontWeight: 600,
-                          minHeight: '40px',
-                          textAlign: 'center',
-                          paddingLeft: 0,
-                          paddingRight: 0,
-                        },
-                        dropdown: {
-                          maxHeight: '60vh',
-                        },
-                        option: {
-                          fontSize: '14px',
-                          padding: '10px',
-                        }
-                      }}
-                    />
-                  </Box>
-                  <Text
-                    size="9px"
-                    c="dimmed"
-                    style={{
-                      marginTop: '-2px',
-                      opacity: 0.5,
-                    }}
-                  >
-                    ← スワイプ →
-                  </Text>
-                </Stack>
-              </motion.div>
-            ) : (
-              <Select
-                data={monthOptions}
-                value={selectedMonth}
-                onChange={handleMonthChange}
-                searchable
-                w={200}
-                size="md"
-              />
-            )}
-            <ActionIcon
-              variant="light"
-              size={isMobile ? "xl" : "lg"}
-              onClick={handleNextMonth}
-              style={isMobile ? {
-                minWidth: '48px',
-                minHeight: '48px',
-                touchAction: 'manipulation',
-              } : undefined}
-              aria-label="次の月へ"
-            >
-              <IconChevronRight size={isMobile ? 24 : 18} /> {/* Slightly larger icon */}
-            </ActionIcon>
-          </Group>
-          {!isMobile && (
-            <Group gap={isMobile ? "xs" : "md"}>
-              <Button
-                leftSection={<IconPlus size={14} />}
-                onClick={() => setTransactionFormOpened(true)}
-                size={isMobile ? "sm" : "md"}
-              >
-                {isMobile ? '追加' : '取引を追加'}
-              </Button>
-              <Button
-                variant="light"
-                leftSection={<IconRepeat size={14} />}
-                onClick={() => setRecurringManagerOpened(true)}
-                size={isMobile ? "sm" : "md"}
-                color="orange"
-              >
-                定期取引
-              </Button>
-              <Button
-                variant="light"
-                leftSection={<IconCalendar size={14} />}
-                onClick={() => setCalendarOpened(true)}
-                size={isMobile ? "sm" : "md"}
-                color="blue"
-              >
-                カレンダー
-              </Button>
-              <Menu shadow="md" width={isMobile ? 180 : 200}>
-                <Menu.Target>
-                  <ActionIcon variant="light" size={isMobile ? "md" : "lg"}>
-                    <IconDots size={14} />
-                  </ActionIcon>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<IconFileImport size={14} />}
-                    onClick={() => setCsvModalOpened(true)}
-                  >
-                    CSV インポート/エクスポート
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
+                ¥
+              </Box>
+              <div>
+                <Text fw={700} size="sm" style={{ letterSpacing: '-0.01em', lineHeight: 1 }}>
+                  家計簿
+                </Text>
+                {!isMobile && user?.email && (
+                  <Text size="10px" c="dimmed" style={{ lineHeight: 1.5 }}>{user.email}</Text>
+                )}
+              </div>
             </Group>
+
+            <Group gap={4}>
+              {/* モバイル: ツールメニュー（カレンダー・定期・CSV） */}
+              {isMobile && (
+                <Menu shadow="md" width={200} position="bottom-end">
+                  <Menu.Target>
+                    <ActionIcon variant="subtle" color="gray" size="lg" aria-label="メニュー">
+                      <IconDotsVertical size={18} />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item leftSection={<IconCalendar size={14} />} onClick={() => setCalendarOpened(true)}>
+                      カレンダー
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconRepeat size={14} />} onClick={() => setRecurringManagerOpened(true)}>
+                      定期取引
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => setCsvModalOpened(true)}>
+                      CSV インポート/エクスポート
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              )}
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+                aria-label="テーマ切り替え"
+              >
+                {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+              </ActionIcon>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={logout} aria-label="ログアウト">
+                <IconLogout size={18} />
+              </ActionIcon>
+            </Group>
+          </Group>
+        </Container>
+      </Box>
+
+      <Container size="lg">
+        <Stack gap={isMobile ? 'md' : 'lg'}>
+
+          {/* ============================================================
+              月ナビゲーション + アクション
+              ============================================================ */}
+          <Group justify="space-between" align="center">
+            <Group gap={2}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                onClick={handlePreviousMonth}
+                aria-label="前の月へ"
+              >
+                <IconChevronLeft size={20} />
+              </ActionIcon>
+
+              {isMobile ? (
+                <motion.div
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.2}
+                  dragMomentum={false}
+                  onDragEnd={(e, info) => {
+                    if (info.offset.x > 50) handlePreviousMonth();
+                    else if (info.offset.x < -50) handleNextMonth();
+                  }}
+                  style={{ touchAction: 'none' }}
+                >
+                  {monthSelector}
+                </motion.div>
+              ) : (
+                monthSelector
+              )}
+
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="lg"
+                onClick={handleNextMonth}
+                aria-label="次の月へ"
+              >
+                <IconChevronRight size={20} />
+              </ActionIcon>
+            </Group>
+
+            {/* デスクトップ: アクションボタン */}
+            {!isMobile && (
+              <Group gap="xs">
+                <Button
+                  leftSection={<IconPlus size={16} stroke={2.2} />}
+                  onClick={() => setLocalFormOpened(true)}
+                >
+                  取引を追加
+                </Button>
+                <ActionIcon variant="default" size={36} radius={10} onClick={() => setRecurringManagerOpened(true)} aria-label="定期取引">
+                  <IconRepeat size={16} stroke={1.8} />
+                </ActionIcon>
+                <ActionIcon variant="default" size={36} radius={10} onClick={() => setCalendarOpened(true)} aria-label="カレンダー">
+                  <IconCalendar size={16} stroke={1.8} />
+                </ActionIcon>
+                <Menu shadow="md" width={220} position="bottom-end" radius={12}>
+                  <Menu.Target>
+                    <ActionIcon variant="default" size={36} radius={10} aria-label="その他">
+                      <IconDotsVertical size={16} stroke={1.8} />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => setCsvModalOpened(true)}>
+                      CSV インポート/エクスポート
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Group>
+            )}
+          </Group>
+
+          {/* 定期取引通知 */}
+          {displayRecurringTransactions.length > 0 && (
+            <RecurringTransactionNotice
+              recurringTransactions={displayRecurringTransactions}
+              onRecord={handleRecordRecurringTransaction}
+            />
           )}
-        </Group>
 
-        {/* 定期取引通知セクション */}
-        {displayRecurringTransactions.length > 0 && (
-          <RecurringTransactionNotice
-            recurringTransactions={displayRecurringTransactions}
-            onRecord={handleRecordRecurringTransaction}
-          />
-        )}
-
-        {/* ============================================================
-            サマリーカード（4行2列レイアウト）
-            
-            【レイアウト構成】
-            1行目: 収入カード（緑）| 支出カード（赤）
-            2行目: 今月の収支カード（青/赤）| 実残高カード（ティール/赤）
-            3行目: カード支払いカード（紫）| 獲得ポイントカード（オレンジ）
-            4行目: 年間投資額カード（オレンジ）| 年間貯蓄率カード（紫）
-            
-            【色変更方法】
-            各カードのstyle内の以下を変更:
-            - background: グラデーション背景色
-            - borderLeft: 左側のアクセントライン
-            - boxShadow: 影の色
-            
-            【サイズ変更方法】
-            - p={isMobile ? "xs" : "sm"}: カード内のパディング
-            - minHeight: カードの最小高さ
-            - Grid gutter="xs": カード間の隙間（xs=8px, sm=12px, md=16px）
-            ============================================================ */}
-        {/* ============================================================
-            Bento Grid Layout (Hierarchy Focused)
-            
-            1. Hero Card (Span 12): Net Balance (Most Important)
-            2. Secondary Cards (Span 6): Income vs Expense (Comparison)
-            3. Tertiary Cards (Span 6/4): Savings, Points etc. (Supplements)
-            ============================================================ */}
-        <Grid mb={isMobile ? "md" : "lg"} gutter={isMobile ? "xs" : "md"}>
-          {/* HERO CARD: 今月の収支/残高 */}
-          <Grid.Col span={{ base: 12 }}>
-            <Paper
-              p={isMobile ? "md" : "lg"}
-              radius="lg"
-              className="glass"
-              onClick={() => setYearSummaryOpened(true)}
+          {/* ============================================================
+              収支バンド: 今月の収支（ヒーロー）| 収入 | 支出
+              ============================================================ */}
+          <Paper
+            className="ledger-card ledger-card-clickable"
+            p={isMobile ? 'lg' : 'xl'}
+            pos="relative"
+            onClick={() => setYearSummaryOpened(true)}
+          >
+            {/* 右上: 年間収支への導線 */}
+            <Group
+              gap={2}
               style={{
-                cursor: 'pointer',
-                background: isDark
-                  ? 'linear-gradient(135deg, rgba(33, 150, 243, 0.1) 0%, rgba(33, 150, 243, 0.05) 100%)'
-                  : 'linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%)',
-                border: isDark
-                  ? '1px solid rgba(33, 150, 243, 0.2)'
-                  : '1px solid rgba(255, 255, 255, 0.6)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '160px', // Taller for impact
-                position: 'relative',
-                overflow: 'hidden',
+                position: 'absolute',
+                top: isMobile ? 14 : 18,
+                right: isMobile ? 16 : 22,
+                color: 'var(--ink-3)',
               }}
             >
-              {/* Background Decoration */}
-              <Box style={{
-                position: 'absolute',
-                top: '-50%',
-                left: '-50%',
-                width: '200%',
-                height: '200%',
-                background: 'radial-gradient(circle, rgba(33,150,243,0.05) 0%, rgba(0,0,0,0) 70%)',
-                zIndex: 0,
-                pointerEvents: 'none',
-              }} />
+              <Text size="xs" fw={600} style={{ color: 'inherit' }}>年間収支</Text>
+              <IconChevronRight size={13} />
+            </Group>
 
-              <Stack gap={0} align="center" style={{ zIndex: 1, width: '100%' }}>
-                <Text size="sm" c="dimmed" fw={600} mb={4} style={{ letterSpacing: '1px', textTransform: 'uppercase' }}>
-                  Current Balance
-                </Text>
-                <Group align="flex-start" gap={4}>
+            <Grid gutter={isMobile ? 'lg' : 'xl'} align="center">
+              {/* ヒーロー: 今月の収支 */}
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Stack gap={8} align={isMobile ? 'center' : 'flex-start'}>
+                  <Text className="overline-label">
+                    {getMonthName(selectedMonth)}の収支
+                  </Text>
                   <Text
-                    span
+                    className="tabular-nums"
                     style={{
-                      fontSize: '3.5rem',
-                      fontWeight: 800,
+                      fontSize: isMobile ? '2.375rem' : '2.75rem',
+                      fontWeight: 700,
                       lineHeight: 1,
-                      letterSpacing: '-1px',
-                      color: ((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0
-                        ? 'var(--mantine-color-blue-6)'
-                        : 'var(--mantine-color-red-6)'
+                      letterSpacing: '-0.025em',
+                      color: monthBalance >= 0 ? 'var(--income)' : 'var(--expense)',
                     }}
                   >
-                    ¥{((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)).toLocaleString()}
+                    {monthBalance >= 0 ? '+' : '-'}
+                    <span className="amount-symbol">¥</span>
+                    {Math.abs(monthBalance).toLocaleString()}
                   </Text>
-                </Group>
-                <Group gap="xs" mt="xs">
-                  <Badge
-                    variant="light"
-                    color={((selectedMonthData?.income || 0) - (selectedMonthData?.expense || 0)) >= 0 ? 'blue' : 'red'}
-                    size="lg"
-                  >
-                    今月の収支
-                  </Badge>
                   {monthlyComparison && (
                     <TrendIndicator
                       trend={monthlyComparison.balance.trend}
                       percentage={monthlyComparison.balance.percentage}
                     />
                   )}
-                </Group>
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          {/* SECONDARY: Income & Expense (Side by Side) */}
-          <Grid.Col span={{ base: 6 }}>
-            <Paper
-              p={isMobile ? "sm" : "md"}
-              radius="lg"
-              className="glass"
-              style={{
-                height: '100%',
-                background: isDark
-                  ? 'rgba(33, 37, 41, 0.6)'
-                  : 'rgba(255, 255, 255, 0.5)',
-                borderLeft: '4px solid var(--mantine-color-teal-5)'
-              }}
-            >
-              <Stack gap={4} h="100%" justify="space-between">
-                <Group justify="space-between">
-                  <Text size="xs" c="dimmed" fw={600}>INCOME</Text>
-                  <ThemeIcon variant="light" color="teal" size="sm" radius="xl">
-                    <IconArrowUpRight size={12} />
-                  </ThemeIcon>
-                </Group>
-                <div>
-                  <Text size="xl" fw={700} c="teal" style={{ lineHeight: 1.2 }}>
-                    ¥{(selectedMonthData?.income || 0).toLocaleString()}
-                  </Text>
-                  {monthlyComparison && (
-                    <Group gap={4}>
-                      <Text size="xs" c="dimmed">前月比</Text>
-                      <Text size="xs" c={monthlyComparison.income.trend === 'up' ? 'teal' : 'red'}>
-                        {monthlyComparison.income.trend === 'up' ? '+' : ''}{monthlyComparison.income.percentage}%
-                      </Text>
-                    </Group>
-                  )}
-                </div>
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 6 }}>
-            <Paper
-              p={isMobile ? "sm" : "md"}
-              radius="lg"
-              className="glass"
-              style={{
-                height: '100%',
-                background: isDark
-                  ? 'rgba(33, 37, 41, 0.6)'
-                  : 'rgba(255, 255, 255, 0.5)',
-                borderLeft: '4px solid var(--mantine-color-red-5)'
-              }}
-            >
-              <Stack gap={4} h="100%" justify="space-between">
-                <Group justify="space-between">
-                  <Text size="xs" c="dimmed" fw={600}>EXPENSE</Text>
-                  <ThemeIcon variant="light" color="red" size="sm" radius="xl">
-                    <IconArrowDownRight size={12} />
-                  </ThemeIcon>
-                </Group>
-                <div>
-                  <Text size="xl" fw={700} c="red" style={{ lineHeight: 1.2 }}>
-                    ¥{(selectedMonthData?.expense || 0).toLocaleString()}
-                  </Text>
-                  {monthlyComparison && (
-                    <Group gap={4}>
-                      <Text size="xs" c="dimmed">前月比</Text>
-                      <Text size="xs" c={monthlyComparison.expense.trend === 'up' ? 'red' : 'teal'}>
-                        {monthlyComparison.expense.trend === 'up' ? '+' : ''}{monthlyComparison.expense.percentage}%
-                      </Text>
-                    </Group>
-                  )}
-                </div>
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          {/* TERTIARY: Smaller metrics */}
-          <Grid.Col span={{ base: 6 }}>
-            <Paper
-              p={isMobile ? "sm" : "md"}
-              radius="lg"
-              className="glass"
-              onClick={() => setCardRewardsOpened(true)}
-              style={{ cursor: 'pointer', height: '100%' }}
-            >
-              <Stack gap="xs">
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color="orange" size="md" radius="md">
-                    <IconCoins size={16} />
-                  </ThemeIcon>
-                  <Text size="xs" c="dimmed" fw={600}>獲得ポイント</Text>
-                </Group>
-                <Text size="lg" fw={700}>
-                  {monthlyCardPoints.toLocaleString()} <Text span size="xs" c="dimmed">pt</Text>
-                </Text>
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 6 }}>
-            <Paper
-              p={isMobile ? "sm" : "md"}
-              radius="lg"
-              className="glass"
-              onClick={() => setSavingsRateDetailOpened(true)}
-              style={{ cursor: 'pointer', height: '100%' }}
-            >
-              <Stack gap="xs">
-                <Group gap="xs">
-                  <ThemeIcon variant="light" color="violet" size="md" radius="md">
-                    <IconTrendingUp size={16} />
-                  </ThemeIcon>
-                  <Text size="xs" c="dimmed" fw={600}>貯蓄率</Text>
-                </Group>
-                <Text size="lg" fw={700}>
-                  {savingsData.yearlySavingsRate.toFixed(1)} <Text span size="xs" c="dimmed">%</Text>
-                </Text>
-              </Stack>
-            </Paper>
-          </Grid.Col>
-
-          <Grid.Col span={{ base: 12 }}>
-            <Paper
-              p="xs"
-              radius="lg"
-              style={{
-                background: 'transparent',
-                border: '1px dashed var(--mantine-color-gray-4)',
-                cursor: 'pointer'
-              }}
-              onClick={() => setInvestmentHistoryOpened(true)}
-            >
-              <Group justify="center" gap="xs">
-                <Text size="xs" c="dimmed">年間投資額: </Text>
-                <Text size="sm" fw={600}>¥{savingsData.yearlyInvestmentAmount.toLocaleString()}</Text>
-                <IconChevronRight size={12} color="gray" />
-              </Group>
-            </Paper>
-          </Grid.Col>
-        </Grid>
-
-        {/* 円グラフセクション - モバイル対応 */}
-        {
-          isMobile ? (
-            /* モバイル: 切り替え式円グラフ */
-            <Stack gap="sm">
-              {/* 切り替えボタン */}
-              <Group justify="center" gap="xs">
-                <Button
-                  variant={mobileChartType === 'expense' ? 'filled' : 'light'}
-                  color="red"
-                  size="sm"
-                  onClick={() => setMobileChartType('expense')}
-                  style={{
-                    borderRadius: '20px',
-                    transition: 'all 0.3s ease',
-                    transform: mobileChartType === 'expense' ? 'scale(1.05)' : 'scale(1)',
-                  }}
-                >
-                  📊 支出内訳
-                </Button>
-                <Button
-                  variant={mobileChartType === 'income' ? 'filled' : 'light'}
-                  color="green"
-                  size="sm"
-                  onClick={() => setMobileChartType('income')}
-                  style={{
-                    borderRadius: '20px',
-                    transition: 'all 0.3s ease',
-                    transform: mobileChartType === 'income' ? 'scale(1.05)' : 'scale(1)',
-                  }}
-                >
-                  💰 収入内訳
-                </Button>
-              </Group>
-
-              {/* 選択された円グラフを表示 */}
-              <div style={{
-                animation: 'fadeInScale 0.4s ease-out',
-                transform: 'translateY(0)',
-              }}>
-                {mobileChartType === 'expense' ? (
-                  <PieChart
-                    title={`${getMonthName(selectedMonth)}の支出内訳`}
-                    data={expenseChartData}
-                    totalAmount={selectedMonthData?.expense || 0}
-                    color="red"
-                  />
-                ) : (
-                  <PieChart
-                    title={`${getMonthName(selectedMonth)}の収入内訳`}
-                    data={incomeChartData}
-                    totalAmount={selectedMonthData?.income || 0}
-                    color="green"
-                  />
-                )}
-              </div>
-            </Stack>
-          ) : (
-            /* デスクトップ: 並列表示 */
-            <Grid>
-              <Grid.Col span={{ base: 12, lg: 6 }}>
-                <PieChart
-                  title={`${getMonthName(selectedMonth)}の支出内訳`}
-                  data={expenseChartData}
-                  totalAmount={selectedMonthData?.expense || 0}
-                  color="red"
-                />
+                </Stack>
               </Grid.Col>
 
-              <Grid.Col span={{ base: 12, lg: 6 }}>
-                <PieChart
-                  title={`${getMonthName(selectedMonth)}の収入内訳`}
-                  data={incomeChartData}
-                  totalAmount={selectedMonthData?.income || 0}
-                  color="green"
-                />
+              {/* 収入・支出 */}
+              <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Stack
+                  gap={6}
+                  pl={isMobile ? 0 : 'lg'}
+                  style={isMobile ? undefined : { borderLeft: '1px solid var(--hairline)' }}
+                >
+                  <Group gap={6}>
+                    <Box w={7} h={7} style={{ borderRadius: '50%', background: 'var(--income)' }} />
+                    <Text className="overline-label">収入</Text>
+                  </Group>
+                  <Text fw={700} className="tabular-nums" style={{ fontSize: 19, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                    <span className="amount-symbol">¥</span>
+                    {(selectedMonthData?.income || 0).toLocaleString()}
+                  </Text>
+                  {monthlyComparison && (
+                    <Text size="xs" c="dimmed" className="tabular-nums">
+                      前月比 {monthlyComparison.income.trend === 'up' ? '+' : ''}{monthlyComparison.income.percentage}%
+                    </Text>
+                  )}
+                </Stack>
+              </Grid.Col>
+
+              <Grid.Col span={{ base: 6, sm: 3 }}>
+                <Stack
+                  gap={6}
+                  pl={isMobile ? 0 : 'lg'}
+                  style={isMobile ? undefined : { borderLeft: '1px solid var(--hairline)' }}
+                >
+                  <Group gap={6}>
+                    <Box w={7} h={7} style={{ borderRadius: '50%', background: 'var(--expense)' }} />
+                    <Text className="overline-label">支出</Text>
+                  </Group>
+                  <Text fw={700} className="tabular-nums" style={{ fontSize: 19, lineHeight: 1.1, letterSpacing: '-0.01em' }}>
+                    <span className="amount-symbol">¥</span>
+                    {(selectedMonthData?.expense || 0).toLocaleString()}
+                  </Text>
+                  {monthlyComparison && (
+                    <Text size="xs" c="dimmed" className="tabular-nums">
+                      前月比 {monthlyComparison.expense.trend === 'up' ? '+' : ''}{monthlyComparison.expense.percentage}%
+                    </Text>
+                  )}
+                </Stack>
               </Grid.Col>
             </Grid>
-          )
-        }
+          </Paper>
 
-        {/* 月次支出ペースグラフ */}
-        <SpendingPaceChart
-          transactions={selectedMonthTransactions}
-          selectedMonth={selectedMonth}
-          budget={100000}
-        />
+          {/* ============================================================
+              KPIタイル
+              ============================================================ */}
+          <SimpleGrid cols={3} spacing={isMobile ? 'xs' : 'md'}>
+            <KpiTile
+              label="貯蓄率"
+              value={savingsData.yearlySavingsRate.toFixed(1)}
+              unit="%"
+              icon={<IconTrendingUp size={14} stroke={1.8} />}
+              compact={isMobile}
+              onClick={() => setSavingsRateDetailOpened(true)}
+            />
+            <KpiTile
+              label="獲得ポイント"
+              value={monthlyCardPoints.toLocaleString()}
+              unit="pt"
+              icon={<IconCoins size={14} stroke={1.8} />}
+              compact={isMobile}
+              onClick={() => setCardRewardsOpened(true)}
+            />
+            <KpiTile
+              label="年間投資額"
+              value={`¥${savingsData.yearlyInvestmentAmount.toLocaleString()}`}
+              icon={<IconWallet size={14} stroke={1.8} />}
+              compact={isMobile}
+              onClick={() => setInvestmentHistoryOpened(true)}
+            />
+          </SimpleGrid>
 
-        <LineChart
-          title="残高推移"
-          data={monthlyData}
-          transactions={transactions}
-        />
+          {/* ============================================================
+              チャートセクション
+              （モバイル: タブ切替 / デスクトップ: 2カラム）
+              ============================================================ */}
+          <CategoryBreakdown
+            expenseData={expenseChartData}
+            incomeData={incomeChartData}
+            expenseTotal={selectedMonthData?.expense || 0}
+            incomeTotal={selectedMonthData?.income || 0}
+          />
 
-        <CardRewardsDisplay
-          transactions={transactions}
-          selectedMonth={selectedMonth}
-          opened={cardRewardsOpened}
-          onClose={() => setCardRewardsOpened(false)}
-        />
+          <SpendingPaceChart
+            transactions={selectedMonthTransactions}
+            selectedMonth={selectedMonth}
+            budget={100000}
+          />
 
-        <TransactionList
-          transactions={selectedMonthTransactions}
-          onEditTransaction={handleEditTransaction}
-        />
+          <LineChart
+            title="カテゴリ別支出推移"
+            data={monthlyData}
+            transactions={transactions}
+          />
 
-        {/* バージョン表示 */}
-        <VersionDisplay />
+          {/* ============================================================
+              取引履歴
+              ============================================================ */}
+          <TransactionList
+            transactions={selectedMonthTransactions}
+            onEditTransaction={handleEditTransaction}
+          />
 
-        <TransactionForm
-          opened={transactionFormOpened}
-          onClose={handleCloseTransactionForm}
-          editingTransaction={editingTransaction}
-        />
+          <VersionDisplay />
+        </Stack>
+      </Container>
 
-        <RecurringTransactionManager
-          opened={recurringManagerOpened}
-          onClose={() => setRecurringManagerOpened(false)}
-        />
+      {/* ============================================================
+          モバイル: フローティング追加ボタン
+          ============================================================ */}
+      {isMobile && (
+        // zIndex はモーダル（Mantine デフォルト 200）より下に固定。上にするとモーダルの上に FAB が浮く
+        // bottom は iOS PWA のホームインジケーター領域（safe-area）を避ける
+        <Affix
+          position={{ bottom: 'calc(24px + env(safe-area-inset-bottom))', right: 20 }}
+          style={{ zIndex: transactionFormOpened ? 1 : 150 }}
+        >
+          <Button
+            leftSection={<IconPlus size={18} stroke={2.2} />}
+            onClick={() => setLocalFormOpened(true)}
+            size="md"
+            radius="xl"
+            style={{
+              boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12), 0 8px 22px rgba(76, 110, 245, 0.28)',
+              opacity: transactionFormOpened ? 0 : 1,
+              pointerEvents: transactionFormOpened ? 'none' : 'auto',
+            }}
+          >
+            追加
+          </Button>
+        </Affix>
+      )}
 
-        <RecurringTransactionConfirm
-          opened={recurringConfirmOpened}
-          onClose={() => {
-            setRecurringConfirmOpened(false);
-            setSelectedRecurringTransaction(null);
-          }}
-          transaction={selectedRecurringTransaction}
-          onConfirm={handleConfirmRecurringTransaction}
-        />
+      {/* ============================================================
+          各種モーダル
+          ============================================================ */}
+      <TransactionForm
+        opened={transactionFormOpened}
+        onClose={handleCloseTransactionForm}
+        editingTransaction={editingTransaction}
+      />
 
-        <CSVImportExport
-          opened={csvModalOpened}
-          onClose={() => setCsvModalOpened(false)}
-        />
+      <RecurringTransactionManager
+        opened={recurringManagerOpened}
+        onClose={() => setRecurringManagerOpened(false)}
+      />
 
-        <MobileCalendar
-          opened={calendarOpened}
-          onClose={() => setCalendarOpened(false)}
-          value={calendarSelectedDate}
-          onChange={handleCalendarDateChange}
+      <RecurringTransactionConfirm
+        opened={recurringConfirmOpened}
+        onClose={() => {
+          setRecurringConfirmOpened(false);
+          setSelectedRecurringTransaction(null);
+        }}
+        transaction={selectedRecurringTransaction}
+        onConfirm={handleConfirmRecurringTransaction}
+      />
 
-          transactions={transactions.map(t => ({
-            id: t.id,
-            date: t.date,
-            amount: t.amount,
-            type: t.type,
-            category: t.category,
-            subcategory: t.subcategory,
-            description: t.description
-          }))}
-        />
+      <CSVImportExport
+        opened={csvModalOpened}
+        onClose={() => setCsvModalOpened(false)}
+      />
 
-        {/* モバイル用フローティングアクションボタン */}
-        {
-          isMobile && (
-            <Affix position={{ bottom: 20, right: 20 }} style={{ zIndex: transactionFormOpened ? 1 : 1000 }}>
-              <Group gap="xs">
-                <Button
-                  variant="light"
-                  leftSection={<IconCalendar size={16} />}
-                  onClick={() => setCalendarOpened(true)}
-                  size="md"
-                  color="blue"
-                  style={{
-                    borderRadius: '25px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
-                    opacity: transactionFormOpened ? 0.3 : 1,
-                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                  }}
-                >
-                  📅
-                </Button>
-                <Button
-                  variant="light"
-                  leftSection={<IconRepeat size={16} />}
-                  onClick={() => setRecurringManagerOpened(true)}
-                  size="md"
-                  color="orange"
-                  style={{
-                    borderRadius: '25px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
-                    opacity: transactionFormOpened ? 0.3 : 1,
-                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                  }}
-                >
-                  定期
-                </Button>
-                <Button
-                  leftSection={<IconPlus size={16} />}
-                  onClick={() => setTransactionFormOpened(true)}
-                  size="md"
-                  style={{
-                    borderRadius: '25px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                    paddingLeft: '16px',
-                    paddingRight: '20px',
-                    opacity: transactionFormOpened ? 0.3 : 1,
-                    pointerEvents: transactionFormOpened ? 'none' : 'auto'
-                  }}
-                >
-                  追加
-                </Button>
-              </Group>
-            </Affix>
-          )
-        }
-      </Stack >
+      <MobileCalendar
+        opened={calendarOpened}
+        onClose={() => setCalendarOpened(false)}
+        value={calendarSelectedDate}
+        onChange={handleCalendarDateChange}
+        transactions={transactions.map(t => ({
+          id: t.id,
+          date: t.date,
+          amount: t.amount,
+          type: t.type,
+          category: t.category,
+          subcategory: t.subcategory,
+          description: t.description
+        }))}
+      />
+
+      <CardRewardsDisplay
+        transactions={transactions}
+        selectedMonth={selectedMonth}
+        opened={cardRewardsOpened}
+        onClose={() => setCardRewardsOpened(false)}
+      />
 
       {/* 年間収支サマリーモーダル */}
-      < Modal
+      <Modal
         opened={yearSummaryOpened}
-        onClose={() => setYearSummaryOpened(false)
-        }
-        title={
-          < Group gap="sm" >
-            <ThemeIcon size="lg" color="blue" variant="light">
-              <IconTrendingUp size={20} />
-            </ThemeIcon>
-            <Text size="lg" fw={600}>{yearSummary.year}年 年間収支</Text>
-          </Group >
-        }
+        onClose={() => setYearSummaryOpened(false)}
+        title={<Text size="md" fw={700}>{yearSummary.year}年の収支</Text>}
         size="lg"
         centered
       >
         <Stack gap="md">
           {/* 年間サマリー */}
-          <Grid>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box
-                p="md"
-                style={{
-                  backgroundColor: 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-6))',
-                  borderRadius: '8px',
-                  border: '1px solid light-dark(var(--mantine-color-blue-2), var(--mantine-color-dark-4))'
-                }}
+          <SimpleGrid cols={{ base: 1, sm: 3 }}>
+            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
+              <Text size="xs" c="dimmed" fw={600} mb={4}>年間収入</Text>
+              <Text size="lg" fw={700} className="tabular-nums amount-income">
+                ¥{yearSummary.income.toLocaleString()}
+              </Text>
+            </Box>
+            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
+              <Text size="xs" c="dimmed" fw={600} mb={4}>年間支出（投資含む）</Text>
+              <Text size="lg" fw={700} className="tabular-nums amount-expense">
+                ¥{yearSummary.expense.toLocaleString()}
+              </Text>
+            </Box>
+            <Box p="md" style={{ background: 'var(--app-surface-2)', borderRadius: 12, border: '1px solid var(--hairline)' }}>
+              <Text size="xs" c="dimmed" fw={600} mb={4}>年間収支</Text>
+              <Text
+                size="lg"
+                fw={700}
+                className="tabular-nums"
+                style={{ color: yearSummary.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
               >
-                <Group gap="xs" mb="xs">
-                  <IconArrowDownRight size={16} color="var(--mantine-color-blue-6)" />
-                  <Text size="xs" c="dimmed" fw={600}>年間収入</Text>
-                </Group>
-                <Text size="xl" fw={700} c="blue">
-                  ¥{yearSummary.income.toLocaleString()}
-                </Text>
-              </Box>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box
-                p="md"
-                style={{
-                  backgroundColor: 'light-dark(var(--mantine-color-red-0), var(--mantine-color-dark-6))',
-                  borderRadius: '8px',
-                  border: '1px solid light-dark(var(--mantine-color-red-2), var(--mantine-color-dark-4))'
-                }}
-              >
-                <Group gap="xs" mb="xs">
-                  <IconArrowUpRight size={16} color="var(--mantine-color-red-6)" />
-                  <Text size="xs" c="dimmed" fw={600}>年間支出(投資含む)</Text>
-                </Group>
-                <Text size="xl" fw={700} c="red">
-                  ¥{yearSummary.expense.toLocaleString()}
-                </Text>
-              </Box>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, sm: 4 }}>
-              <Box
-                p="md"
-                style={{
-                  backgroundColor: yearSummary.balance >= 0
-                    ? 'light-dark(var(--mantine-color-green-0), var(--mantine-color-dark-6))'
-                    : 'light-dark(var(--mantine-color-orange-0), var(--mantine-color-dark-6))',
-                  borderRadius: '8px',
-                  border: `1px solid ${yearSummary.balance >= 0
-                    ? 'light-dark(var(--mantine-color-green-2), var(--mantine-color-dark-4))'
-                    : 'light-dark(var(--mantine-color-orange-2), var(--mantine-color-dark-4))'}`
-                }}
-              >
-                <Group gap="xs" mb="xs">
-                  <IconWallet size={16} color={yearSummary.balance >= 0 ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-orange-6)'} />
-                  <Text size="xs" c="dimmed" fw={600}>年間収支</Text>
-                </Group>
-                <Text size="xl" fw={700} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
-                  {yearSummary.balance >= 0 ? '+' : ''}¥{yearSummary.balance.toLocaleString()}
-                </Text>
-              </Box>
-            </Grid.Col>
-          </Grid>
+                {yearSummary.balance >= 0 ? '+' : ''}¥{yearSummary.balance.toLocaleString()}
+              </Text>
+            </Box>
+          </SimpleGrid>
 
           {/* 月別内訳 */}
           <Box>
-            <Text size="sm" fw={600} c="dimmed" mb="sm">月別内訳</Text>
-            <Stack gap="xs">
+            <Text size="sm" fw={700} c="dimmed" mb="sm">月別内訳</Text>
+            <Stack gap={6}>
               {yearSummary.monthlyBreakdown.map((monthData) => {
                 const balance = monthData.income - monthData.expense;
+                const isSelected = monthData.month === selectedMonth;
                 return (
                   <Card
                     key={monthData.month}
-                    withBorder
                     p="sm"
+                    radius="md"
                     style={{
-                      backgroundColor: monthData.month === selectedMonth
-                        ? 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-7))'
-                        : undefined
+                      border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--hairline)'}`,
+                      background: isSelected ? 'var(--accent-soft)' : 'var(--app-surface)',
                     }}
                   >
-                    <Group justify="space-between">
-                      <Box>
-                        <Group gap="xs" align="center">
-                          <Text size="sm" fw={600}>
-                            {getMonthName(monthData.month)}
-                          </Text>
-                          {monthData.month === selectedMonth && (
-                            <Badge size="xs" color="blue">今月</Badge>
-                          )}
-                        </Group>
-                        <Group gap="md" mt="xs">
-                          <Text size="xs" c="dimmed">
-                            収入: <Text component="span" c="blue" fw={600}>¥{monthData.income.toLocaleString()}</Text>
-                          </Text>
-                          <Text size="xs" c="dimmed">
-                            支出: <Text component="span" c="red" fw={600}>¥{monthData.expense.toLocaleString()}</Text>
-                          </Text>
-                        </Group>
-                      </Box>
-                      <Text
-                        size="lg"
-                        fw={700}
-                        c={balance >= 0 ? 'green' : 'red'}
-                      >
-                        {balance >= 0 ? '+' : ''}¥{balance.toLocaleString()}
-                      </Text>
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="xs">
+                        <Text size="sm" fw={700}>{getMonthName(monthData.month)}</Text>
+                        {isSelected && <Badge size="xs" color="indigo" variant="light">表示中</Badge>}
+                      </Group>
+                      <Group gap="md" wrap="nowrap">
+                        <Text size="xs" c="dimmed" className="tabular-nums" visibleFrom="sm">
+                          収入 ¥{monthData.income.toLocaleString()} / 支出 ¥{monthData.expense.toLocaleString()}
+                        </Text>
+                        <Text
+                          size="sm"
+                          fw={700}
+                          className="tabular-nums"
+                          style={{ color: balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
+                        >
+                          {balance >= 0 ? '+' : ''}¥{balance.toLocaleString()}
+                        </Text>
+                      </Group>
                     </Group>
                   </Card>
                 );
               })}
 
-              <Box
-                p="md"
-                style={{
-                  backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
-                  borderRadius: '8px',
-                  border: '1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-4))'
-                }}
-              >
-                <Text size="sm" fw={600} mb="sm">月平均</Text>
+              <Divider my={4} />
+              <Group justify="space-between" px={4}>
+                <Text size="xs" c="dimmed" fw={600}>月平均</Text>
                 <Group gap="md">
-                  <Text size="xs" c="dimmed">
-                    収入: <Text component="span" fw={600} c="blue">
-                      ¥{Math.round(yearSummary.income / 12).toLocaleString()}
-                    </Text>
+                  <Text size="xs" c="dimmed" className="tabular-nums">
+                    収入 ¥{Math.round(yearSummary.income / 12).toLocaleString()}
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    支出: <Text component="span" fw={600} c="red">
-                      ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
-                    </Text>
+                  <Text size="xs" c="dimmed" className="tabular-nums">
+                    支出 ¥{Math.round(yearSummary.expense / 12).toLocaleString()}
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    収支: <Text component="span" fw={600} c={yearSummary.balance >= 0 ? 'green' : 'orange'}>
-                      {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
-                    </Text>
+                  <Text size="xs" fw={700} className="tabular-nums"
+                    style={{ color: yearSummary.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
+                  >
+                    {yearSummary.balance >= 0 ? '+' : ''}¥{Math.round(yearSummary.balance / 12).toLocaleString()}
                   </Text>
                 </Group>
-              </Box>
+              </Group>
             </Stack>
           </Box>
         </Stack>
@@ -1167,7 +890,7 @@ export function DashboardContent() {
         opened={investmentHistoryOpened}
         onClose={() => setInvestmentHistoryOpened(false)}
         transactions={transactions}
-        year={new Date(selectedMonth).getFullYear()}
+        year={selectedYear}
       />
 
       {/* 年間貯蓄率詳細モーダル */}
@@ -1175,8 +898,8 @@ export function DashboardContent() {
         opened={savingsRateDetailOpened}
         onClose={() => setSavingsRateDetailOpened(false)}
         transactions={transactions}
-        year={new Date(selectedMonth).getFullYear()}
+        year={selectedYear}
       />
-    </Container>
+    </Box>
   );
 }

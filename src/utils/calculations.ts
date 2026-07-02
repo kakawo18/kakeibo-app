@@ -14,7 +14,7 @@
  * - 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い
  */
 import { Transaction, MonthlyData, ChartData } from '@/types';
-import { formatMonthLocal, getPreviousMonthFromCurrent, getNextMonth } from './dateUtils';
+import { formatMonthLocal, getNextMonth } from './dateUtils';
 
 /**
  * 月別データを計算する
@@ -88,8 +88,6 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
     }
   }
 
-  // 残高計算: 累積で計算
-  let runningBalance = 0;
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   sortedData.forEach((monthData) => {
@@ -102,43 +100,49 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
 };
 
 // カテゴリ別カラーパレット
-const CATEGORY_COLORS = {
+// CVD（色覚多様性）検証済みの8色パレットをエンティティ固定で割り当てる。
+// ライト面（白）/ ダーク面（#1d1e22）それぞれで検証済みのステップを使用。
+const CATEGORY_COLORS: Record<string, { light: string; dark: string }> = {
   // 収入カテゴリ
-  '給与': '#10B981',
-  'ボーナス': '#059669',
-  'その他': '#047857',
+  '給与': { light: '#0f9b6c', dark: '#1db584' },
+  'ボーナス': { light: '#1baf7a', dark: '#199e70' },
+  '賞与': { light: '#1baf7a', dark: '#199e70' },
+  '配当収入': { light: '#008300', dark: '#3da23d' },
+  'その他': { light: '#8b919e', dark: '#82868f' },
 
-  // 支出カテゴリ
-  '食費': '#EF4444',
-  '飲み会費': '#DC2626',
-  '交際費': '#A855F7',
-  '電気代': '#F59E0B',
-  'ガス代': '#D97706',
-  '水道代': '#0EA5E9',
-  '光熱費': '#F59E0B',
-  '交通費': '#3B82F6',
-  '趣味代': '#8B5CF6',
-  '旅行代': '#EC4899',
-  '医療費': '#06B6D4',
-  '家賃': '#F97316',
-  '投資': '#84CC16',
-  '通信費': '#F97316',
-  '日用品': '#14B8A6',
-  '固定費': '#F97316',
-  '三井住友カード': '#6B7280',
-  '三菱UFJカード': '#6B7280',
-  'amazonカード': '#6B7280',
-  'EPOSカード': '#6B7280',
-  '楽天カード': '#6B7280',
-  'カード引き落とし': '#6B7280',
+  // 支出カテゴリ（エンティティ固定割り当て）
+  '食費': { light: '#e34948', dark: '#e66767' },
+  '交際費': { light: '#e87ba4', dark: '#d55181' },
+  '飲み会費': { light: '#e87ba4', dark: '#d55181' },
+  '固定費': { light: '#2a78d6', dark: '#3987e5' },
+  '家賃': { light: '#2a78d6', dark: '#3987e5' },
+  '通信費': { light: '#4a3aa7', dark: '#9085e9' },
+  '電気代': { light: '#eda100', dark: '#c98500' },
+  'ガス代': { light: '#eb6834', dark: '#d95926' },
+  '水道代': { light: '#1baf7a', dark: '#199e70' },
+  '光熱費': { light: '#eda100', dark: '#c98500' },
+  '日用品': { light: '#1baf7a', dark: '#199e70' },
+  '交通費': { light: '#eda100', dark: '#c98500' },
+  '趣味代': { light: '#4a3aa7', dark: '#9085e9' },
+  '旅行代': { light: '#eb6834', dark: '#d95926' },
+  '医療費': { light: '#008300', dark: '#3da23d' },
+  '投資': { light: '#008300', dark: '#3da23d' },
 
-  // 立替（グレー系で目立たなくする）
-  '立替金': '#9CA3AF',
-  '立替回収': '#9CA3AF',
-} as const;
+  // カード・立替はニュートラル（シリーズ色を消費しない）
+  '三井住友カード': { light: '#8b919e', dark: '#82868f' },
+  '三菱UFJカード': { light: '#8b919e', dark: '#82868f' },
+  'amazonカード': { light: '#8b919e', dark: '#82868f' },
+  'EPOSカード': { light: '#8b919e', dark: '#82868f' },
+  '楽天カード': { light: '#8b919e', dark: '#82868f' },
+  'カード引き落とし': { light: '#8b919e', dark: '#82868f' },
+  '立替金': { light: '#adb2bc', dark: '#6d7178' },
+  '立替回収': { light: '#adb2bc', dark: '#6d7178' },
+};
 
-export const getCategoryColor = (categoryName: string): string => {
-  return CATEGORY_COLORS[categoryName as keyof typeof CATEGORY_COLORS] || '#9CA3AF';
+export const getCategoryColor = (categoryName: string, isDark = false): string => {
+  const entry = CATEGORY_COLORS[categoryName];
+  if (!entry) return isDark ? '#82868f' : '#8b919e';
+  return isDark ? entry.dark : entry.light;
 };
 
 export const calculateCategoryChartData = (transactions: Transaction[], type: 'income' | 'expense'): ChartData[] => {
@@ -150,9 +154,12 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
     .forEach((transaction) => {
       // 支出の場合、投資は除外（別枠で表示するため）
       // 立替回収、立替金も除外
+      // カード引き落とし等（affectsExpense === false）も除外し、
+      // 支出サマリーカードの金額と円グラフの合計を一致させる（カード支払いとの二重計上防止）
       if (type === 'expense') {
         if ((transaction.category === '固定費' && transaction.subcategory === '投資') ||
-          transaction.category === '立替金') {
+          transaction.category === '立替金' ||
+          transaction.affectsExpense === false) {
           return;
         }
       } else if (type === 'income') {
@@ -206,38 +213,29 @@ export const calculateMonthlyComparison = (
   expense: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
   balance: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
 } => {
-  const calculateTrend = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 'up' : 'same';
-    const percentage = ((current - previous) / previous) * 100;
-    if (percentage > 0) return 'up';
-    if (percentage < 0) return 'down';
-    return 'same';
-  };
-
-  const calculatePercentage = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
-    return Math.round(((current - previous) / previous) * 100);
+  // トレンド（矢印の向き）は増減の差分で判定し、%の符号も必ず差分と一致させる。
+  // 分母に previous をそのまま使うと、収支がマイナスの月を基準にしたとき
+  // 符号が反転する（改善したのに下矢印になる）ため、分母は絶対値を取る。
+  const calculateChange = (current: number, previous: number) => {
+    const diff = current - previous;
+    const trend: 'up' | 'down' | 'same' = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+    const percentage = previous === 0
+      ? (diff === 0 ? 0 : 100 * Math.sign(diff))
+      : Math.round((diff / Math.abs(previous)) * 100);
+    return { trend, percentage };
   };
 
   const prevIncome = previousData?.income || 0;
   const prevExpense = previousData?.expense || 0;
   const prevBalance = previousData?.balance || 0;
 
+  const income = calculateChange(currentData.income, prevIncome);
+  const expense = calculateChange(currentData.expense, prevExpense);
+  const balance = calculateChange(currentData.balance, prevBalance);
+
   return {
-    income: {
-      value: currentData.income,
-      percentage: calculatePercentage(currentData.income, prevIncome),
-      trend: calculateTrend(currentData.income, prevIncome)
-    },
-    expense: {
-      value: currentData.expense,
-      percentage: calculatePercentage(currentData.expense, prevExpense),
-      trend: calculateTrend(currentData.expense, prevExpense)
-    },
-    balance: {
-      value: currentData.balance,
-      percentage: calculatePercentage(currentData.balance, prevBalance),
-      trend: calculateTrend(currentData.balance, prevBalance)
-    }
+    income: { value: currentData.income, ...income },
+    expense: { value: currentData.expense, ...expense },
+    balance: { value: currentData.balance, ...balance },
   };
 };

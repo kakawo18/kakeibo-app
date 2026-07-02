@@ -1,218 +1,273 @@
 @import "tailwindcss";
 
+/* ============================================================
+   デザイントークン — "Quiet Ledger" デザインシステム
+   フラットな面 + ヘアライン境界 + 数字が主役のタイポグラフィ
+   ============================================================ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 面 */
+  --app-page: #f5f6f8;
+  --app-surface: #ffffff;
+  --app-surface-2: #f8f9fb;
+
+  /* インク */
+  --ink-1: #16181d;
+  --ink-2: #5c6270;
+  --ink-3: #8b919e;
+
+  /* 境界 */
+  --hairline: rgba(15, 23, 42, 0.08);
+  --hairline-strong: rgba(15, 23, 42, 0.14);
+
+  /* セマンティックカラー（検証済みパレット） */
+  --income: #0f9b6c;
+  --expense: #e34948;
+  --accent: #4c6ef5;
+  --accent-soft: rgba(76, 110, 245, 0.10);
+
+  /* チャート用グリッド */
+  --grid-line: #e7e8ec;
+
+  /* 角丸スケール: カード > 内側タイル > コントロール */
+  --radius-card: 16px;
+  --radius-tile: 12px;
+  --radius-control: 10px;
+
+  /* 影スケール: 静止カード / 浮遊要素 */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-raised: 0 8px 24px rgba(15, 23, 42, 0.10);
+
+  --background: var(--app-page);
+  --foreground: var(--ink-1);
 }
 
-/* ダークモード時の色定義 */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #1a1b1e;
-    --foreground: #e9ecef;
-  }
+[data-mantine-color-scheme="dark"] {
+  --app-page: #131417;
+  --app-surface: #1d1e22;
+  --app-surface-2: #232428;
+
+  --ink-1: #f2f3f5;
+  --ink-2: #b8bcc4;
+  --ink-3: #82868f;
+
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
+
+  --income: #1db584;
+  --expense: #e66767;
+  --accent: #6b83f7;
+  --accent-soft: rgba(107, 131, 247, 0.14);
+
+  --grid-line: #2c2d32;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  --background: var(--app-page);
+  --foreground: var(--ink-1);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-noto-sans-jp);
   --font-mono: var(--font-geist-mono);
 }
 
 /* 基本スタイル */
 body {
-  font-family: Arial, Helvetica, sans-serif;
-  background-color: var(--background);
-  color: var(--foreground);
+  font-family: var(--font-noto-sans-jp), var(--font-geist-sans), system-ui, sans-serif;
+  background-color: var(--app-page);
+  color: var(--ink-1);
+  min-height: 100vh;
 }
 
-/* Mantineコンポーネントのダークモード対応 */
+/* ============================================================
+   Mantine 変数のマッピング（ライト/ダーク共通で面・境界を統一）
+   ============================================================ */
+:root {
+  --mantine-color-body: var(--app-page);
+}
+
 [data-mantine-color-scheme="dark"] {
-  /* カード背景 */
-  --mantine-color-body: #1a1b1e;
-  --mantine-color-default: #25262b;
-  --mantine-color-default-hover: #2c2e33;
-
-  /* テキスト */
-  --mantine-color-text: #e9ecef;
-  --mantine-color-dimmed: #909296;
-
-  /* ボーダー */
-  --mantine-color-default-border: #373a40;
-
-  /* 入力フィールド */
-  --mantine-color-input-bg: #25262b;
-  --mantine-color-input-border: #373a40;
+  --mantine-color-body: var(--app-page);
+  --mantine-color-text: var(--ink-1);
+  --mantine-color-dimmed: var(--ink-3);
+  --mantine-color-default: var(--app-surface);
+  --mantine-color-default-hover: var(--app-surface-2);
+  --mantine-color-default-border: var(--hairline-strong);
+  --mantine-color-input-bg: var(--app-surface);
+  --mantine-color-input-border: var(--hairline-strong);
 }
 
-/* ダークモード時のカード背景を明確に */
-[data-mantine-color-scheme="dark"] .mantine-Paper-root,
-[data-mantine-color-scheme="dark"] .mantine-Card-root {
-  background-color: #25262b !important;
-  border-color: #373a40 !important;
+/* カード・モーダル等の面をトークンに寄せる */
+.mantine-Paper-root,
+.mantine-Card-root {
+  background-color: var(--app-surface);
 }
 
-/* ダークモード時のテキストコントラスト改善 */
-[data-mantine-color-scheme="dark"] .mantine-Text-root {
-  color: #e9ecef !important;
+[data-mantine-color-scheme="dark"] .mantine-Modal-content,
+[data-mantine-color-scheme="dark"] .mantine-Modal-header {
+  background-color: var(--app-surface);
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Title-root {
-  color: #f1f3f5 !important;
-}
-
-/* ダークモード時の入力フィールド */
 [data-mantine-color-scheme="dark"] .mantine-Input-input,
 [data-mantine-color-scheme="dark"] .mantine-Select-input,
 [data-mantine-color-scheme="dark"] .mantine-NativeSelect-input,
 [data-mantine-color-scheme="dark"] .mantine-Textarea-input {
-  background-color: #25262b !important;
-  color: #e9ecef !important;
-  border-color: #373a40 !important;
+  background-color: var(--app-surface);
+  color: var(--ink-1);
+  border-color: var(--hairline-strong);
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Input-input::placeholder,
-[data-mantine-color-scheme="dark"] .mantine-Select-input::placeholder,
-[data-mantine-color-scheme="dark"] .mantine-NativeSelect-input::placeholder,
-[data-mantine-color-scheme="dark"] .mantine-Textarea-input::placeholder {
-  color: #5c5f66 !important;
+/* ============================================================
+   アプリ共通ユーティリティ
+   ============================================================ */
+
+/* フラットカード: ヘアライン境界 + ごく浅い影 */
+.ledger-card {
+  background: var(--app-surface) !important;
+  border: 1px solid var(--hairline) !important;
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-card);
 }
 
-/* ダークモード時のボタン */
-[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="default"] {
-  background-color: #25262b !important;
-  color: #e9ecef !important;
-  border-color: #373a40 !important;
+/* クリック可能カード */
+.ledger-card-clickable {
+  cursor: pointer;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Button-root[data-variant="default"]:hover {
-  background-color: #2c2e33 !important;
+.ledger-card-clickable:hover {
+  border-color: var(--hairline-strong) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
 }
 
-/* ダークモード時のモーダル */
-[data-mantine-color-scheme="dark"] .mantine-Modal-content {
-  background-color: #1a1b1e !important;
+[data-mantine-color-scheme="dark"] .ledger-card-clickable:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Modal-header {
-  background-color: #1a1b1e !important;
-  border-bottom-color: #373a40 !important;
+/* スティッキーヘッダー
+   z-index はモーダル（Mantine デフォルト 200）より必ず下にする。
+   200 以上にするとフルスクリーンモーダルの閉じるボタンを覆い隠し、
+   PWA（ブラウザの戻るボタンがない）でユーザーが画面から戻れなくなる */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--app-page) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
 }
 
-/* ダークモード時のテーブル */
-[data-mantine-color-scheme="dark"] .mantine-Table-root {
-  color: #e9ecef !important;
+/* カード見出し（カード左上のタイトル） */
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink-1);
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Table-root thead {
-  background-color: #25262b !important;
+/* 小型ラベル（KPI名・列見出しなど、値の上に置く控えめな見出し） */
+.overline-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Table-root tbody tr {
-  border-bottom-color: #373a40 !important;
+/* 数値のタブラー表示（金額の桁ブレ防止）
+   数字・ラテン文字は Geist、和文グリフは Noto にフォールバックさせ、
+   金額の字面を締める（和文フォントの数字は字幅が広く間延びするため） */
+.tabular-nums {
+  font-family: var(--font-geist-sans), var(--font-noto-sans-jp), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
 }
 
-[data-mantine-color-scheme="dark"] .mantine-Table-root tbody tr:hover {
-  background-color: #25262b !important;
+/* 金額の通貨記号・符号: 数字より一段軽くして桁を主役にする */
+.amount-symbol {
+  font-size: 0.72em;
+  font-weight: 600;
+  margin-right: 0.06em;
+  opacity: 0.72;
 }
+
+/* 台帳リストの行: ホバーで面をわずかに持ち上げる */
+.ledger-row {
+  border-radius: 8px;
+  transition: background-color 0.12s ease;
+}
+
+@media (hover: hover) {
+  .ledger-row:hover {
+    background-color: var(--app-surface-2);
+  }
+}
+
+/* チャートのタブ切替時のクロスフェード */
+@keyframes chartSwap {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chart-swap {
+  animation: chartSwap 0.22s ease;
+}
+
+/* ============================================================
+   アンダーライン式タブ（モバイルの内訳切替など）
+   カード上端にフラッシュさせ、スライドするインジケーターで選択を示す
+   ============================================================ */
+.underline-tabs {
+  position: relative;
+  display: flex;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.underline-tab {
+  flex: 1;
+  padding: 13px 0 11px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-3);
+  transition: color 0.18s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.underline-tab[aria-selected="true"] {
+  color: var(--ink-1);
+}
+
+.underline-tabs-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
+/* 収支の意味色 */
+.amount-income { color: var(--income); }
+.amount-expense { color: var(--expense); }
 
 /* アニメーション定義 */
 @keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInScale {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Glassmorphism utility */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-[data-mantine-color-scheme="dark"] .glass {
-  background: rgba(37, 38, 43, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200px 0;
-  }
-
-  100% {
-    background-position: calc(200px + 100%) 0;
-  }
-}
-
-/* カードホバー効果の改善 */
-.enhanced-card {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.enhanced-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg,
-      transparent,
-      rgba(255, 255, 255, 0.1),
-      transparent);
-  transition: left 0.5s;
-}
-
-.enhanced-card:hover::before {
-  left: 100%;
-}
-
-/* 取引カードの改善 */
-.transaction-card {
-  position: relative;
-  overflow: hidden;
-}
-
-.transaction-card::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(to bottom,
-      transparent 0%,
-      currentColor 50%,
-      transparent 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.transaction-card:hover::after {
-  opacity: 0.3;
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 /* スムーズなスクロール */
@@ -220,30 +275,27 @@ html {
   scroll-behavior: smooth;
 }
 
-/* フォーカス表示の改善 */
+/* フォーカス表示 */
 *:focus-visible {
-  outline: 2px solid #2196f3;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* PWA入力フィールド修正 */
+/* ============================================================
+   PWA入力フィールド修正（実機PWAでの入力不具合対策・既存挙動を維持）
+   ============================================================ */
 input,
 textarea,
 select {
-  /* iOS PWAでの入力問題を修正 */
   -webkit-user-select: text !important;
   -webkit-touch-callout: default !important;
   -webkit-tap-highlight-color: transparent;
-
-  /* Android PWAでの入力問題を修正 */
   touch-action: manipulation;
-
-  /* フォーカス時のズーム防止（但し入力は可能） */
+  /* フォーカス時のiOSズーム防止 */
   font-size: 16px !important;
 }
 
-/* ボタンとクリック可能要素のタップ反応改善 */
 button,
 a,
 [role="button"],
@@ -254,131 +306,34 @@ a,
   -webkit-user-select: none;
 }
 
-/* Selectドロップダウンのタップ反応改善 */
 [role="option"],
 [role="listbox"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* PWA環境での入力フィールド最適化 */
 @media all and (display-mode: standalone) {
-
   input,
   textarea,
   select {
-    /* PWAモードでの入力最適化 */
     -webkit-appearance: none;
     appearance: none;
     background-color: transparent;
-
-    /* iOS PWA特有の問題を修正 */
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
   }
 
-  /* PWAでのキーボード表示時の調整 */
   body {
     height: 100vh;
     height: -webkit-fill-available;
   }
 }
 
-/* iOS PWA特有の修正 */
 @supports (-webkit-touch-callout: none) {
-
   input,
   textarea,
   select {
-    /* iOS PWAでのタッチ操作改善 */
     -webkit-touch-callout: default;
     -webkit-user-select: text;
   }
-}
-
-/* ログイン画面専用のPWA修正 */
-[data-testid="email-input"] input,
-[data-testid="password-input"] input {
-  /* 強制的にPWA入力を有効化 */
-  -webkit-user-select: text !important;
-  -webkit-touch-callout: default !important;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1) !important;
-  touch-action: manipulation !important;
-
-  /* iOS PWA特有の問題を強制修正 */
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  background-color: white !important;
-  color: black !important;
-
-  /* フォーカス時の問題を修正 */
-  outline: 2px solid #007bff !important;
-  outline-offset: 2px !important;
-
-  /* キーボード表示を強制 */
-  inputmode: text !important;
-}
-
-/* PWAログイン画面でのフォーカス強制 */
-@media all and (display-mode: standalone) {
-
-  [data-testid="email-input"] input:focus,
-  [data-testid="password-input"] input:focus {
-    /* PWAでのフォーカス状態を強制表示 */
-    background-color: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #007bff !important;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25) !important;
-  }
-
-  /* PWAでのタッチ時の反応を改善 */
-  [data-testid="email-input"] input:active,
-  [data-testid="password-input"] input:active {
-    transform: scale(1.02) !important;
-    transition: transform 0.1s ease !important;
-  }
-}
-
-
-/* PWA Input Fixes - Class based approach */
-.pwa-input {
-  font-size: 16px !important;
-  -webkit-user-select: text !important;
-  user-select: text !important;
-  -webkit-touch-callout: default !important;
-  touch-action: manipulation !important;
-  -webkit-appearance: none !important;
-  appearance: none !important;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  outline: none;
-  background-color: #ffffff !important;
-  color: #000000 !important;
-}
-
-/* Glassmorphism Input */
-.glass-input input {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: inherit;
-  transition: all 0.2s ease;
-}
-
-.glass-input input:focus {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
-}
-
-[data-mantine-color-scheme="dark"] .glass-input input {
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-[data-mantine-color-scheme="dark"] .glass-input input:focus {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.3);
 }

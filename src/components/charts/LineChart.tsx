@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Paper, Text, Group, MultiSelect, ActionIcon, Box } from '@mantine/core';
+import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useMantineColorScheme } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
@@ -24,7 +24,10 @@ interface LineChartProps {
 }
 
 export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions = [] }) => {
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
+  // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
+  const [userSelectedCategories, setUserSelectedCategories] = useState<string[] | null>(null);
   const DISPLAY_MONTHS = 6; // 表示する月数
 
   // 初期表示を最新の6ヶ月にする
@@ -35,10 +38,8 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
 
   const [displayStartIndex, setDisplayStartIndex] = useState(initialStartIndex);
 
-  // 初回マウント時にTop 3カテゴリを自動選択
-  useEffect(() => {
-    if (transactions.length === 0) return;
-
+  // 支出Top 3カテゴリ（デフォルト選択用）
+  const defaultTopCategories = useMemo(() => {
     const categoryTotals = new Map<string, number>();
 
     transactions.forEach(t => {
@@ -51,15 +52,13 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + t.amount);
     });
 
-    const topCategories = Array.from(categoryTotals.entries())
+    return Array.from(categoryTotals.entries())
       .sort((a, b) => b[1] - a[1]) // 金額降順
       .slice(0, 3) // Top 3
       .map(entry => entry[0]);
+  }, [transactions]);
 
-    if (topCategories.length > 0) {
-      setSelectedCategories(topCategories);
-    }
-  }, []); // 初回のみ実行
+  const selectedCategories = userSelectedCategories ?? defaultTopCategories;
 
   // 利用可能なカテゴリを取得
   const availableCategories = useMemo(() => {
@@ -132,9 +131,9 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
 
   if (!data || data.length === 0) {
     return (
-      <Paper withBorder p="md" radius="md">
-        <Text size="lg" fw={600} mb="md">{title}</Text>
-        <Text ta="center" c="dimmed" py="xl">
+      <Paper className="ledger-card" p="lg">
+        <Text className="section-title">{title}</Text>
+        <Text ta="center" c="dimmed" py="xl" size="sm">
           データがありません
         </Text>
       </Paper>
@@ -147,35 +146,39 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
   };
 
   return (
-    <Paper withBorder p="md" radius="md">
+    <Paper className="ledger-card" p="lg">
       <Group justify="space-between" mb="md">
-        <Group gap="xs">
-          <Text size="lg" fw={600}>{title}</Text>
-          <Text size="xs" c="dimmed" fw={500}>- カテゴリ別推移 -</Text>
-        </Group>
+        <Stack gap={2}>
+          <Text className="section-title">{title}</Text>
+          <Text size="xs" c="dimmed">月別の推移を比較</Text>
+        </Stack>
       </Group>
 
       {/* ページングコントロール */}
       {allCategoryData.length > DISPLAY_MONTHS && (
-        <Group justify="center" mb="md" gap="xs">
+        <Group justify="center" mb="sm" gap="xs">
           <ActionIcon
-            variant="light"
-            size="lg"
+            variant="default"
+            size="md"
+            radius={8}
             onClick={handlePrev}
             disabled={!canGoPrev}
+            aria-label="前の期間へ"
           >
-            <IconChevronLeft size={18} />
+            <IconChevronLeft size={15} stroke={1.8} />
           </ActionIcon>
-          <Text size="sm" c="dimmed">
+          <Text size="xs" c="dimmed" className="tabular-nums">
             {displayStartIndex + 1} - {Math.min(displayStartIndex + DISPLAY_MONTHS, allCategoryData.length)} / {allCategoryData.length}ヶ月
           </Text>
           <ActionIcon
-            variant="light"
-            size="lg"
+            variant="default"
+            size="md"
+            radius={8}
             onClick={handleNext}
             disabled={!canGoNext}
+            aria-label="次の期間へ"
           >
-            <IconChevronRight size={18} />
+            <IconChevronRight size={15} stroke={1.8} />
           </ActionIcon>
         </Group>
       )}
@@ -184,50 +187,58 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       <MultiSelect
         data={availableCategories}
         value={selectedCategories}
-        onChange={setSelectedCategories}
+        onChange={setUserSelectedCategories}
         placeholder="比較するカテゴリを選択"
-        mb="xl"
+        size="sm"
+        mb="lg"
         maxValues={5}
         searchable
         clearable
         hidePickedOptions
       />
 
-      <Box h={300}>
+      <Box h={280}>
         <ResponsiveContainer width="100%" height="100%">
           <RechartsLineChart
             data={categoryData}
-            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            margin={{ top: 5, right: 16, left: 0, bottom: 5 }}
           >
-            <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+            <CartesianGrid stroke="var(--grid-line)" strokeWidth={1} vertical={false} />
             <XAxis
               dataKey="month"
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11, fill: 'var(--ink-3)' }}
               tickLine={false}
+              axisLine={{ stroke: 'var(--hairline-strong)' }}
             />
             <YAxis
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11, fill: 'var(--ink-3)' }}
               tickLine={false}
-              tickFormatter={(value) => `¥${(value / 1000).toFixed(0)}k`}
+              axisLine={false}
+              tickFormatter={(value) => `${(value / 10000).toFixed(0)}万`}
+              width={36}
             />
             <Tooltip
               formatter={tooltipFormatter}
               contentStyle={{
-                backgroundColor: 'var(--mantine-color-body)',
-                border: '1px solid var(--mantine-color-default-border)',
-                borderRadius: '8px',
+                background: 'var(--app-surface)',
+                border: '1px solid var(--hairline-strong)',
+                borderRadius: '10px',
+                boxShadow: 'var(--shadow-raised)',
+                fontSize: '12px',
+                color: 'var(--ink-1)',
+                padding: '8px 12px',
               }}
             />
-            <Legend />
+            <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--ink-2)' }} iconType="plainline" />
             {selectedCategories.map((category) => (
               <Line
                 key={category}
                 type="monotone"
                 dataKey={category}
-                stroke={getCategoryColor(category)}
-                strokeWidth={3}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
+                stroke={getCategoryColor(category, isDark)}
+                strokeWidth={2}
+                dot={{ r: 3, strokeWidth: 0, fill: getCategoryColor(category, isDark) }}
+                activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--app-surface)' }}
                 connectNulls={false}
               />
             ))}

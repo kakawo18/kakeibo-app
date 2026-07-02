@@ -22,16 +22,23 @@ export const PWAInstaller = () => {
     // ブラウザ環境でのみ実行
     if (typeof window === 'undefined') return;
     
-    // Service Worker登録
+    // Service Worker登録（本番のみ。開発中はキャッシュがHMR・動作確認を妨げるため、
+    // 逆に登録済みのSWがあれば解除して古いキャッシュの影響を排除する）
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('SW registered: ', registration);
-        })
-        .catch((registrationError) => {
-          console.log('SW registration failed: ', registrationError);
+      if (process.env.NODE_ENV === 'production') {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      } else {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          registrations.forEach((registration) => registration.unregister());
         });
+      }
     }
 
     // PWAインストールプロンプトの処理

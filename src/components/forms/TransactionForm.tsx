@@ -292,10 +292,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             }}
             fullWidth
             size={isMobile ? 'md' : 'sm'}
+            radius={10}
             styles={{
-              root: {
-                backgroundColor: 'var(--mantine-color-dark-3)',
-              },
               label: {
                 fontSize: isMobile ? '16px' : undefined,
                 padding: isMobile ? '12px' : undefined,
@@ -440,7 +438,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
                   padding: '12px',
                   minHeight: '48px',
                   cursor: 'pointer',
-                  backgroundColor: 'light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-6))',
+                  backgroundColor: 'var(--app-surface-2)',
                 },
                 label: {
                   fontSize: '14px',

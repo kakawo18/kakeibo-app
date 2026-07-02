@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button, TextInput, Stack, Paper, Title, Text, Alert, PasswordInput, Container, Group } from '@mantine/core';
+import { Button, TextInput, Stack, Paper, Title, Text, Alert, PasswordInput, Container, Group, Box } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -91,28 +91,36 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
   return (
     <Container size="xs" my={60}>
-      <Stack align="center" mb="lg">
-        <Title
-          order={1}
-          style={{
-            background: 'linear-gradient(45deg, #2196F3 0%, #21CBF3 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
-          }}
-        >
-          Kakeibo App
-        </Title>
+      <Stack align="center" mb="lg" gap={8}>
+        <Group gap={10}>
+          <Box
+            w={36}
+            h={36}
+            style={{
+              borderRadius: 10,
+              background: 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 700,
+              fontSize: 18,
+            }}
+          >
+            ¥
+          </Box>
+          <Title order={1} size="h2" style={{ letterSpacing: '-0.02em' }}>
+            家計簿
+          </Title>
+        </Group>
         <Text c="dimmed" size="sm">
           シンプルで使いやすい家計簿アプリ
         </Text>
       </Stack>
 
       <Paper
-        className="glass"
-        radius="lg"
+        className="ledger-card"
         p={30}
-        shadow="xl"
       >
         <Title order={2} ta="center" mb="md" size="h3">
           {isLogin ? 'ログイン' : 'アカウント作成'}
@@ -132,7 +140,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               placeholder="hello@example.com"
               required
               {...form.getInputProps('email')}
-              classNames={{ input: 'pwa-input glass-input' }}
               leftSection={<IconMail size={16} />}
               data-testid="email-input"
               inputMode="email"
@@ -143,7 +150,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               placeholder="パスワード（6文字以上）"
               required
               {...form.getInputProps('password')}
-              classNames={{ input: 'pwa-input glass-input' }}
               leftSection={<IconLock size={16} />}
               data-testid="password-input"
             />
@@ -153,9 +159,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
               loading={loading}
               fullWidth
               size="md"
-              radius="md"
-              variant="gradient"
-              gradient={{ from: 'blue', to: 'cyan', deg: 90 }}
             >
               {isLogin ? 'ログイン' : '登録する'}
             </Button>
@@ -170,7 +173,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
             variant="subtle"
             size="sm"
             onClick={() => setIsLogin(!isLogin)}
-            color="blue"
           >
             {isLogin ? '新規登録' : 'ログイン'}
           </Button>
