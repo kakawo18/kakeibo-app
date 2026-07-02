@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 // 環境変数の存在確認（ビルド時エラー回避）
 const requiredEnvVars = {
@@ -50,4 +50,14 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+// ローカル開発用: NEXT_PUBLIC_FIREBASE_EMULATOR=1 のときエミュレータに接続
+if (
+  process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === '1' &&
+  typeof window !== 'undefined'
+) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+}
+
 export default app;

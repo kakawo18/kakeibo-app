@@ -68,14 +68,9 @@ body {
   border-color: #373a40 !important;
 }
 
-/* ダークモード時のテキストコントラスト改善 */
-[data-mantine-color-scheme="dark"] .mantine-Text-root {
-  color: #e9ecef !important;
-}
-
-[data-mantine-color-scheme="dark"] .mantine-Title-root {
-  color: #f1f3f5 !important;
-}
+/* 注意: 以前ここにあった .mantine-Text-root への一括 color !important 指定は、
+   c="red" / c="teal" 等の意味色（収支のプラス・マイナス等）まで白に潰してしまうため削除。
+   ダークモードの基本テキスト色は Mantine のテーマ変数（--mantine-color-text）が担う。 */
 
 /* ダークモード時の入力フィールド */
 [data-mantine-color-scheme="dark"] .mantine-Input-input,
