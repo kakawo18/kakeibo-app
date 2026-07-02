@@ -10,7 +10,7 @@ import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { TransactionFormWrapper } from '@/components/TransactionFormWrapper';
+import { TransactionsProvider } from '@/contexts/TransactionsContext';
 
 const theme = createTheme({
   primaryColor: 'indigo',
@@ -208,9 +208,9 @@ export default function RootLayout({
           <ModalsProvider>
             <Notifications />
             <AuthProvider>
-              <TransactionFormWrapper>
+              <TransactionsProvider>
                 {children}
-              </TransactionFormWrapper>
+              </TransactionsProvider>
             </AuthProvider>
           </ModalsProvider>
         </MantineProvider>

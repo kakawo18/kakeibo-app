@@ -19,22 +19,21 @@ import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
+import { Transaction } from '@/types';
+import { isInvestment, isAdvancePayment, isAdvanceRepayment } from '@/utils/transactionRules';
+
+/** カレンダー表示に必要な取引フィールド */
+type CalendarTransaction = Pick<
+  Transaction,
+  'id' | 'date' | 'amount' | 'type' | 'category' | 'subcategory' | 'description' | 'paymentMethod'
+>;
 
 interface MobileCalendarProps {
   opened: boolean;
   onClose: () => void;
   value: Date;
   onChange: (date: Date) => void;
-  transactions?: Array<{
-    id: string;
-    date: Date;
-    amount: number;
-    type: 'income' | 'expense';
-    category: string;
-    subcategory?: string;
-    description?: string;
-    paymentMethod?: string;
-  }>;
+  transactions?: CalendarTransaction[];
   isSelector?: boolean;
 }
 
@@ -108,18 +107,11 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     const dayTransactions = transactionsByDate.get(key) || [];
 
     const income = dayTransactions
-      .filter(t =>
-        t.type === 'income' &&
-        t.category !== '立替回収'
-      )
+      .filter(t => t.type === 'income' && !isAdvanceRepayment(t))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const expense = dayTransactions
-      .filter(t =>
-        t.type === 'expense' &&
-        t.category !== '立替金' &&
-        !(t.category === '固定費' && t.subcategory === '投資')
-      )
+      .filter(t => t.type === 'expense' && !isAdvancePayment(t) && !isInvestment(t))
       .reduce((sum, t) => sum + t.amount, 0);
 
     return { income, expense, balance: income - expense };

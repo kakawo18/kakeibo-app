@@ -17,6 +17,15 @@
 // 取引データの型定義
 // ============================================================
 
+/** 取引種別: 収入 or 支出 */
+export type TransactionKind = 'income' | 'expense';
+
+/** 取引タイプ: 通常 / カード支払い / カード引き落とし */
+export type TransactionType = 'normal' | 'card_payment' | 'card_withdrawal';
+
+/** 前月比較などのトレンド方向 */
+export type Trend = 'up' | 'down' | 'same';
+
 /**
  * 取引データ
  * Firestoreに保存される1件の取引を表す
@@ -24,12 +33,12 @@
 export interface Transaction {
   id: string;                    // 取引ID（Firestoreの自動生成ID）
   userId: string;                // ユーザーID
-  type: 'income' | 'expense';    // 取引種別: 収入 or 支出
+  type: TransactionKind;         // 取引種別: 収入 or 支出
   amount: number;                // 金額（円）
   category: string;              // カテゴリ（例: "食費", "給与"）
   subcategory?: string;          // サブカテゴリ（例: "飲み会費", "ボーナス"）
   paymentMethod?: string;        // 支払方法（例: "現金", "三井住友カード"）
-  transactionType?: 'normal' | 'card_payment' | 'card_withdrawal';  // 取引タイプ
+  transactionType?: TransactionType;  // 取引タイプ
   affectsExpense?: boolean;      // 支出計算に影響するか
   affectsBalance?: boolean;      // 残高計算に影響するか
   date: Date;                    // 取引日
@@ -37,6 +46,9 @@ export interface Transaction {
   createdAt: Date;               // 作成日時
   updatedAt: Date;               // 更新日時
 }
+
+/** 取引の新規作成時に入力する項目（ID・ユーザー・タイムスタンプはシステム側で付与） */
+export type TransactionInput = Omit<Transaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
 
 
 /**

@@ -1,5 +1,6 @@
-import { Transaction } from '@/types';
+import { Transaction, TransactionInput } from '@/types';
 import { formatDate } from './dateUtils';
+import { deriveTransactionFlags } from './transactionRules';
 
 // CSVフィールドのエスケープ（RFC 4180: ダブルクォートは二重化する）
 const escapeCSVField = (field: string | number): string => {
@@ -78,28 +79,34 @@ export const exportToCSV = (transactions: Transaction[]): void => {
   URL.revokeObjectURL(url);
 };
 
-export const parseCSV = (csvText: string): Omit<Transaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>[] => {
+export const parseCSV = (csvText: string): TransactionInput[] => {
   // BOM除去 + CRLF対応
   const lines = csvText.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
 
   // Skip header row
   const dataLines = lines.slice(1);
 
-  return dataLines.map(line => {
+  return dataLines.map((line): TransactionInput => {
     const fields = parseCSVLine(line);
+    const category = fields[2];
+    const paymentMethod = fields[6] || undefined;
 
     return {
       date: new Date(fields[0]),
-      type: fields[1] === '収入' ? 'income' as const : 'expense' as const,
-      category: fields[2],
+      type: fields[1] === '収入' ? 'income' : 'expense',
+      category,
       subcategory: fields[3] || undefined,
       amount: parseInt(fields[4], 10),
       description: fields[5] || undefined,
-      paymentMethod: fields[6] || undefined,
+      paymentMethod,
+      // カード支払い・引き落としの集計フラグを再導出する
+      // （エクスポート→インポートで支出の二重計上が起きないようにする）
+      ...deriveTransactionFlags(category, paymentMethod),
     };
   }).filter(transaction =>
     !isNaN(transaction.date.getTime()) &&
-    !isNaN(transaction.amount) &&
+    Number.isFinite(transaction.amount) &&
+    transaction.amount > 0 &&
     transaction.category
   );
 };

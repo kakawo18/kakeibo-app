@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -10,11 +10,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-  logout: async () => {},
-});
+// デフォルト値を持たせるとProvider外で使ってもエラーにならず気づけないため null にする
+const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -41,15 +38,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return unsubscribe;
   }, []);
 
-  const logout = async () => {
-    await signOut(auth);
-  };
-
-  const value = {
-    user,
-    loading,
-    logout,
-  };
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      logout: () => signOut(auth),
+    }),
+    [user, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

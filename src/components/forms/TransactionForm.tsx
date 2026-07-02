@@ -4,28 +4,50 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Modal,
   Button,
-  Select,
   NumberInput,
   Stack,
   Group,
   SegmentedControl,
   Textarea,
   TextInput,
-  NativeSelect,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
-import { useTransactions } from '@/hooks/useTransactions';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction } from '@/types';
+import { useTransactions } from '@/contexts/TransactionsContext';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction, TransactionKind } from '@/types';
+import { deriveTransactionFlags } from '@/utils/transactionRules';
+import { formatDateJa } from '@/utils/dateUtils';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
+import { ResponsiveSelect } from './ResponsiveSelect';
+import { getInputStyles } from './formStyles';
 
 interface TransactionFormProps {
   opened: boolean;
   onClose: () => void;
   editingTransaction?: Transaction | null;
 }
+
+interface TransactionFormValues {
+  type: TransactionKind;
+  amount: string | number;
+  category: string;
+  subcategory: string;
+  paymentMethod: string;
+  date: Date;
+  description: string;
+}
+
+const emptyValues: TransactionFormValues = {
+  type: 'expense',
+  amount: '',
+  category: '',
+  subcategory: '',
+  paymentMethod: '',
+  date: new Date(),
+  description: '',
+};
 
 export const TransactionForm: React.FC<TransactionFormProps> = ({
   opened,
@@ -38,72 +60,52 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const inputStyles = getInputStyles(isMobile ?? false);
 
   // uncontrolledモードでは form.values が再レンダリングをトリガーしないため、
   // 画面内で直接参照する項目（種別・カテゴリ・日付）のみローカルstateで管理する
-  const [selectedType, setSelectedType] = useState<'income' | 'expense'>('expense');
+  const [selectedType, setSelectedType] = useState<TransactionKind>('expense');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
-  const form = useForm({
+  const form = useForm<TransactionFormValues>({
     // controlledモードだと金額・メモの1文字入力ごとにフォーム全体が再レンダリングされ、
     // スマホ(PWA)など描画が遅延する環境で入力イベントに追いつかず数字が重複することがあるため、
     // uncontrolledモードにして入力欄の再レンダリングを避ける
     mode: 'uncontrolled',
-    initialValues: {
-      type: 'expense' as 'income' | 'expense',
-      amount: '',
-      category: '',
-      subcategory: '',
-      paymentMethod: '',
-      date: new Date(),
-      description: '',
+    initialValues: emptyValues,
+    validate: {
+      amount: (value) => (!value || Number(value) <= 0 ? '正しい金額を入力してください' : null),
+      category: (value) => (!value || value.trim() === '' ? 'カテゴリを選択してください' : null),
     },
   });
 
-  // editingTransactionまたはselectedTemplateが変更された時にフォーム値を更新
-  // モーダルが開いたタイミングで一度だけ実行
+  // モーダルが開いたタイミングでフォーム値を初期化する
+  // （編集時は既存の取引内容を、新規作成時は空の値をセット）
   useEffect(() => {
     if (!opened) return;
 
-    // 編集時: 既存情報を表示
-    if (editingTransaction) {
-      form.setValues({
-        type: editingTransaction.type,
-        amount: editingTransaction.amount.toString(),
-        category: editingTransaction.category,
-        subcategory: editingTransaction.subcategory || '',
-        paymentMethod: editingTransaction.paymentMethod || '',
-        date: editingTransaction.date,
-        description: editingTransaction.description || '',
-      });
-      setSelectedType(editingTransaction.type);
-      setSelectedCategory(editingTransaction.category);
-      setSelectedDate(editingTransaction.date);
-    }
-    // 新規作成時: フォームをリセット
-    else {
-      form.setValues({
-        type: 'expense',
-        amount: '',
-        category: '',
-        subcategory: '',
-        paymentMethod: '',
-        date: new Date(),
-        description: '',
-      });
-      setSelectedType('expense');
-      setSelectedCategory('');
-      setSelectedDate(new Date());
-    }
-    // フォームのisDirtyフラグをリセット
+    const values: TransactionFormValues = editingTransaction
+      ? {
+          type: editingTransaction.type,
+          amount: editingTransaction.amount.toString(),
+          category: editingTransaction.category,
+          subcategory: editingTransaction.subcategory || '',
+          paymentMethod: editingTransaction.paymentMethod || '',
+          date: editingTransaction.date,
+          description: editingTransaction.description || '',
+        }
+      : { ...emptyValues, date: new Date() };
+
+    form.setValues(values);
+    setSelectedType(values.type);
+    setSelectedCategory(values.category);
+    setSelectedDate(values.date);
     form.resetDirty();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, editingTransaction]);
 
-  // パフォーマンス最適化: カテゴリ関連の計算をメモ化
-  // メモ欄入力でのフリーズ防止のため、dependencyを制限
   const categories = useMemo(() => {
     return selectedType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
   }, [selectedType]);
@@ -113,86 +115,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     return selected?.subcategories || [];
   }, [selectedCategory, categories]);
 
-  const handleSubmit = async (values: {
-    type: 'income' | 'expense';
-    amount: string | number;
-    category: string;
-    subcategory?: string;
-    paymentMethod?: string;
-    date: Date;
-    description?: string;
-  }) => {
-    // フォームバリデーション
-    if (!values.amount || Number(values.amount) <= 0) {
-      notifications.show({
-        title: '入力エラー',
-        message: '正しい金額を入力してください',
-        color: 'red',
-      });
-      return;
-    }
-
-    if (!values.category || values.category.trim() === '') {
-      notifications.show({
-        title: '入力エラー',
-        message: 'カテゴリを選択してください',
-        color: 'red',
-      });
-      return;
-    }
+  const handleSubmit = async (values: TransactionFormValues) => {
     setLoading(true);
     try {
-      // カード取引タイプの判定
-      let transactionType: 'normal' | 'card_payment' | 'card_withdrawal' = 'normal';
-      let affectsExpense = true;
-      let affectsBalance = true;
-
-      if (values.category === 'カード引き落とし') {
-        // カード引き落としの場合
-        transactionType = 'card_withdrawal';
-        affectsExpense = false;
-        affectsBalance = true;
-      } else if (values.paymentMethod && values.paymentMethod !== '現金') {
-        // カード支払いの場合
-        transactionType = 'card_payment';
-        affectsExpense = true;
-        affectsBalance = false;
-      }
-
-      const transactionData: {
-        type: 'income' | 'expense';
-        amount: number;
-        category: string;
-        date: Date;
-        transactionType: 'normal' | 'card_payment' | 'card_withdrawal';
-        affectsExpense: boolean;
-        affectsBalance: boolean;
-        subcategory?: string;
-        paymentMethod?: string;
-        description?: string;
-      } = {
-        type: values.type as 'income' | 'expense',
+      const transactionData = {
+        type: values.type,
         amount: Math.floor(Number(values.amount)), // 小数点切り捨て
         category: values.category,
         date: values.date,
-        transactionType,
-        affectsExpense,
-        affectsBalance,
+        // カテゴリ・支払方法から取引タイプと集計フラグを導出
+        ...deriveTransactionFlags(values.category, values.paymentMethod),
+        // 空文字列でない場合のみ設定
+        subcategory: values.subcategory.trim() || undefined,
+        paymentMethod: values.paymentMethod.trim() || undefined,
+        // description は空文字列での削除に対応するため常に設定
+        description: values.description.trim(),
       };
 
-      // 空文字列でない場合のみ追加
-      if (values.subcategory && values.subcategory.trim()) {
-        transactionData.subcategory = values.subcategory.trim();
-      }
-      if (values.paymentMethod && values.paymentMethod.trim()) {
-        transactionData.paymentMethod = values.paymentMethod.trim();
-      }
-      // description は削除対応のため、値が存在する場合は常に設定
-      if (values.description !== undefined) {
-        transactionData.description = values.description.trim() || '';
-      }
-
-      // 取引を追加
       if (editingTransaction) {
         await updateTransaction(editingTransaction.id, transactionData);
       } else {
@@ -201,7 +140,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
 
       onClose();
 
-      // 成功通知
       notifications.show({
         title: '成功',
         message: editingTransaction ? '取引を更新しました' : '取引を追加しました',
@@ -210,7 +148,6 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     } catch (error) {
       console.error('Error saving transaction:', error);
 
-      // エラー通知
       notifications.show({
         title: 'エラー',
         message: '取引の保存に失敗しました。もう一度お試しください。',
@@ -221,21 +158,23 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
-  const handleCategoryChange = (category: string | null) => {
-    form.setFieldValue('category', category || '');
+  const handleTypeChange = (value: string) => {
+    const type = value as TransactionKind;
+    form.setFieldValue('type', type);
+    form.setFieldValue('category', '');
     form.setFieldValue('subcategory', '');
-    setSelectedCategory(category || '');
-  };
-
-  const handleClose = () => {
-    // モーダルが閉じられた時のクリーンアップ処理は useEffect で処理
-    onClose();
-  };
-
-  const handleMobileDateInputClick = () => {
-    if (isMobile) {
-      setMobileCalendarOpened(true);
+    setSelectedType(type);
+    setSelectedCategory('');
+    // 収入に切り替えた場合は支払方法をクリア
+    if (type === 'income') {
+      form.setFieldValue('paymentMethod', '');
     }
+  };
+
+  const handleCategoryChange = (category: string) => {
+    form.setFieldValue('category', category);
+    form.setFieldValue('subcategory', '');
+    setSelectedCategory(category);
   };
 
   const handleMobileCalendarChange = (date: Date) => {
@@ -244,19 +183,10 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     setMobileCalendarOpened(false);
   };
 
-  const formatDateForDisplay = (date: Date) => {
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    });
-  };
-
   return (
     <Modal
       opened={opened}
-      onClose={handleClose}
+      onClose={onClose}
       title={editingTransaction ? '取引を編集' : '新しい取引を追加'}
       size={isMobile ? 'full' : 'lg'}
       fullScreen={isMobile}
@@ -279,17 +209,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             ]}
             key={form.key('type')}
             {...form.getInputProps('type')}
-            onChange={(value) => {
-              form.setFieldValue('type', value as 'income' | 'expense');
-              form.setFieldValue('category', '');
-              form.setFieldValue('subcategory', '');
-              setSelectedType(value as 'income' | 'expense');
-              setSelectedCategory('');
-              // 収入に切り替えた場合は支払方法をクリア
-              if (value === 'income') {
-                form.setFieldValue('paymentMethod', '');
-              }
-            }}
+            onChange={handleTypeChange}
             fullWidth
             size={isMobile ? 'md' : 'sm'}
             radius={10}
@@ -309,141 +229,54 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             required
             key={form.key('amount')}
             {...form.getInputProps('amount')}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
+            styles={inputStyles}
           />
 
-          {isMobile ? (
-            <NativeSelect
-              label="カテゴリ"
-              required
-              value={selectedCategory}
-              onChange={(event) => handleCategoryChange(event.currentTarget.value)}
-              data={[
-                { value: '', label: 'カテゴリを選択', disabled: true },
-                ...categories.map(cat => ({ value: cat.name, label: cat.name }))
-              ]}
-              styles={{
-                input: {
-                  fontSize: '16px',
-                  padding: '12px',
-                  minHeight: '48px',
-                },
-                label: {
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }
-              }}
-            />
-          ) : (
-            <Select
-              label="カテゴリ"
-              placeholder="カテゴリを選択"
-              data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
-              required
-              value={selectedCategory}
-              onChange={handleCategoryChange}
-              searchable
-            />
-          )}
+          <ResponsiveSelect
+            label="カテゴリ"
+            placeholder="カテゴリを選択"
+            required
+            data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+            error={form.errors.category}
+          />
 
           {subcategories.length > 0 && (
-            isMobile ? (
-              <NativeSelect
-                label="サブカテゴリ"
-                key={form.key('subcategory')}
-                {...form.getInputProps('subcategory')}
-                data={[
-                  { value: '', label: 'サブカテゴリを選択（任意）' },
-                  ...subcategories.map(sub => ({ value: sub, label: sub }))
-                ]}
-                styles={{
-                  input: {
-                    fontSize: '16px',
-                    padding: '12px',
-                    minHeight: '48px',
-                  },
-                  label: {
-                    fontSize: '14px',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-            ) : (
-              <Select
-                label="サブカテゴリ"
-                placeholder="サブカテゴリを選択（任意）"
-                data={subcategories.map(sub => ({ value: sub, label: sub }))}
-                key={form.key('subcategory')}
-                {...form.getInputProps('subcategory')}
-                searchable
-              />
-            )
+            <ResponsiveSelect
+              label="サブカテゴリ"
+              placeholder="サブカテゴリを選択（任意）"
+              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              key={form.key('subcategory')}
+              {...form.getInputProps('subcategory')}
+            />
           )}
 
           {/* 支払方法は支出の場合のみ表示 */}
           {selectedType === 'expense' && (
-            isMobile ? (
-              <NativeSelect
-                label="支払方法"
-                key={form.key('paymentMethod')}
-                {...form.getInputProps('paymentMethod')}
-                data={[
-                  { value: '', label: '支払方法を選択（任意）' },
-                  ...PAYMENT_METHODS.map(method => ({ value: method, label: method }))
-                ]}
-                styles={{
-                  input: {
-                    fontSize: '16px',
-                    padding: '12px',
-                    minHeight: '48px',
-                  },
-                  label: {
-                    fontSize: '14px',
-                    fontWeight: 500,
-                  }
-                }}
-              />
-            ) : (
-              <Select
-                label="支払方法"
-                placeholder="支払方法を選択（任意）"
-                data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
-                key={form.key('paymentMethod')}
-                {...form.getInputProps('paymentMethod')}
-                searchable
-              />
-            )
+            <ResponsiveSelect
+              label="支払方法"
+              placeholder="支払方法を選択（任意）"
+              data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+              key={form.key('paymentMethod')}
+              {...form.getInputProps('paymentMethod')}
+            />
           )}
 
           {isMobile ? (
             <TextInput
               label="日付"
               required
-              value={formatDateForDisplay(selectedDate)}
-              onClick={handleMobileDateInputClick}
+              value={formatDateJa(selectedDate)}
+              onClick={() => setMobileCalendarOpened(true)}
               readOnly
               styles={{
+                ...inputStyles,
                 input: {
-                  fontSize: '16px',
-                  padding: '12px',
-                  minHeight: '48px',
+                  ...inputStyles.input,
                   cursor: 'pointer',
                   backgroundColor: 'var(--app-surface-2)',
                 },
-                label: {
-                  fontSize: '14px',
-                  fontWeight: 500,
-                }
               }}
             />
           ) : (
@@ -463,20 +296,11 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             autosize
             minRows={isMobile ? 2 : 3}
             maxRows={isMobile ? 4 : 6}
-            styles={{
-              input: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-              },
-              label: {
-                fontSize: isMobile ? '14px' : undefined,
-                fontWeight: 500,
-              }
-            }}
+            styles={inputStyles}
           />
 
           <Group justify="flex-end">
-            <Button variant="light" onClick={handleClose}>
+            <Button variant="light" onClick={onClose}>
               キャンセル
             </Button>
             <Button type="submit" loading={loading}>
@@ -486,22 +310,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         </Stack>
       </form>
 
-      {/* モバイル専用カレンダー */}
+      {/* モバイル専用カレンダー（選択モード） */}
       <MobileCalendar
         opened={mobileCalendarOpened}
         onClose={() => setMobileCalendarOpened(false)}
         value={selectedDate}
         onChange={handleMobileCalendarChange}
-        isSelector={true} // 選択モード（日付選択専用）
-        transactions={transactions?.map(t => ({
-          id: t.id,
-          date: t.date,
-          amount: t.amount,
-          type: t.type,
-          category: t.category,
-          subcategory: t.subcategory,
-          description: t.description
-        })) || []}
+        isSelector
+        transactions={transactions}
       />
     </Modal>
   );

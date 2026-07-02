@@ -16,6 +16,13 @@ import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 import { getCategoryColor } from '@/utils/calculations';
+import { isInvestment, isAdvancePayment } from '@/utils/transactionRules';
+
+const DISPLAY_MONTHS = 6; // 一度に表示する月数
+
+/** 支出推移の分析対象か（投資・立替金は除外） */
+const isAnalyzedExpense = (t: Transaction): boolean =>
+  t.type === 'expense' && !isInvestment(t) && !isAdvancePayment(t);
 
 interface LineChartProps {
   title: string;
@@ -28,25 +35,17 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
   const isDark = colorScheme === 'dark';
   // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
   const [userSelectedCategories, setUserSelectedCategories] = useState<string[] | null>(null);
-  const DISPLAY_MONTHS = 6; // 表示する月数
 
-  // 初期表示を最新の6ヶ月にする
-  const initialStartIndex = useMemo(() => {
-    const totalMonths = data?.length || 0;
-    return Math.max(0, totalMonths - DISPLAY_MONTHS);
-  }, [data]);
-
-  const [displayStartIndex, setDisplayStartIndex] = useState(initialStartIndex);
+  // ユーザーがページングするまでは常に最新期間を表示する
+  // （固定値で初期化すると、データ月数が変わったとき初期表示がずれる）
+  const [userStartIndex, setUserStartIndex] = useState<number | null>(null);
 
   // 支出Top 3カテゴリ（デフォルト選択用）
   const defaultTopCategories = useMemo(() => {
     const categoryTotals = new Map<string, number>();
 
     transactions.forEach(t => {
-      // 支出のみ、投資・立替金は除外
-      if (t.type !== 'expense') return;
-      if (t.category === '固定費' && t.subcategory === '投資') return;
-      if (t.category === '立替金') return;
+      if (!isAnalyzedExpense(t)) return;
 
       const cat = t.category;
       categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + t.amount);
@@ -63,13 +62,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
   // 利用可能なカテゴリを取得
   const availableCategories = useMemo(() => {
     const categories = Array.from(new Set(
-      transactions
-        .filter(t =>
-          t.type === 'expense' &&
-          !(t.category === '固定費' && t.subcategory === '投資') &&
-          t.category !== '立替金'
-        )
-        .map(t => t.category)
+      transactions.filter(isAnalyzedExpense).map(t => t.category)
     )).sort();
     return categories.map(cat => ({ value: cat, label: cat }));
   }, [transactions]);
@@ -77,13 +70,10 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
   // 全データを計算（スライス前）
   const allCategoryData = useMemo(() => {
     // カテゴリ別の月間集計
-    const monthlyCategories: { [key: string]: { [category: string]: number } } = {};
+    const monthlyCategories: Record<string, Record<string, number>> = {};
 
     transactions.forEach(transaction => {
-      if (transaction.type !== 'expense') return;
-      // 投資・立替金は除外
-      if (transaction.category === '固定費' && transaction.subcategory === '投資') return;
-      if (transaction.category === '立替金') return;
+      if (!isAnalyzedExpense(transaction)) return;
 
       const month = formatMonthLocal(transaction.date);
 
@@ -107,11 +97,13 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       }));
   }, [transactions]);
 
-  // 表示するデータ（6ヶ月分）
-  const categoryData = useMemo(() => {
-    const endIndex = displayStartIndex + DISPLAY_MONTHS;
-    return allCategoryData.slice(displayStartIndex, endIndex);
-  }, [allCategoryData, displayStartIndex]);
+  // 表示開始位置（未操作時は最新の6ヶ月）と表示データ
+  const displayStartIndex = userStartIndex ?? Math.max(0, allCategoryData.length - DISPLAY_MONTHS);
+
+  const categoryData = useMemo(
+    () => allCategoryData.slice(displayStartIndex, displayStartIndex + DISPLAY_MONTHS),
+    [allCategoryData, displayStartIndex]
+  );
 
   // ページング制御
   const canGoPrev = displayStartIndex > 0;
@@ -119,13 +111,13 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
 
   const handlePrev = () => {
     if (canGoPrev) {
-      setDisplayStartIndex(prev => Math.max(0, prev - DISPLAY_MONTHS));
+      setUserStartIndex(Math.max(0, displayStartIndex - DISPLAY_MONTHS));
     }
   };
 
   const handleNext = () => {
     if (canGoNext) {
-      setDisplayStartIndex(prev => Math.min(allCategoryData.length - DISPLAY_MONTHS, prev + DISPLAY_MONTHS));
+      setUserStartIndex(Math.min(allCategoryData.length - DISPLAY_MONTHS, displayStartIndex + DISPLAY_MONTHS));
     }
   };
 

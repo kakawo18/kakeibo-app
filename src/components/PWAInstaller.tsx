@@ -41,11 +41,21 @@ export const PWAInstaller = () => {
       }
     }
 
+    // 24時間以内に「後で」を選んだ場合は再表示しない
+    const isRecentlyDismissed = () => {
+      const dismissed = localStorage.getItem('pwa-dismissed');
+      if (!dismissed) return false;
+      const hoursPassed = (Date.now() - parseInt(dismissed, 10)) / (1000 * 60 * 60);
+      return hoursPassed < 24;
+    };
+
     // PWAインストールプロンプトの処理
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      setShowInstallPrompt(true);
+      if (!isRecentlyDismissed()) {
+        setShowInstallPrompt(true);
+      }
     };
 
     // アプリがインストール済みかチェック
@@ -83,26 +93,8 @@ export const PWAInstaller = () => {
   const handleDismiss = () => {
     setShowInstallPrompt(false);
     // 24時間後に再表示
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('pwa-dismissed', Date.now().toString());
-    }
+    localStorage.setItem('pwa-dismissed', Date.now().toString());
   };
-
-  // インストール済みまたは24時間以内に却下された場合は表示しない
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    const dismissed = localStorage.getItem('pwa-dismissed');
-    if (dismissed) {
-      const dismissedTime = parseInt(dismissed);
-      const now = Date.now();
-      const hoursPassed = (now - dismissedTime) / (1000 * 60 * 60);
-      
-      if (hoursPassed < 24) {
-        setShowInstallPrompt(false);
-      }
-    }
-  }, []);
 
   if (isInstalled || !showInstallPrompt) {
     return null;

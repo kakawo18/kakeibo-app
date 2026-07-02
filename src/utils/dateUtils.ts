@@ -1,78 +1,54 @@
 import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat';
 
-dayjs.extend(customParseFormat);
-
+/** YYYY-MM-DD 形式にフォーマット（CSVエクスポート等） */
 export const formatDate = (date: Date | string): string => {
   return dayjs(date).format('YYYY-MM-DD');
 };
 
-export const formatMonth = (date: Date | string): string => {
-  return dayjs(date).format('YYYY-MM');
-};
-
+/** 現在の月を YYYY-MM 形式で返す */
 export const getCurrentMonth = (): string => {
   return dayjs().format('YYYY-MM');
 };
 
-export const getPreviousMonth = (): string => {
-  return dayjs().subtract(1, 'month').format('YYYY-MM');
-};
-
+/** YYYY-MM 形式を「YYYY年MM月」表記に変換 */
 export const getMonthName = (monthString: string): string => {
   return dayjs(monthString).format('YYYY年MM月');
 };
 
-export const isCurrentMonth = (date: Date | string): boolean => {
-  return dayjs(date).format('YYYY-MM') === getCurrentMonth();
+/** 「2026年7月3日(金)」形式にフォーマット（フォームの日付表示用） */
+export const formatDateJa = (date: Date): string => {
+  return date.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
 };
 
-// 月選択用のユーティリティ関数
+/** 月選択セレクト用の選択肢を生成（過去 yearsBack 年〜未来 yearsForward 年） */
 export const getMonthOptions = (yearsBack: number = 2, yearsForward: number = 1): { value: string; label: string }[] => {
   const options: { value: string; label: string }[] = [];
   const today = dayjs();
 
   for (let i = -yearsBack * 12; i <= yearsForward * 12; i++) {
     const date = today.add(i, 'month');
-    const value = date.format('YYYY-MM');
-    const label = date.format('YYYY年MM月');
-    options.push({ value, label });
+    options.push({ value: date.format('YYYY-MM'), label: date.format('YYYY年MM月') });
   }
 
   return options;
 };
 
+/** YYYY-MM 形式の翌月を返す */
 export const getNextMonth = (month: string): string => {
   return dayjs(month).add(1, 'month').format('YYYY-MM');
 };
 
+/** YYYY-MM 形式の前月を返す */
 export const getPreviousMonthFromCurrent = (month: string): string => {
   return dayjs(month).subtract(1, 'month').format('YYYY-MM');
 };
 
-// YYYYMMDD形式の文字列をDate型に変換
-export const parseYYYYMMDD = (dateString: string): Date | null => {
-  if (dateString.length !== 8) return null;
-
-  const parsed = dayjs(dateString, 'YYYYMMDD');
-
-  if (!parsed.isValid()) return null;
-
-  // 入力値と一致するかチェック（2月30日等の無効な日付を検出）
-  if (parsed.format('YYYYMMDD') !== dateString) return null;
-
-  const year = parsed.year();
-  if (year < 1900 || year > 2100) return null;
-
-  return parsed.toDate();
-};
-
-// Date型をYYYYMMDD形式の文字列に変換
-export const formatToYYYYMMDD = (date: Date): string => {
-  return dayjs(date).format('YYYYMMDD');
-};
-
-// ローカルタイムゾーンでの月フォーマット
+/** ローカルタイムゾーンで YYYY-MM 形式にフォーマット */
 export const formatMonthLocal = (date: Date): string => {
   return dayjs(date).format('YYYY-MM');
 };

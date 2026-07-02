@@ -1,3 +1,5 @@
+import { Transaction } from '@/types';
+
 // カード別還元率設定
 export const CARD_REWARD_RATES = {
   '楽天カード': 0.01,        // 1%
@@ -18,8 +20,10 @@ export const calculateCardRewards = (amount: number, cardType: string): number =
 };
 
 // 月間カード別還元ポイント集計
-export const calculateMonthlyCardRewards = (transactions: { type: string; paymentMethod?: string; amount: number }[]) => {
-  const cardRewards: { [key: string]: { amount: number; points: number } } = {};
+export const calculateMonthlyCardRewards = (
+  transactions: Pick<Transaction, 'type' | 'paymentMethod' | 'amount'>[]
+) => {
+  const cardRewards: Record<string, { amount: number; points: number }> = {};
   let totalPoints = 0;
 
   transactions
@@ -27,11 +31,11 @@ export const calculateMonthlyCardRewards = (transactions: { type: string; paymen
     .forEach(transaction => {
       const cardType = transaction.paymentMethod!; // 上のfilterで既にチェック済み
       const points = calculateCardRewards(transaction.amount, cardType);
-      
+
       if (!cardRewards[cardType]) {
         cardRewards[cardType] = { amount: 0, points: 0 };
       }
-      
+
       cardRewards[cardType].amount += transaction.amount;
       cardRewards[cardType].points += points;
       totalPoints += points;

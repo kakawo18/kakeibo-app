@@ -106,11 +106,6 @@ export const RecurringTransactionManager: React.FC<RecurringTransactionManagerPr
     setEditingTransaction(null);
   };
 
-  const formatPaymentMethod = (method?: string) => {
-    if (!method) return '未設定';
-    return method;
-  };
-
   return (
     <>
       <Modal
@@ -151,7 +146,7 @@ export const RecurringTransactionManager: React.FC<RecurringTransactionManagerPr
                         {transaction.category}
                         {transaction.subcategory && ` > ${transaction.subcategory}`}
                         {' | '}
-                        {formatPaymentMethod(transaction.paymentMethod)}
+                        {transaction.paymentMethod || '未設定'}
                       </Text>
                     </div>
                     <Group gap="xs">

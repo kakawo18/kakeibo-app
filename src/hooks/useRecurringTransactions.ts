@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   collection,
   addDoc,
@@ -62,7 +62,7 @@ export const useRecurringTransactions = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const addRecurringTransaction = async (
+  const addRecurringTransaction = useCallback(async (
     data: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
   ) => {
     if (!user) throw new Error('User not authenticated');
@@ -75,9 +75,9 @@ export const useRecurringTransactions = () => {
       createdAt: now,
       updatedAt: now,
     });
-  };
+  }, [user]);
 
-  const updateRecurringTransaction = async (
+  const updateRecurringTransaction = useCallback(async (
     id: string,
     data: Partial<Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>>
   ) => {
@@ -88,20 +88,21 @@ export const useRecurringTransactions = () => {
       ...data,
       updatedAt: Timestamp.now(),
     });
-  };
+  }, [user]);
 
-  const deleteRecurringTransaction = async (id: string) => {
+  const deleteRecurringTransaction = useCallback(async (id: string) => {
     if (!user) throw new Error('User not authenticated');
 
     const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
     await deleteDoc(recurringTransactionRef);
-  };
+  }, [user]);
 
-  const getActiveRecurringTransactions = () => {
+  // 参照が安定するよう useCallback で包む（利用側の useMemo が毎レンダー無効化されるのを防ぐ）
+  const getActiveRecurringTransactions = useCallback(() => {
     return recurringTransactions.filter((transaction) => transaction.isEnabled);
-  };
+  }, [recurringTransactions]);
 
-  const shouldShowRecurringTransaction = (
+  const shouldShowRecurringTransaction = useCallback((
     recurring: RecurringTransaction,
     existingTransactions: Transaction[] = []
   ) => {
@@ -150,7 +151,7 @@ export const useRecurringTransactions = () => {
     });
 
     return !alreadyRecorded;
-  };
+  }, []);
 
   return {
     recurringTransactions,

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button, Group, FileInput, Text, Alert, Modal, Stack } from '@mantine/core';
 import { IconDownload, IconUpload, IconFileText } from '@tabler/icons-react';
-import { useTransactions } from '@/hooks/useTransactions';
+import { useTransactions } from '@/contexts/TransactionsContext';
 import { exportToCSV, parseCSV } from '@/utils/csvUtils';
 import { notifications } from '@mantine/notifications';
 
@@ -108,7 +108,7 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
           <Alert color="blue" mb="md">
             <Text size="sm">
               CSVファイルは以下の形式である必要があります：<br />
-              日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ
+              日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ, 支払方法
             </Text>
           </Alert>
 

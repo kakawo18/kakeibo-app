@@ -13,8 +13,9 @@
  * - カード支払いは翌月の残高に影響する
  * - 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い
  */
-import { Transaction, MonthlyData, ChartData } from '@/types';
+import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
 import { formatMonthLocal, getNextMonth } from './dateUtils';
+import { isExcludedFromExpense, isExcludedFromIncome } from './transactionRules';
 
 /**
  * 月別データを計算する
@@ -49,16 +50,12 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
 
     if (transaction.type === 'income') {
       // 収入: そのまま加算（立替回収は除外）
-      if (transaction.category !== '立替回収') {
+      if (!isExcludedFromIncome(transaction)) {
         monthData.income += transaction.amount;
       }
     } else {
-      // 支出計算: 投資は除外（投資は資産移動であり支出ではないため）
-      // 立替金も除外
-      const isInvestment = transaction.category === '固定費' && transaction.subcategory === '投資';
-      const isReimbursement = transaction.category === '立替金';
-
-      if (!isInvestment && !isReimbursement && transaction.affectsExpense !== false) {
+      // 支出: 投資（資産移動）・立替金・カード引き落とし等は除外
+      if (!isExcludedFromExpense(transaction)) {
         monthData.expense += transaction.amount;
         // カテゴリ別集計（円グラフ用）
         const category = transaction.subcategory || transaction.category;
@@ -152,21 +149,10 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
   transactions
     .filter((t) => t.type === type)
     .forEach((transaction) => {
-      // 支出の場合、投資は除外（別枠で表示するため）
-      // 立替回収、立替金も除外
-      // カード引き落とし等（affectsExpense === false）も除外し、
-      // 支出サマリーカードの金額と円グラフの合計を一致させる（カード支払いとの二重計上防止）
-      if (type === 'expense') {
-        if ((transaction.category === '固定費' && transaction.subcategory === '投資') ||
-          transaction.category === '立替金' ||
-          transaction.affectsExpense === false) {
-          return;
-        }
-      } else if (type === 'income') {
-        if (transaction.category === '立替回収') {
-          return;
-        }
-      }
+      // 支出サマリーカードの金額と円グラフの合計を一致させるため、
+      // 集計と同じ除外ルール（投資・立替・カード引き落とし等）を適用する
+      if (type === 'expense' && isExcludedFromExpense(transaction)) return;
+      if (type === 'income' && isExcludedFromIncome(transaction)) return;
 
       const category = transaction.subcategory || transaction.category;
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
@@ -209,16 +195,16 @@ export const calculateMonthlyComparison = (
   currentData: MonthlyData,
   previousData: MonthlyData | undefined
 ): {
-  income: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
-  expense: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
-  balance: { value: number; percentage: number; trend: 'up' | 'down' | 'same' };
+  income: { value: number; percentage: number; trend: Trend };
+  expense: { value: number; percentage: number; trend: Trend };
+  balance: { value: number; percentage: number; trend: Trend };
 } => {
   // トレンド（矢印の向き）は増減の差分で判定し、%の符号も必ず差分と一致させる。
   // 分母に previous をそのまま使うと、収支がマイナスの月を基準にしたとき
   // 符号が反転する（改善したのに下矢印になる）ため、分母は絶対値を取る。
   const calculateChange = (current: number, previous: number) => {
     const diff = current - previous;
-    const trend: 'up' | 'down' | 'same' = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+    const trend: Trend = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
     const percentage = previous === 0
       ? (diff === 0 ? 0 : 100 * Math.sign(diff))
       : Math.round((diff / Math.abs(previous)) * 100);
