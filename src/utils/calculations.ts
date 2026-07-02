@@ -100,43 +100,49 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
 };
 
 // カテゴリ別カラーパレット
-const CATEGORY_COLORS = {
+// CVD（色覚多様性）検証済みの8色パレットをエンティティ固定で割り当てる。
+// ライト面（白）/ ダーク面（#1d1e22）それぞれで検証済みのステップを使用。
+const CATEGORY_COLORS: Record<string, { light: string; dark: string }> = {
   // 収入カテゴリ
-  '給与': '#10B981',
-  'ボーナス': '#059669',
-  'その他': '#047857',
+  '給与': { light: '#0f9b6c', dark: '#1db584' },
+  'ボーナス': { light: '#1baf7a', dark: '#199e70' },
+  '賞与': { light: '#1baf7a', dark: '#199e70' },
+  '配当収入': { light: '#008300', dark: '#3da23d' },
+  'その他': { light: '#8b919e', dark: '#82868f' },
 
-  // 支出カテゴリ
-  '食費': '#EF4444',
-  '飲み会費': '#DC2626',
-  '交際費': '#A855F7',
-  '電気代': '#F59E0B',
-  'ガス代': '#D97706',
-  '水道代': '#0EA5E9',
-  '光熱費': '#F59E0B',
-  '交通費': '#3B82F6',
-  '趣味代': '#8B5CF6',
-  '旅行代': '#EC4899',
-  '医療費': '#06B6D4',
-  '家賃': '#F97316',
-  '投資': '#84CC16',
-  '通信費': '#F97316',
-  '日用品': '#14B8A6',
-  '固定費': '#F97316',
-  '三井住友カード': '#6B7280',
-  '三菱UFJカード': '#6B7280',
-  'amazonカード': '#6B7280',
-  'EPOSカード': '#6B7280',
-  '楽天カード': '#6B7280',
-  'カード引き落とし': '#6B7280',
+  // 支出カテゴリ（エンティティ固定割り当て）
+  '食費': { light: '#e34948', dark: '#e66767' },
+  '交際費': { light: '#e87ba4', dark: '#d55181' },
+  '飲み会費': { light: '#e87ba4', dark: '#d55181' },
+  '固定費': { light: '#2a78d6', dark: '#3987e5' },
+  '家賃': { light: '#2a78d6', dark: '#3987e5' },
+  '通信費': { light: '#4a3aa7', dark: '#9085e9' },
+  '電気代': { light: '#eda100', dark: '#c98500' },
+  'ガス代': { light: '#eb6834', dark: '#d95926' },
+  '水道代': { light: '#1baf7a', dark: '#199e70' },
+  '光熱費': { light: '#eda100', dark: '#c98500' },
+  '日用品': { light: '#1baf7a', dark: '#199e70' },
+  '交通費': { light: '#eda100', dark: '#c98500' },
+  '趣味代': { light: '#4a3aa7', dark: '#9085e9' },
+  '旅行代': { light: '#eb6834', dark: '#d95926' },
+  '医療費': { light: '#008300', dark: '#3da23d' },
+  '投資': { light: '#008300', dark: '#3da23d' },
 
-  // 立替（グレー系で目立たなくする）
-  '立替金': '#9CA3AF',
-  '立替回収': '#9CA3AF',
-} as const;
+  // カード・立替はニュートラル（シリーズ色を消費しない）
+  '三井住友カード': { light: '#8b919e', dark: '#82868f' },
+  '三菱UFJカード': { light: '#8b919e', dark: '#82868f' },
+  'amazonカード': { light: '#8b919e', dark: '#82868f' },
+  'EPOSカード': { light: '#8b919e', dark: '#82868f' },
+  '楽天カード': { light: '#8b919e', dark: '#82868f' },
+  'カード引き落とし': { light: '#8b919e', dark: '#82868f' },
+  '立替金': { light: '#adb2bc', dark: '#6d7178' },
+  '立替回収': { light: '#adb2bc', dark: '#6d7178' },
+};
 
-export const getCategoryColor = (categoryName: string): string => {
-  return CATEGORY_COLORS[categoryName as keyof typeof CATEGORY_COLORS] || '#9CA3AF';
+export const getCategoryColor = (categoryName: string, isDark = false): string => {
+  const entry = CATEGORY_COLORS[categoryName];
+  if (!entry) return isDark ? '#82868f' : '#8b919e';
+  return isDark ? entry.dark : entry.light;
 };
 
 export const calculateCategoryChartData = (transactions: Transaction[], type: 'income' | 'expense'): ChartData[] => {

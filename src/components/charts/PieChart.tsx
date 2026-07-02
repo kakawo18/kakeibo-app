@@ -8,89 +8,36 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { Paper, Text, Stack, Box } from '@mantine/core';
-import { motion } from 'framer-motion';
+import { Paper, Text, Stack, Box, Group, useMantineColorScheme } from '@mantine/core';
 import { ChartData } from '@/types';
 import { useMediaQuery } from '@mantine/hooks';
+import { getCategoryColor } from '@/utils/calculations';
 
 interface PieChartProps {
   title: string;
   data: ChartData[];
   totalAmount?: number;
-  color?: string;
 }
 
-const RADIAN = Math.PI / 180;
-
-interface PieLabelProps {
-  cx: number;
-  cy: number;
-  midAngle: number;
-  outerRadius: number;
-  value?: number;
-  percent?: number;
-  payload: ChartData & { percent?: number };
-  isMobile?: boolean;
-}
-
-const renderCustomizedLabel = (props: PieLabelProps) => {
-  const { cx, cy, midAngle, outerRadius, value, payload, percent, isMobile } = props;
-  const sin = Math.sin(-RADIAN * midAngle);
-  const cos = Math.cos(-RADIAN * midAngle);
-
-  // モバイルの場合はラベルの距離を極限まで縮める
-  // radiusが大きいため、線は短くて良い
-  const sx = cx + (outerRadius + 2) * cos;
-  const sy = cy + (outerRadius + 2) * sin;
-  const mx = cx + (outerRadius + (isMobile ? 10 : 30)) * cos;
-  const my = cy + (outerRadius + (isMobile ? 10 : 30)) * sin;
-  // 線を横に伸ばす長さ
-  const ex = mx + (cos >= 0 ? 1 : -1) * (isMobile ? 5 : 22);
-  const ey = my;
-  const textAnchor = cos >= 0 ? 'start' : 'end';
-
-  // パーセンテージの計算: payload.percentage (0-100) があればそれを使用、なければ percent (0-1) から計算
-  const percentageValue = payload.percentage !== undefined && !isNaN(payload.percentage)
-    ? payload.percentage
-    : (percent || 0) * 100;
-
-  return (
-    <g>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={payload.color || '#888'} fill="none" />
-      <circle cx={ex} cy={ey} r={2} fill={payload.color || '#888'} stroke="none" />
-      <text
-        x={ex + (cos >= 0 ? 1 : -1) * (isMobile ? 3 : 12)}
-        y={ey}
-        textAnchor={textAnchor}
-        fill="var(--mantine-color-text)"
-        fontSize={isMobile ? 10 : 12}
-        dy={-6}
-        fontWeight={600}
-      >
-        {payload.name}
-      </text>
-      <text
-        x={ex + (cos >= 0 ? 1 : -1) * (isMobile ? 3 : 12)}
-        y={ey}
-        dy={10}
-        textAnchor={textAnchor}
-        fill="var(--mantine-color-dimmed)"
-        fontSize={isMobile ? 9 : 11}
-      >
-        {`¥${(value || 0).toLocaleString()} (${Number(percentageValue).toFixed(1)}%)`}
-      </text>
-    </g>
-  );
-};
-
+/**
+ * 支出/収入内訳のドーナツチャート
+ *
+ * 【デザイン方針】
+ * - ラベル引き出し線は使わない（モバイルで重なるため）。
+ *   代わりに凡例リスト（色ドット + カテゴリ名 + 金額 + %）を常設し、
+ *   低コントラスト色のリリーフ（可視ラベル）も兼ねる。
+ * - セグメント間に隙間（paddingAngle）を入れ、色だけに頼らない分離を確保。
+ */
 export const PieChart: React.FC<PieChartProps> = ({
   title,
   data,
   totalAmount,
 }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const { colorScheme } = useMantineColorScheme();
+  const isDark = colorScheme === 'dark';
 
-  // データ処理: 3%未満を「その他」にまとめる
+  // データ処理: 3%未満を「その他」にまとめ、カテゴリ固定色を解決
   const processedData = useMemo(() => {
     if (!data) return [];
 
@@ -98,17 +45,15 @@ export const PieChart: React.FC<PieChartProps> = ({
     let othersValue = 0;
     let othersPercentage = 0;
 
-    // ソート: 降順
     const sortedData = [...data].sort((a, b) => b.value - a.value);
-
-    const mainItems = [];
+    const mainItems: ChartData[] = [];
 
     for (const item of sortedData) {
       if (item.name === 'その他' || item.percentage < threshold) {
         othersValue += item.value;
         othersPercentage += item.percentage;
       } else {
-        mainItems.push({ ...item });
+        mainItems.push({ ...item, color: getCategoryColor(item.name, isDark) });
       }
     }
 
@@ -116,81 +61,58 @@ export const PieChart: React.FC<PieChartProps> = ({
       mainItems.push({
         name: 'その他',
         value: othersValue,
-        percentage: Number(othersPercentage.toFixed(1)), // 正しいパーセンテージを渡す
-        color: 'gray.5'
+        percentage: Number(othersPercentage.toFixed(1)),
+        color: getCategoryColor('その他', isDark),
       });
     }
 
-    // カラーコード解決（Mantineの色をHEXに変換するか、CSS変数を解決する必要があるが、
-    // RechartsはHEXを好む。ここでは簡易的なHEXマップか、CSS変数を使う）
-    // 手抜きで申し訳ないが、CSS変数 var(--mantine-primary-color-filled) などはSVG内で効かないことがある。
-    // しかし、Mantineのカラーパレットをハードコードするのは保守性が悪い。
-    // ここでは既定のカテゴリカラー（HEX）があればそれを使い、なければMantineのCSS変数を渡してみる（最新ブラウザなら動く）。
-
-    return mainItems.map((item, index) => {
-      let finalColor = item.color;
-      // マッピング修正: グローバルCSS変数ではなく具体的な色値が必要なケースが多い
-      if (item.name === 'その他') finalColor = '#9CA3AF'; // gray.400
-      else if (!finalColor || finalColor.includes('.')) {
-        // 簡易パレット (Tailwind/Mantine default colors approximate)
-        const palette = ['#228BE6', '#FA5252', '#12B886', '#FAB005', '#7950F2', '#E64980', '#82C91E'];
-        finalColor = palette[index % palette.length];
-      }
-      return {
-        ...item,
-        color: finalColor
-      };
-    });
-  }, [data]);
+    return mainItems;
+  }, [data, isDark]);
 
   const displayTotal = totalAmount ?? data?.reduce((sum, item) => sum + item.value, 0) ?? 0;
 
   if (!data || data.length === 0) {
     return (
-      <Paper withBorder p="md">
-        <Text size="lg" fw={600} mb="md">{title}</Text>
-        <Text ta="center" c="dimmed" py="xl">
+      <Paper className="ledger-card" p="lg" h="100%">
+        <Text className="section-title">{title}</Text>
+        <Text ta="center" c="dimmed" py="xl" size="sm">
           データがありません
         </Text>
       </Paper>
     );
   }
 
-  // スマホの場合はラベルをシンプルにするなどの調整が必要だが、
-  // リクエストの画像はPCレイアウトっぽいので、ResponsiveContainerで縮小させる。
-  // 余白を埋めるために半径をさらに攻める (105/150)
-  // 105px = 直径210px. iPhone SE(320px)でも 320-210 = 110px余白 -> 片側55px. ラベルには十分.
-  const outerRadius = isMobile ? 105 : 150;
-  // リングの太さはある程度維持
-  const innerRadius = isMobile ? 65 : 100;
+  const chartSize = isMobile ? 190 : 220;
+  const outerRadius = chartSize / 2 - 4;
+  const innerRadius = outerRadius - (isMobile ? 26 : 30);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-    >
-      <Paper withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
-        <Text size="lg" fw={600} mt="sm" ml="sm">{title}</Text>
+    <Paper className="ledger-card" p="lg" h="100%">
+      <Text className="section-title" mb="md">{title}</Text>
 
-        {/* 高さを調整して、無駄な上下の余白を削除 (380 -> 300) */}
-        <Box pos="relative" h={isMobile ? 300 : 400} w="100%">
-          {/* Center Text */}
+      <Group
+        align="center"
+        gap={isMobile ? 'md' : 'xl'}
+        wrap={isMobile ? 'wrap' : 'nowrap'}
+        justify={isMobile ? 'center' : 'flex-start'}
+      >
+        {/* ドーナツ本体 */}
+        <Box pos="relative" w={chartSize} h={chartSize} style={{ flexShrink: 0 }}>
           <Stack
             gap={0}
             align="center"
             justify="center"
             style={{
               position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
+              inset: 0,
               zIndex: 1,
               pointerEvents: 'none'
             }}
           >
-            <Text size="xs" c="dimmed" fw={600}>Total</Text>
-            <Text size={isMobile ? "xl" : "2xl"} fw={700}>¥{displayTotal.toLocaleString()}</Text>
+            <Text size="xs" c="dimmed" fw={600}>合計</Text>
+            <Text size={isMobile ? 'lg' : 'xl'} fw={800} className="tabular-nums">
+              ¥{displayTotal.toLocaleString()}
+            </Text>
           </Stack>
 
           <ResponsiveContainer width="100%" height="100%">
@@ -199,41 +121,63 @@ export const PieChart: React.FC<PieChartProps> = ({
                 data={processedData}
                 cx="50%"
                 cy="50%"
-                labelLine={false} // Custom renderer draws the line
-                label={(props) => renderCustomizedLabel({ ...(props as unknown as PieLabelProps), isMobile })}
+                labelLine={false}
                 outerRadius={outerRadius}
                 innerRadius={innerRadius}
-                fill="#8884d8"
                 dataKey="value"
-                paddingAngle={2}
+                paddingAngle={2.5}
                 cornerRadius={4}
-              >             {processedData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-              ))}
-                {/* Inside Label (Optional, matches screenshot) - LabelList is alternative but custom label prop inside Pie works too? 
-                             No, 'label' prop is ONE label. 
-                             To have inside AND outside, we can use a second Pie with transparent fill OR use LabelList? 
-                             Actually, 'label' prop handles the outside. 
-                             We can try to put text inside via a localized component but Recharts 'label' is singular.
-                             Let's stick to Outside for now as it's the main request.
-                         */}
+                stroke="none"
+              >
+                {processedData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string, props: { payload?: ChartData & { percent?: number } }) => {
-                  const payload = props.payload;
-                  const percentage = payload?.percentage !== undefined && !isNaN(payload.percentage)
-                    ? payload.percentage
-                    : (payload?.percent || 0) * 100;
-                  return [
-                    `¥${value.toLocaleString()} (${Number(percentage).toFixed(1)}%)`,
-                    name
-                  ];
+                formatter={(value: number, name: string, props: { payload?: ChartData }) => [
+                  `¥${value.toLocaleString()}（${(props.payload?.percentage ?? 0).toFixed(1)}%）`,
+                  name,
+                ]}
+                contentStyle={{
+                  background: 'var(--app-surface)',
+                  border: '1px solid var(--hairline-strong)',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  color: 'var(--ink-1)',
                 }}
               />
             </RechartsPieChart>
           </ResponsiveContainer>
         </Box>
-      </Paper>
-    </motion.div>
+
+        {/* 凡例リスト（金額・% を常時表示 = 低コントラスト色のリリーフ） */}
+        <Stack gap={6} style={{ flex: 1, minWidth: isMobile ? '100%' : 180 }}>
+          {processedData.map((item) => (
+            <Group key={item.name} justify="space-between" wrap="nowrap" gap="xs">
+              <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                <Box
+                  w={10}
+                  h={10}
+                  style={{
+                    borderRadius: 3,
+                    background: item.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <Text size="sm" truncate>{item.name}</Text>
+              </Group>
+              <Group gap={8} wrap="nowrap" style={{ flexShrink: 0 }}>
+                <Text size="sm" fw={600} className="tabular-nums">
+                  ¥{item.value.toLocaleString()}
+                </Text>
+                <Text size="xs" c="dimmed" className="tabular-nums" w={44} ta="right">
+                  {item.percentage.toFixed(1)}%
+                </Text>
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      </Group>
+    </Paper>
   );
 };
