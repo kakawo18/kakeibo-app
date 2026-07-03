@@ -102,9 +102,17 @@ const KpiTile = ({
     // 3列グリッドで金額が長いときにタイルがグリッドを押し広げないようにする
     style={{ minWidth: 0 }}
   >
+    {/* compact（モバイル3列）ではアイコンを省き字間も詰めて、
+        「獲得ポイント」等のラベルが省略記号で欠けないようにする */}
     <Group gap={6} mb={compact ? 8 : 10} c="var(--ink-3)" wrap="nowrap">
-      {icon}
-      <Text className="overline-label" truncate>{label}</Text>
+      {!compact && icon}
+      <Text
+        className="overline-label"
+        truncate
+        style={compact ? { fontSize: 10, letterSpacing: '0.01em' } : undefined}
+      >
+        {label}
+      </Text>
     </Group>
     <Text
       fw={700}
@@ -308,18 +316,20 @@ export function DashboardContent() {
   }
 
   // 月セレクター（モバイルはスワイプ対応）
+  // モバイルはヘッダー右側のアイコン群（メニュー/テーマ/ログアウト）と
+  // 1行に同居するため、幅とフォントを詰めて 360px 幅端末でも収まるようにする
   const monthSelector = (
     <Select
       data={monthOptions}
       value={selectedMonth}
       onChange={handleMonthChange}
       searchable={!isMobile}
-      w={isMobile ? 140 : 160}
+      w={isMobile ? 124 : 160}
       size={isMobile ? 'sm' : 'md'}
       variant="unstyled"
       styles={{
         input: {
-          fontSize: isMobile ? '17px' : '19px',
+          fontSize: isMobile ? '16px' : '19px',
           fontWeight: 700,
           textAlign: 'center',
           letterSpacing: '-0.02em',
@@ -331,6 +341,51 @@ export function DashboardContent() {
     />
   );
 
+  // 月ナビゲーション（‹ 年月 ›）
+  // モバイル: スティッキーヘッダー左側に常駐（ブランド表示の代わり）
+  // デスクトップ: 従来どおりヘッダー下の行に配置
+  const monthNav = (
+    <Group gap={isMobile ? 0 : 2} wrap="nowrap">
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        size={isMobile ? 'md' : 'lg'}
+        onClick={handlePreviousMonth}
+        aria-label="前の月へ"
+      >
+        <IconChevronLeft size={isMobile ? 18 : 20} />
+      </ActionIcon>
+
+      {isMobile ? (
+        <motion.div
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.2}
+          dragMomentum={false}
+          onDragEnd={(e, info) => {
+            if (info.offset.x > 50) handlePreviousMonth();
+            else if (info.offset.x < -50) handleNextMonth();
+          }}
+          style={{ touchAction: 'none' }}
+        >
+          {monthSelector}
+        </motion.div>
+      ) : (
+        monthSelector
+      )}
+
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        size={isMobile ? 'md' : 'lg'}
+        onClick={handleNextMonth}
+        aria-label="次の月へ"
+      >
+        <IconChevronRight size={isMobile ? 18 : 20} />
+      </ActionIcon>
+    </Group>
+  );
+
   return (
     <Box pb={isMobile ? 90 : 40}>
       {/* ============================================================
@@ -338,38 +393,67 @@ export function DashboardContent() {
           ============================================================ */}
       <Box className="app-header" mb="md">
         <Container size="lg">
-          <Group justify="space-between" h={56}>
-            <Group gap={10}>
-              <Box
-                w={28}
-                h={28}
-                style={{
-                  borderRadius: 8,
-                  background: 'var(--accent)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  lineHeight: 1,
-                }}
-                aria-hidden
-              >
-                ¥
-              </Box>
-              <div>
-                <Text fw={700} size="sm" style={{ letterSpacing: '-0.01em', lineHeight: 1 }}>
-                  家計簿
-                </Text>
-                {!isMobile && user?.email && (
-                  <Text size="10px" c="dimmed" style={{ lineHeight: 1.5 }}>{user.email}</Text>
-                )}
-              </div>
-            </Group>
+          <Group justify="space-between" h={56} wrap="nowrap">
+            {/* モバイル: ブランド表示の代わりに月ナビを常駐させ、専用行を節約する */}
+            {isMobile ? (
+              monthNav
+            ) : (
+              <Group gap={10}>
+                <Box
+                  w={28}
+                  h={28}
+                  style={{
+                    borderRadius: 8,
+                    background: 'var(--accent)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: 15,
+                    lineHeight: 1,
+                  }}
+                  aria-hidden
+                >
+                  ¥
+                </Box>
+                <div>
+                  <Text fw={700} size="sm" style={{ letterSpacing: '-0.01em', lineHeight: 1 }}>
+                    家計簿
+                  </Text>
+                  {user?.email && (
+                    <Text size="10px" c="dimmed" style={{ lineHeight: 1.5 }}>{user.email}</Text>
+                  )}
+                </div>
+              </Group>
+            )}
 
             <Group gap={4}>
-              {/* モバイル: ツールメニュー（カレンダー・定期・CSV） */}
+              {/* モバイル: カレンダー・設定は頻度が高いのでアイコンを常設 */}
+              {isMobile && (
+                <>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="lg"
+                    onClick={() => setCalendarOpened(true)}
+                    aria-label="カレンダー"
+                  >
+                    <IconCalendar size={18} />
+                  </ActionIcon>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="lg"
+                    onClick={() => router.push('/settings')}
+                    aria-label="設定"
+                  >
+                    <IconSettings size={18} />
+                  </ActionIcon>
+                </>
+              )}
+
+              {/* モバイル: 使用頻度が低い項目（定期・CSV・テーマ・ログアウト）は三点リーダーに集約 */}
               {isMobile && (
                 <Menu shadow="md" width={200} position="bottom-end">
                   <Menu.Target>
@@ -378,44 +462,51 @@ export function DashboardContent() {
                     </ActionIcon>
                   </Menu.Target>
                   <Menu.Dropdown>
-                    <Menu.Item leftSection={<IconCalendar size={14} />} onClick={() => setCalendarOpened(true)}>
-                      カレンダー
-                    </Menu.Item>
                     <Menu.Item leftSection={<IconRepeat size={14} />} onClick={() => setRecurringManagerOpened(true)}>
                       定期取引
                     </Menu.Item>
                     <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => setCsvModalOpened(true)}>
                       CSV インポート/エクスポート
                     </Menu.Item>
-                    <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => router.push('/settings')}>
-                      設定
+                    <Menu.Item
+                      leftSection={isDark ? <IconSun size={14} /> : <IconMoon size={14} />}
+                      onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+                    >
+                      {isDark ? 'ライトモードに切替' : 'ダークモードに切替'}
+                    </Menu.Item>
+                    <Menu.Item leftSection={<IconLogout size={14} />} onClick={logout}>
+                      ログアウト
                     </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
               )}
+
+              {/* デスクトップ: 従来どおり全アイコンを常設 */}
               {!isMobile && (
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  size="lg"
-                  onClick={() => router.push('/settings')}
-                  aria-label="設定"
-                >
-                  <IconSettings size={18} />
-                </ActionIcon>
+                <>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="lg"
+                    onClick={() => router.push('/settings')}
+                    aria-label="設定"
+                  >
+                    <IconSettings size={18} />
+                  </ActionIcon>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="lg"
+                    onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
+                    aria-label="テーマ切り替え"
+                  >
+                    {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
+                  </ActionIcon>
+                  <ActionIcon variant="subtle" color="gray" size="lg" onClick={logout} aria-label="ログアウト">
+                    <IconLogout size={18} />
+                  </ActionIcon>
+                </>
               )}
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="lg"
-                onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
-                aria-label="テーマ切り替え"
-              >
-                {isDark ? <IconSun size={18} /> : <IconMoon size={18} />}
-              </ActionIcon>
-              <ActionIcon variant="subtle" color="gray" size="lg" onClick={logout} aria-label="ログアウト">
-                <IconLogout size={18} />
-              </ActionIcon>
             </Group>
           </Group>
         </Container>
@@ -426,50 +517,13 @@ export function DashboardContent() {
 
           {/* ============================================================
               月ナビゲーション + アクション
+              （モバイルは月ナビがヘッダーに常駐するため、この行ごと不要）
               ============================================================ */}
-          <Group justify="space-between" align="center">
-            <Group gap={2}>
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="lg"
-                onClick={handlePreviousMonth}
-                aria-label="前の月へ"
-              >
-                <IconChevronLeft size={20} />
-              </ActionIcon>
+          {!isMobile && (
+            <Group justify="space-between" align="center">
+              {monthNav}
 
-              {isMobile ? (
-                <motion.div
-                  drag="x"
-                  dragConstraints={{ left: 0, right: 0 }}
-                  dragElastic={0.2}
-                  dragMomentum={false}
-                  onDragEnd={(e, info) => {
-                    if (info.offset.x > 50) handlePreviousMonth();
-                    else if (info.offset.x < -50) handleNextMonth();
-                  }}
-                  style={{ touchAction: 'none' }}
-                >
-                  {monthSelector}
-                </motion.div>
-              ) : (
-                monthSelector
-              )}
-
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                size="lg"
-                onClick={handleNextMonth}
-                aria-label="次の月へ"
-              >
-                <IconChevronRight size={20} />
-              </ActionIcon>
-            </Group>
-
-            {/* デスクトップ: アクションボタン */}
-            {!isMobile && (
+              {/* デスクトップ: アクションボタン */}
               <Group gap="xs">
                 <Button
                   leftSection={<IconPlus size={16} stroke={2.2} />}
@@ -496,8 +550,8 @@ export function DashboardContent() {
                   </Menu.Dropdown>
                 </Menu>
               </Group>
-            )}
-          </Group>
+            </Group>
+          )}
 
           {/* 定期取引通知 */}
           {displayRecurringTransactions.length > 0 && (

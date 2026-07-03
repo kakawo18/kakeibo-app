@@ -24,6 +24,16 @@ interface PieChartProps extends PieChartBodyProps {
 
 const RADIAN = Math.PI / 180;
 
+// SVG の <text> は自動で折り返し・切り詰めできないため、
+// 全角/半角を区別したおおよその描画幅からラベルの x 座標をクランプする
+const estimateTextWidth = (text: string, fontSize: number): number => {
+  let width = 0;
+  for (const ch of text) {
+    width += ch.charCodeAt(0) > 0xff ? fontSize : fontSize * 0.58;
+  }
+  return width;
+};
+
 interface PieLabelProps {
   cx: number;
   cy: number;
@@ -48,20 +58,41 @@ const renderLeaderLabel = (props: PieLabelProps) => {
   const ex = mx + (cos >= 0 ? 1 : -1) * (isMobile ? 5 : 14);
   const ey = my;
   const textAnchor = cos >= 0 ? 'start' : 'end';
-  const tx = ex + (cos >= 0 ? 1 : -1) * (isMobile ? 4 : 8);
+  let tx = ex + (cos >= 0 ? 1 : -1) * (isMobile ? 4 : 8);
+
+  // 画面端でのラベル見切れ防止:
+  // ラベル2行（カテゴリ名・金額）の広い方が収まるよう x をコンテナ内に押し戻す。
+  // margin は左右 0 のため cx * 2 ≒ チャート幅
+  const nameSize = isMobile ? 10 : 12;
+  const amountSize = isMobile ? 9 : 11;
+  const amountText = `¥${(value || 0).toLocaleString()} (${Number(payload.percentage ?? 0).toFixed(1)}%)`;
+  const labelWidth = Math.max(
+    estimateTextWidth(payload.name, nameSize),
+    estimateTextWidth(amountText, amountSize)
+  );
+  const chartWidth = cx * 2;
+  if (cos >= 0) {
+    tx = Math.min(tx, chartWidth - 4 - labelWidth);
+  } else {
+    tx = Math.max(tx, 4 + labelWidth);
+  }
 
   return (
     <g>
       <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={payload.color} fill="none" strokeWidth={1} />
       <circle cx={ex} cy={ey} r={1.8} fill={payload.color} stroke="none" />
+      {/* stroke(縁取り)は、クランプでラベルがドーナツに重なったときの可読性確保 */}
       <text
         x={tx}
         y={ey}
         dy={-4}
         textAnchor={textAnchor}
         fill="var(--ink-1)"
-        fontSize={isMobile ? 10 : 12}
+        fontSize={nameSize}
         fontWeight={600}
+        stroke="var(--app-surface)"
+        strokeWidth={3}
+        paintOrder="stroke"
       >
         {payload.name}
       </text>
@@ -71,9 +102,12 @@ const renderLeaderLabel = (props: PieLabelProps) => {
         dy={isMobile ? 8 : 10}
         textAnchor={textAnchor}
         fill="var(--ink-3)"
-        fontSize={isMobile ? 9 : 11}
+        fontSize={amountSize}
+        stroke="var(--app-surface)"
+        strokeWidth={3}
+        paintOrder="stroke"
       >
-        {`¥${(value || 0).toLocaleString()} (${Number(payload.percentage ?? 0).toFixed(1)}%)`}
+        {amountText}
       </text>
     </g>
   );
@@ -137,10 +171,11 @@ export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount })
     );
   }
 
-  // モバイルは縦を詰める: 引き出しラベルの分を含めて高さを最小限に
-  const chartHeight = isMobile ? 236 : 300;
-  const outerRadius = isMobile ? 70 : 96;
-  const innerRadius = isMobile ? 46 : 66;
+  // モバイルもチャートを主役として大きく取る（デスクトップと同寸）。
+  // ラベルは x クランプ + テキスト縁取りで見切れ・重なりに対処する
+  const chartHeight = 300;
+  const outerRadius = 96;
+  const innerRadius = 66;
 
   return (
     <Box pos="relative" w="100%" h={chartHeight}>
