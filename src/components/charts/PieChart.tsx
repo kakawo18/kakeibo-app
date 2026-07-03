@@ -44,21 +44,28 @@ interface PieLabelProps {
   isMobile?: boolean;
 }
 
-// セグメントから引き出し線を伸ばし、カテゴリ名と金額(%)を表示する
+// セグメントから引き出し線を伸ばし、カテゴリ名と金額(%)を表示する。
+// ラベルは常にドーナツの左右に置き、上下方向には出さない
+// （縦位置をドーナツの高さ内にクランプすることで、チャート全体の高さを
+//   ドーナツ径ぎりぎりまで詰められる）
 const renderLeaderLabel = (props: PieLabelProps) => {
   const { cx, cy, midAngle, outerRadius, value, payload, isMobile } = props;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
+  const dir = cos >= 0 ? 1 : -1;
 
-  // 引き出し線: セグメント際 → 斜め → 横
+  // 引き出し線の始点（セグメント際）
   const sx = cx + (outerRadius + 2) * cos;
   const sy = cy + (outerRadius + 2) * sin;
-  const mx = cx + (outerRadius + (isMobile ? 9 : 18)) * cos;
-  const my = cy + (outerRadius + (isMobile ? 9 : 18)) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * (isMobile ? 5 : 14);
-  const ey = my;
-  const textAnchor = cos >= 0 ? 'start' : 'end';
-  let tx = ex + (cos >= 0 ? 1 : -1) * (isMobile ? 4 : 8);
+
+  // ラベル位置: 左右いずれかの固定カラム。
+  // 縦はセグメント角度の投影を使いつつ、ドーナツの縦帯内に収める
+  const rawY = cy + (outerRadius + 9) * sin;
+  const ey = Math.max(cy - outerRadius + 10, Math.min(cy + outerRadius - 10, rawY));
+  const bendX = cx + dir * (outerRadius + (isMobile ? 6 : 12));
+  const ex = cx + dir * (outerRadius + (isMobile ? 10 : 20));
+  const textAnchor = dir >= 0 ? 'start' : 'end';
+  let tx = ex + dir * 3;
 
   // 画面端でのラベル見切れ防止:
   // ラベル2行（カテゴリ名・金額）の広い方が収まるよう x をコンテナ内に押し戻す。
@@ -71,7 +78,7 @@ const renderLeaderLabel = (props: PieLabelProps) => {
     estimateTextWidth(amountText, amountSize)
   );
   const chartWidth = cx * 2;
-  if (cos >= 0) {
+  if (dir >= 0) {
     tx = Math.min(tx, chartWidth - 4 - labelWidth);
   } else {
     tx = Math.max(tx, 4 + labelWidth);
@@ -79,7 +86,7 @@ const renderLeaderLabel = (props: PieLabelProps) => {
 
   return (
     <g>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={payload.color} fill="none" strokeWidth={1} />
+      <path d={`M${sx},${sy}L${bendX},${ey}L${ex},${ey}`} stroke={payload.color} fill="none" strokeWidth={1} />
       <circle cx={ex} cy={ey} r={1.8} fill={payload.color} stroke="none" />
       {/* stroke(縁取り)は、クランプでラベルがドーナツに重なったときの可読性確保 */}
       <text
@@ -171,11 +178,11 @@ export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount })
     );
   }
 
-  // モバイルもチャートを主役として大きく取る（デスクトップと同寸）。
-  // ラベルは x クランプ + テキスト縁取りで見切れ・重なりに対処する
-  const chartHeight = 300;
+  // ラベルを左右固定にしたことで上下に空き領域が不要になったため、
+  // 枠の高さをドーナツ径ぎりぎりまで詰める（横長のフレームにする）
   const outerRadius = 96;
   const innerRadius = 66;
+  const chartHeight = outerRadius * 2 + 28;
 
   return (
     <Box pos="relative" w="100%" h={chartHeight}>
