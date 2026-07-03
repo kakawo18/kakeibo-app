@@ -14,10 +14,11 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
-import { EXPENSE_CATEGORIES, PAYMENT_METHODS, RecurringTransaction } from '@/types';
+import { RecurringTransaction } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { formatDateJa } from '@/utils/dateUtils';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
-import { getInputStyles } from '@/components/forms/formStyles';
+import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
 
 interface RecurringTransactionConfirmProps {
   opened: boolean;
@@ -46,9 +47,11 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
   transaction,
   onConfirm,
 }) => {
+  const { expenseCategories, paymentMethods } = useSettings();
   const [loading, setLoading] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
+  const textareaStyles = getTextareaStyles(isMobile ?? false);
 
   const form = useForm({
     initialValues: {
@@ -75,10 +78,39 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, transaction]);
 
-  const subcategories = useMemo(() => {
-    const selected = EXPENSE_CATEGORIES.find(cat => cat.name === form.values.category);
-    return selected?.subcategories || [];
-  }, [form.values.category]);
+  // 定期取引に設定されたカテゴリ/支払方法が設定から削除されていても
+  // 現値を失わないよう選択肢に注入する
+  const categoryOptions = useMemo(() => {
+    const options = expenseCategories.map(cat => ({ value: cat.name, label: cat.name }));
+    const current = transaction?.category;
+    if (current && !options.some(o => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [expenseCategories, transaction]);
+
+  const subcategoryOptions = useMemo(() => {
+    const selected = expenseCategories.find(cat => cat.name === form.values.category);
+    const options = (selected?.subcategories ?? []).map(sub => ({ value: sub.name, label: sub.name }));
+    const current = transaction?.subcategory;
+    if (
+      current &&
+      transaction.category === form.values.category &&
+      !options.some(o => o.value === current)
+    ) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [form.values.category, expenseCategories, transaction]);
+
+  const paymentMethodOptions = useMemo(() => {
+    const options = paymentMethods.map(method => ({ value: method.name, label: method.name }));
+    const current = transaction?.paymentMethod;
+    if (current && !options.some(o => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [paymentMethods, transaction]);
 
   const handleCategoryChange = (category: string) => {
     form.setFieldValue('category', category);
@@ -145,16 +177,16 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
             label="カテゴリ"
             placeholder="カテゴリを選択"
             required
-            data={EXPENSE_CATEGORIES.map(cat => ({ value: cat.name, label: cat.name }))}
+            data={categoryOptions}
             value={form.values.category}
             onChange={handleCategoryChange}
           />
 
-          {subcategories.length > 0 && (
+          {subcategoryOptions.length > 0 && (
             <ResponsiveSelect
               label="サブカテゴリ"
               placeholder="サブカテゴリを選択（任意）"
-              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              data={subcategoryOptions}
               {...form.getInputProps('subcategory')}
             />
           )}
@@ -162,7 +194,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
           <ResponsiveSelect
             label="支払方法"
             placeholder="支払方法を選択（任意）"
-            data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+            data={paymentMethodOptions}
             {...form.getInputProps('paymentMethod')}
           />
 
@@ -190,7 +222,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
             autosize
             minRows={isMobile ? 2 : 3}
             maxRows={isMobile ? 4 : 6}
-            styles={inputStyles}
+            styles={textareaStyles}
           />
 
           <Group justify="flex-end">

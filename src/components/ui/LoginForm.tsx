@@ -8,23 +8,31 @@ import { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
 import { IconMail, IconLock } from '@tabler/icons-react';
 
+/**
+ * ユーザー入力起因で発生しうる既知の認証エラーコードとユーザー向けメッセージ。
+ * ここにあるコードは正常系として扱い、コンソールにエラー出力しない
+ * （Next.js の dev オーバーレイが console.error をエラー表示するため）
+ */
+const KNOWN_AUTH_ERROR_MESSAGES: Record<string, string> = {
+  'auth/email-already-in-use': 'このメールアドレスは既に登録されています。ログインをお試しください。',
+  'auth/invalid-email': 'メールアドレスの形式が正しくありません。',
+  'auth/weak-password': 'パスワードが弱すぎます。6文字以上で設定してください。',
+  'auth/too-many-requests': '試行回数が多すぎます。しばらく時間をおいてお試しください。',
+  'auth/network-request-failed': 'ネットワークエラーが発生しました。接続を確認してください。',
+  'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。未登録の場合は新規登録してください。',
+  'auth/user-not-found': 'このメールアドレスは登録されていません。新規登録をお試しください。',
+  'auth/wrong-password': 'パスワードが正しくありません。',
+};
+
+const isKnownAuthError = (error: unknown): error is FirebaseError =>
+  error instanceof FirebaseError && error.code in KNOWN_AUTH_ERROR_MESSAGES;
+
 /** Firebaseの認証エラーコードをユーザー向けメッセージに変換する */
 const getAuthErrorMessage = (error: unknown): string => {
-  if (error instanceof FirebaseError) {
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        return 'このメールアドレスは既に登録されています。ログインをお試しください。';
-      case 'auth/invalid-email':
-        return 'メールアドレスの形式が正しくありません。';
-      case 'auth/weak-password':
-        return 'パスワードが弱すぎます。6文字以上で設定してください。';
-      case 'auth/too-many-requests':
-        return '試行回数が多すぎます。しばらく時間をおいてお試しください。';
-      case 'auth/network-request-failed':
-        return 'ネットワークエラーが発生しました。接続を確認してください。';
-    }
+  if (isKnownAuthError(error)) {
+    return KNOWN_AUTH_ERROR_MESSAGES[error.code];
   }
-  return 'メールアドレスまたはパスワードが正しくありません。';
+  return 'エラーが発生しました。もう一度お試しください。';
 };
 
 interface LoginFormProps {
@@ -102,7 +110,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       }
       onSuccess?.();
     } catch (error) {
-      console.error(error);
+      if (!isKnownAuthError(error)) {
+        console.error(error);
+      }
       setError(getAuthErrorMessage(error));
     } finally {
       setLoading(false);

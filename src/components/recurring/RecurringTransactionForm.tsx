@@ -12,7 +12,8 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
-import { EXPENSE_CATEGORIES, PAYMENT_METHODS, RecurringTransaction } from '@/types';
+import { RecurringTransaction } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles } from '@/components/forms/formStyles';
 
@@ -29,6 +30,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
   editingTransaction,
   onSave,
 }) => {
+  const { expenseCategories, paymentMethods } = useSettings();
   const [loading, setLoading] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
@@ -79,10 +81,38 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, editingTransaction]);
 
-  const subcategories = useMemo(() => {
-    const selected = EXPENSE_CATEGORIES.find(cat => cat.name === form.values.category);
-    return selected?.subcategories || [];
-  }, [form.values.category]);
+  // 編集時: 設定から削除されたカテゴリ/サブカテゴリ/支払方法でも現値を失わないよう注入
+  const categoryOptions = useMemo(() => {
+    const options = expenseCategories.map(cat => ({ value: cat.name, label: cat.name }));
+    const current = editingTransaction?.category;
+    if (current && !options.some(o => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [expenseCategories, editingTransaction]);
+
+  const subcategoryOptions = useMemo(() => {
+    const selected = expenseCategories.find(cat => cat.name === form.values.category);
+    const options = (selected?.subcategories ?? []).map(sub => ({ value: sub.name, label: sub.name }));
+    const current = editingTransaction?.subcategory;
+    if (
+      current &&
+      editingTransaction.category === form.values.category &&
+      !options.some(o => o.value === current)
+    ) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [form.values.category, expenseCategories, editingTransaction]);
+
+  const paymentMethodOptions = useMemo(() => {
+    const options = paymentMethods.map(method => ({ value: method.name, label: method.name }));
+    const current = editingTransaction?.paymentMethod;
+    if (current && !options.some(o => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [paymentMethods, editingTransaction]);
 
   const handleCategoryChange = (category: string) => {
     form.setFieldValue('category', category);
@@ -140,7 +170,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
         <Stack>
           <TextInput
             label="名前"
-            placeholder="例: 家賃、投資（積立NISA）"
+            placeholder="例: 家賃、サブスク"
             required
             {...form.getInputProps('name')}
             styles={inputStyles}
@@ -159,17 +189,17 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
             label="カテゴリ"
             placeholder="カテゴリを選択"
             required
-            data={EXPENSE_CATEGORIES.map(cat => ({ value: cat.name, label: cat.name }))}
+            data={categoryOptions}
             value={form.values.category}
             onChange={handleCategoryChange}
             error={form.errors.category}
           />
 
-          {subcategories.length > 0 && (
+          {subcategoryOptions.length > 0 && (
             <ResponsiveSelect
               label="サブカテゴリ"
               placeholder="サブカテゴリを選択（任意）"
-              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              data={subcategoryOptions}
               {...form.getInputProps('subcategory')}
             />
           )}
@@ -177,7 +207,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
           <ResponsiveSelect
             label="支払方法"
             placeholder="支払方法を選択（任意）"
-            data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+            data={paymentMethodOptions}
             {...form.getInputProps('paymentMethod')}
           />
 

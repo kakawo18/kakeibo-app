@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { Paper, Text, Group, Badge, Box, Stack, Progress } from '@mantine/core';
 import { Transaction } from '@/types';
-import { isExcludedFromExpense } from '@/utils/transactionRules';
+import { useSettings } from '@/contexts/SettingsContext';
 
 // ============================================================
 // ヘルパー関数
@@ -112,6 +112,7 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
   selectedMonth,
   budget = 100000,
 }) => {
+  const { rules } = useSettings();
   const daysInMonth = useMemo(() => getDaysInMonth(selectedMonth), [selectedMonth]);
 
   // 日ごとの累計データを集計
@@ -122,9 +123,9 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
     transactions.forEach((t) => {
       if (t.type !== 'expense') return;
       // 投資・立替金・カード引き落とし等の共通除外に加え、
-      // 家賃も除外する（毎月自動で発生する固定費は「ペース」の対象外）
-      if (isExcludedFromExpense(t)) return;
-      if (t.category === '固定費' && t.subcategory === '家賃') return;
+      // 「支出ペース除外」役割のカテゴリ（家賃など毎月固定額の支出）も除外する
+      if (rules.isExcludedFromExpense(t)) return;
+      if (rules.isExcludedFromPace(t)) return;
 
       const tYear = t.date.getFullYear();
       const tMonth = t.date.getMonth() + 1;
@@ -153,7 +154,7 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
     }
 
     return result;
-  }, [transactions, selectedMonth, daysInMonth, budget]);
+  }, [transactions, selectedMonth, daysInMonth, budget, rules]);
 
   // 実績の最終値（現時点の累計支出）
   const totalExpense = useMemo(() => {
@@ -192,7 +193,7 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
       <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
         <Stack gap={2}>
           <Text className="section-title">支出ペース</Text>
-          <Text size="xs" c="dimmed">変動支出の累計（家賃・投資を除く）</Text>
+          <Text size="xs" c="dimmed">変動支出の累計（投資・除外設定の支出を除く）</Text>
         </Stack>
         <Stack gap={4} align="flex-end">
           <Group gap={6} align="baseline">

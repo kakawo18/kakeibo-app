@@ -15,21 +15,28 @@
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
 import { formatMonthLocal, getNextMonth } from './dateUtils';
-import { isExcludedFromExpense, isExcludedFromIncome } from './transactionRules';
+import { TransactionRules } from './transactionRules';
+
+/** カテゴリ/サブカテゴリ名 → 表示色のリゾルバ(useSettings().getColor と同形) */
+export type CategoryColorResolver = (name: string, isDark: boolean) => string;
 
 /**
  * 月別データを計算する
- * 
+ *
  * @param transactions - 全取引データ
+ * @param rules - 役割ベースの集計ルール(useSettings().rules)
  * @returns MonthlyData[] - 月別の収支・残高データ
- * 
+ *
  * 【計算内容】
  * - 各月の収入合計
  * - 各月の支出合計（投資は除外）
  * - 各月の実残高（カード支払いの翌月反映を考慮）
  * - カテゴリ別の支出内訳
  */
-export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[] => {
+export const calculateMonthlyData = (
+  transactions: Transaction[],
+  rules: TransactionRules
+): MonthlyData[] => {
   const monthlyMap = new Map<string, MonthlyData>();
 
   // ステップ1: 各月の収入・支出を集計
@@ -50,12 +57,12 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
 
     if (transaction.type === 'income') {
       // 収入: そのまま加算（立替回収は除外）
-      if (!isExcludedFromIncome(transaction)) {
+      if (!rules.isExcludedFromIncome(transaction)) {
         monthData.income += transaction.amount;
       }
     } else {
       // 支出: 投資（資産移動）・立替金・カード引き落とし等は除外
-      if (!isExcludedFromExpense(transaction)) {
+      if (!rules.isExcludedFromExpense(transaction)) {
         monthData.expense += transaction.amount;
         // カテゴリ別集計（円グラフ用）
         const category = transaction.subcategory || transaction.category;
@@ -96,53 +103,12 @@ export const calculateMonthlyData = (transactions: Transaction[]): MonthlyData[]
   return sortedData;
 };
 
-// カテゴリ別カラーパレット
-// CVD（色覚多様性）検証済みの8色パレットをエンティティ固定で割り当てる。
-// ライト面（白）/ ダーク面（#1d1e22）それぞれで検証済みのステップを使用。
-const CATEGORY_COLORS: Record<string, { light: string; dark: string }> = {
-  // 収入カテゴリ
-  '給与': { light: '#0f9b6c', dark: '#1db584' },
-  'ボーナス': { light: '#1baf7a', dark: '#199e70' },
-  '賞与': { light: '#1baf7a', dark: '#199e70' },
-  '配当収入': { light: '#008300', dark: '#3da23d' },
-  'その他': { light: '#8b919e', dark: '#82868f' },
-
-  // 支出カテゴリ（エンティティ固定割り当て）
-  '食費': { light: '#e34948', dark: '#e66767' },
-  '交際費': { light: '#e87ba4', dark: '#d55181' },
-  '飲み会費': { light: '#e87ba4', dark: '#d55181' },
-  '固定費': { light: '#2a78d6', dark: '#3987e5' },
-  '家賃': { light: '#2a78d6', dark: '#3987e5' },
-  '通信費': { light: '#4a3aa7', dark: '#9085e9' },
-  '電気代': { light: '#eda100', dark: '#c98500' },
-  'ガス代': { light: '#eb6834', dark: '#d95926' },
-  '水道代': { light: '#1baf7a', dark: '#199e70' },
-  '光熱費': { light: '#eda100', dark: '#c98500' },
-  '日用品': { light: '#1baf7a', dark: '#199e70' },
-  '交通費': { light: '#eda100', dark: '#c98500' },
-  '趣味代': { light: '#4a3aa7', dark: '#9085e9' },
-  '旅行代': { light: '#eb6834', dark: '#d95926' },
-  '医療費': { light: '#008300', dark: '#3da23d' },
-  '投資': { light: '#008300', dark: '#3da23d' },
-
-  // カード・立替はニュートラル（シリーズ色を消費しない）
-  '三井住友カード': { light: '#8b919e', dark: '#82868f' },
-  '三菱UFJカード': { light: '#8b919e', dark: '#82868f' },
-  'amazonカード': { light: '#8b919e', dark: '#82868f' },
-  'EPOSカード': { light: '#8b919e', dark: '#82868f' },
-  '楽天カード': { light: '#8b919e', dark: '#82868f' },
-  'カード引き落とし': { light: '#8b919e', dark: '#82868f' },
-  '立替金': { light: '#adb2bc', dark: '#6d7178' },
-  '立替回収': { light: '#adb2bc', dark: '#6d7178' },
-};
-
-export const getCategoryColor = (categoryName: string, isDark = false): string => {
-  const entry = CATEGORY_COLORS[categoryName];
-  if (!entry) return isDark ? '#82868f' : '#8b919e';
-  return isDark ? entry.dark : entry.light;
-};
-
-export const calculateCategoryChartData = (transactions: Transaction[], type: 'income' | 'expense'): ChartData[] => {
+export const calculateCategoryChartData = (
+  transactions: Transaction[],
+  type: 'income' | 'expense',
+  rules: TransactionRules,
+  getColor: CategoryColorResolver
+): ChartData[] => {
   const categoryMap = new Map<string, number>();
   let total = 0;
 
@@ -151,8 +117,8 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
     .forEach((transaction) => {
       // 支出サマリーカードの金額と円グラフの合計を一致させるため、
       // 集計と同じ除外ルール（投資・立替・カード引き落とし等）を適用する
-      if (type === 'expense' && isExcludedFromExpense(transaction)) return;
-      if (type === 'income' && isExcludedFromIncome(transaction)) return;
+      if (type === 'expense' && rules.isExcludedFromExpense(transaction)) return;
+      if (type === 'income' && rules.isExcludedFromIncome(transaction)) return;
 
       const category = transaction.subcategory || transaction.category;
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
@@ -164,7 +130,7 @@ export const calculateCategoryChartData = (transactions: Transaction[], type: 'i
       name,
       value,
       percentage: total > 0 ? Math.round((value / total) * 100) : 0,
-      color: getCategoryColor(name),
+      color: getColor(name, false),
     }))
     .sort((a, b) => b.value - a.value);
 };

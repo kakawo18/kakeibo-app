@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Modal, Stack, Card, Text, Group, Box, Grid, Divider } from '@mantine/core';
 import { IconTrendingUp } from '@tabler/icons-react';
 import { Transaction } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { formatMonthLocal, getMonthName } from '@/utils/dateUtils';
 
 interface SavingsRateDetailModalProps {
@@ -19,31 +20,39 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
   transactions,
   year,
 }) => {
+  const { rules, incomeCategories } = useSettings();
+
   // 年間データの計算
   const savingsData = useMemo(() => {
     const yearTransactions = transactions.filter(t => t.date.getFullYear() === year);
 
-    // 年間収入の内訳（給与カテゴリの全て）
-    const salaryIncome = yearTransactions
-      .filter(t => t.type === 'income' && t.category === '給与' && t.subcategory === '給与')
-      .reduce((sum, t) => sum + t.amount, 0);
+    // 給与収入(salary_income役割)の取引
+    const salaryTransactions = yearTransactions
+      .filter(t => t.type === 'income' && rules.isSalaryIncome(t));
 
-    const bonusIncome = yearTransactions
-      .filter(t => t.type === 'income' && t.category === '給与' && t.subcategory === 'ボーナス')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalIncome = salaryTransactions.reduce((sum, t) => sum + t.amount, 0);
 
-    const dividendIncome = yearTransactions
-      .filter(t => t.type === 'income' && t.category === '給与' && t.subcategory === '配当収入')
-      .reduce((sum, t) => sum + t.amount, 0);
+    // 収入内訳: 設定のサブカテゴリ順に集計し、どれにも該当しない分は「その他」に合算
+    const breakdownMap = new Map<string, number>();
+    // 表示順を設定のサブカテゴリ順に揃えるための下地
+    incomeCategories
+      .filter(c => c.roles.includes('salary_income'))
+      .forEach(c => c.subcategories.forEach(sub => {
+        if (!breakdownMap.has(sub.name)) breakdownMap.set(sub.name, 0);
+      }));
 
-    // 給与カテゴリの全て（サブカテゴリ問わず）
-    const totalIncome = yearTransactions
-      .filter(t => t.type === 'income' && t.category === '給与')
-      .reduce((sum, t) => sum + t.amount, 0);
+    salaryTransactions.forEach(t => {
+      const key = t.subcategory && breakdownMap.has(t.subcategory) ? t.subcategory : 'その他';
+      breakdownMap.set(key, (breakdownMap.get(key) ?? 0) + t.amount);
+    });
+
+    const incomeBreakdown = Array.from(breakdownMap.entries())
+      .filter(([, amount]) => amount > 0)
+      .map(([name, amount]) => ({ name, amount }));
 
     // 年間投資額
     const totalInvestment = yearTransactions
-      .filter(t => t.type === 'expense' && t.category === '固定費' && t.subcategory === '投資')
+      .filter(t => t.type === 'expense' && rules.isInvestment(t))
       .reduce((sum, t) => sum + t.amount, 0);
 
     // 年間貯蓄率
@@ -51,7 +60,7 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
 
     // 月別貯蓄率
     const monthlyMap = new Map<string, { income: number; investment: number }>();
-    
+
     yearTransactions.forEach(t => {
       const month = formatMonthLocal(t.date);
       if (!monthlyMap.has(month)) {
@@ -59,9 +68,9 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
       }
       const data = monthlyMap.get(month)!;
 
-      if (t.type === 'income' && t.category === '給与') {
+      if (t.type === 'income' && rules.isSalaryIncome(t)) {
         data.income += t.amount;
-      } else if (t.type === 'expense' && t.category === '固定費' && t.subcategory === '投資') {
+      } else if (t.type === 'expense' && rules.isInvestment(t)) {
         data.investment += t.amount;
       }
     });
@@ -76,15 +85,13 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
       .sort((a, b) => b.month.localeCompare(a.month)); // 新しい順
 
     return {
-      salaryIncome,
-      bonusIncome,
-      dividendIncome,
+      incomeBreakdown,
       totalIncome,
       totalInvestment,
       savingsRate,
       monthlyRates,
     };
-  }, [transactions, year]);
+  }, [transactions, year, rules, incomeCategories]);
 
   return (
     <Modal
@@ -153,18 +160,15 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
         <Card withBorder p="md">
           <Text size="sm" fw={600} mb="sm">年間収入の内訳</Text>
           <Stack gap="xs">
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">給与</Text>
-              <Text size="sm" fw={600}>¥{savingsData.salaryIncome.toLocaleString()}</Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">ボーナス</Text>
-              <Text size="sm" fw={600}>¥{savingsData.bonusIncome.toLocaleString()}</Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">配当収入</Text>
-              <Text size="sm" fw={600}>¥{savingsData.dividendIncome.toLocaleString()}</Text>
-            </Group>
+            {savingsData.incomeBreakdown.length === 0 && (
+              <Text size="sm" c="dimmed" ta="center">給与収入のデータがありません</Text>
+            )}
+            {savingsData.incomeBreakdown.map(({ name, amount }) => (
+              <Group key={name} justify="space-between">
+                <Text size="sm" c="dimmed">{name}</Text>
+                <Text size="sm" fw={600}>¥{amount.toLocaleString()}</Text>
+              </Group>
+            ))}
             <Divider />
             <Group justify="space-between">
               <Text size="sm" fw={600}>合計</Text>

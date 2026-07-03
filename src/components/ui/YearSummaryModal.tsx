@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import { Modal, Stack, SimpleGrid, Box, Text, Card, Group, Badge, Divider } from '@mantine/core';
 import { Transaction, MonthlyData } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { getMonthName } from '@/utils/dateUtils';
-import { isAdvancePayment, isAdvanceRepayment } from '@/utils/transactionRules';
 
 interface YearSummaryModalProps {
   opened: boolean;
@@ -27,12 +27,13 @@ export const YearSummaryModal: React.FC<YearSummaryModalProps> = ({
   selectedMonth,
 }) => {
   const selectedYear = Number(selectedMonth.split('-')[0]);
+  const { rules } = useSettings();
 
   const yearSummary = useMemo(() => {
     const yearTransactions = transactions.filter(t =>
       t.date.getFullYear() === selectedYear &&
-      !isAdvanceRepayment(t) &&
-      !isAdvancePayment(t)
+      !rules.isAdvanceRepayment(t) &&
+      !rules.isAdvancePayment(t)
     );
 
     const income = yearTransactions
@@ -50,7 +51,7 @@ export const YearSummaryModal: React.FC<YearSummaryModalProps> = ({
       .sort((a, b) => a.month.localeCompare(b.month));
 
     return { year: selectedYear, income, expense, balance: income - expense, monthlyBreakdown };
-  }, [transactions, selectedYear, monthlyData]);
+  }, [transactions, selectedYear, monthlyData, rules]);
 
   return (
     <Modal

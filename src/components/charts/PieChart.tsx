@@ -11,7 +11,7 @@ import {
 import { Paper, Text, Stack, Box, useMantineColorScheme } from '@mantine/core';
 import { ChartData } from '@/types';
 import { useMediaQuery } from '@mantine/hooks';
-import { getCategoryColor } from '@/utils/calculations';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface PieChartBodyProps {
   data: ChartData[];
@@ -93,6 +93,7 @@ export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount })
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
+  const { getColor } = useSettings();
 
   // データ処理: 3%未満を「その他」にまとめ、カテゴリ固定色を解決
   const processedData = useMemo(() => {
@@ -110,7 +111,7 @@ export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount })
         othersValue += item.value;
         othersPercentage += item.percentage;
       } else {
-        mainItems.push({ ...item, color: getCategoryColor(item.name, isDark) });
+        mainItems.push({ ...item, color: getColor(item.name, isDark) });
       }
     }
 
@@ -119,12 +120,12 @@ export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount })
         name: 'その他',
         value: othersValue,
         percentage: Number(othersPercentage.toFixed(1)),
-        color: getCategoryColor('その他', isDark),
+        color: getColor('その他', isDark),
       });
     }
 
     return mainItems;
-  }, [data, isDark]);
+  }, [data, isDark, getColor]);
 
   const displayTotal = totalAmount ?? data?.reduce((sum, item) => sum + item.value, 0) ?? 0;
 

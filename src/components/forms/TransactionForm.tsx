@@ -16,12 +16,12 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS, Transaction, TransactionKind } from '@/types';
-import { deriveTransactionFlags } from '@/utils/transactionRules';
+import { useSettings } from '@/contexts/SettingsContext';
+import { Transaction, TransactionKind } from '@/types';
 import { formatDateJa } from '@/utils/dateUtils';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { ResponsiveSelect } from './ResponsiveSelect';
-import { getInputStyles } from './formStyles';
+import { getInputStyles, getTextareaStyles } from './formStyles';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -55,12 +55,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   editingTransaction,
 }) => {
   const { addTransaction, updateTransaction, transactions } = useTransactions();
+  const { expenseCategories, incomeCategories, paymentMethods, rules } = useSettings();
   const [loading, setLoading] = useState(false);
   const [mobileCalendarOpened, setMobileCalendarOpened] = useState(false);
 
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
+  const textareaStyles = getTextareaStyles(isMobile ?? false);
 
   // uncontrolledモードでは form.values が再レンダリングをトリガーしないため、
   // 画面内で直接参照する項目（種別・カテゴリ・日付）のみローカルstateで管理する
@@ -107,13 +109,46 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   }, [opened, editingTransaction]);
 
   const categories = useMemo(() => {
-    return selectedType === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-  }, [selectedType]);
+    return selectedType === 'expense' ? expenseCategories : incomeCategories;
+  }, [selectedType, expenseCategories, incomeCategories]);
 
-  const subcategories = useMemo(() => {
+  // 編集時: 設定から削除されたカテゴリ/サブカテゴリ/支払方法でも
+  // 現在の値が選択肢から消えないよう、選択肢の末尾に注入する
+  const categoryOptions = useMemo(() => {
+    const options = categories.map(cat => ({ value: cat.name, label: cat.name }));
+    const current = editingTransaction?.category;
+    if (
+      current &&
+      editingTransaction.type === selectedType &&
+      !options.some(o => o.value === current)
+    ) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [categories, editingTransaction, selectedType]);
+
+  const subcategoryOptions = useMemo(() => {
     const selected = categories.find(cat => cat.name === selectedCategory);
-    return selected?.subcategories || [];
-  }, [selectedCategory, categories]);
+    const options = (selected?.subcategories ?? []).map(sub => ({ value: sub.name, label: sub.name }));
+    const current = editingTransaction?.subcategory;
+    if (
+      current &&
+      editingTransaction.category === selectedCategory &&
+      !options.some(o => o.value === current)
+    ) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [selectedCategory, categories, editingTransaction]);
+
+  const paymentMethodOptions = useMemo(() => {
+    const options = paymentMethods.map(method => ({ value: method.name, label: method.name }));
+    const current = editingTransaction?.paymentMethod;
+    if (current && !options.some(o => o.value === current)) {
+      options.push({ value: current, label: current });
+    }
+    return options;
+  }, [paymentMethods, editingTransaction]);
 
   const handleSubmit = async (values: TransactionFormValues) => {
     setLoading(true);
@@ -124,7 +159,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         category: values.category,
         date: values.date,
         // カテゴリ・支払方法から取引タイプと集計フラグを導出
-        ...deriveTransactionFlags(values.category, values.paymentMethod),
+        ...rules.deriveTransactionFlags(values.category, values.paymentMethod),
         // 空文字列でない場合のみ設定
         subcategory: values.subcategory.trim() || undefined,
         paymentMethod: values.paymentMethod.trim() || undefined,
@@ -236,17 +271,17 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             label="カテゴリ"
             placeholder="カテゴリを選択"
             required
-            data={categories.map(cat => ({ value: cat.name, label: cat.name }))}
+            data={categoryOptions}
             value={selectedCategory}
             onChange={handleCategoryChange}
             error={form.errors.category}
           />
 
-          {subcategories.length > 0 && (
+          {subcategoryOptions.length > 0 && (
             <ResponsiveSelect
               label="サブカテゴリ"
               placeholder="サブカテゴリを選択（任意）"
-              data={subcategories.map(sub => ({ value: sub, label: sub }))}
+              data={subcategoryOptions}
               key={form.key('subcategory')}
               {...form.getInputProps('subcategory')}
             />
@@ -257,7 +292,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             <ResponsiveSelect
               label="支払方法"
               placeholder="支払方法を選択（任意）"
-              data={PAYMENT_METHODS.map(method => ({ value: method, label: method }))}
+              data={paymentMethodOptions}
               key={form.key('paymentMethod')}
               {...form.getInputProps('paymentMethod')}
             />
@@ -296,7 +331,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             autosize
             minRows={isMobile ? 2 : 3}
             maxRows={isMobile ? 4 : 6}
-            styles={inputStyles}
+            styles={textareaStyles}
           />
 
           <Group justify="flex-end">
