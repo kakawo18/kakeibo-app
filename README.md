@@ -1,38 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 家計簿アプリ
 
-## Getting Started
+個人向けの家計簿 PWA。Next.js（App Router）+ Mantine + Firebase 製。収支の記録、カテゴリ別の可視化、定期取引、クレジットカードの引き落としタイミングを考慮した残高管理などができる。
 
-First, run the development server:
+## クイックスタート
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # Firebase の設定値を記入
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+詳しい手順は [`docs/setup.md`](docs/setup.md)。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ドキュメント
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- [`AGENTS.md`](AGENTS.md) — コーディングエージェント向けの作業ガイド（規約・コマンド・注意点）
+- [`docs/`](docs/) — 構成・セットアップ・デプロイ・使い方・変更履歴
 
-## Learn More
+## スクリプト
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-<!-- Updated: 2025-01-19 - UI改善版デプロイ準備 -->
+| コマンド | 内容 |
+|----------|------|
+| `npm run dev` | 開発サーバー（Turbopack） |
+| `npm run build` | 本番ビルド |
+| `npm run lint` | ESLint |
+| `npm run type-check` | 型チェック（`tsc --noEmit`） |
