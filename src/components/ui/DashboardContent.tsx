@@ -30,6 +30,7 @@ import {
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useTransactions } from '@/contexts/TransactionsContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { TransactionList } from '@/components/ui/TransactionList';
@@ -128,6 +129,7 @@ export function DashboardContent() {
   // データ取得フック
   // ------------------------------------------------------------
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
+  const { loading: settingsLoading } = useSettings();
   const { user, logout } = useAuth();
   const {
     getActiveRecurringTransactions,
@@ -296,7 +298,8 @@ export function DashboardContent() {
   // 今月の収支
   const monthBalance = selectedMonthData?.balance ?? 0;
 
-  if (transactionsLoading) {
+  // 設定ロード前にフォームがカテゴリ空で描画されないよう、両方の完了を待つ
+  if (transactionsLoading || settingsLoading) {
     return (
       <Container size="lg" py={80}>
         <Stack align="center" gap="sm">

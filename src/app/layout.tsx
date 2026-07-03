@@ -10,6 +10,7 @@ import { MantineProvider, createTheme } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
 
 const theme = createTheme({
@@ -208,9 +209,11 @@ export default function RootLayout({
           <ModalsProvider>
             <Notifications />
             <AuthProvider>
-              <TransactionsProvider>
-                {children}
-              </TransactionsProvider>
+              <SettingsProvider>
+                <TransactionsProvider>
+                  {children}
+                </TransactionsProvider>
+              </SettingsProvider>
             </AuthProvider>
           </ModalsProvider>
         </MantineProvider>
