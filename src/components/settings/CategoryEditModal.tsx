@@ -243,7 +243,9 @@ const CategoryEditor: React.FC<
 
         <Group justify="flex-end" mt="sm">
           <Button variant="light" onClick={onClose}>キャンセル</Button>
-          <Button onClick={handleSave}>{category ? '更新' : '追加'}</Button>
+          <Button onClick={handleSave} data-testid="category-save">
+            {category ? '更新' : '追加'}
+          </Button>
         </Group>
       </Stack>
   );

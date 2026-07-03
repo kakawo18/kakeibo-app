@@ -15,15 +15,44 @@ import {
   CategoryRole,
   CategoryColor,
   Category,
-  EXPENSE_CATEGORIES,
-  INCOME_CATEGORIES,
-  PAYMENT_METHODS,
 } from '@/types';
 import {
   CATEGORY_PALETTE,
   NEUTRAL_COLOR,
   LEGACY_ENTITY_COLORS,
 } from '@/config/colorPalette';
+
+/**
+ * v2.0 以前に types/index.ts にハードコードされていたカテゴリ定義(レガシーシード用)。
+ * 既存の取引データはこれらのカテゴリ名文字列を保持しているため、変更禁止。
+ */
+const LEGACY_EXPENSE_CATEGORIES: Category[] = [
+  { name: '食費' },                                                              // 食事、外食
+  { name: '交際費', subcategories: ['飲み会費'] },                                 // 交際費
+  { name: '固定費', subcategories: ['家賃', '投資', '通信費', '電気代', 'ガス代', '水道代'] },  // 固定費（投資は支出から除外）
+  { name: '日用品' },                                                            // 日用品
+  { name: '交通費' },                                                            // 交通費
+  { name: '趣味代' },                                                            // 趣味・娯楽
+  { name: '旅行代' },                                                            // 旅行
+  { name: '医療費' },                                                            // 医療費
+  { name: 'その他' },                                                            // その他
+  { name: '立替金' },                                                              // 立て替え払い（収支から除外）
+];
+
+const LEGACY_INCOME_CATEGORIES: Category[] = [
+  { name: '給与', subcategories: ['給与', 'ボーナス', '賞与', '配当収入'] },           // 給与関連（貯蓄率計算に使用）
+  { name: '立替回収' },                                                             // 立て替え分の回収（収支から除外）
+  { name: 'その他' },                                                // その他の収入
+];
+
+const LEGACY_PAYMENT_METHODS = [
+  '現金',              // 現金払い
+  '三井住友カード',     // 三井住友カード（還元率: 0.5%）
+  '三菱UFJカード',      // 三菱UFJカード（還元率: 7%）
+  'amazonカード',       // amazonカード（還元率: 1%）
+  'EPOSカード',         // EPOSカード（還元率: 0.25%）
+  '楽天カード',         // 楽天カード（還元率: 1%）
+] as const;
 
 /** 旧 cardRewards.ts にハードコードされていたカード別還元率(レガシーシード用) */
 const LEGACY_CARD_REWARD_RATES: Record<string, number> = {
@@ -172,7 +201,7 @@ export const buildLegacySettings = (): UserSettings => {
   const now = new Date();
 
   const categories: CategorySetting[] = [
-    ...EXPENSE_CATEGORIES.map((c) => toLegacyCategory(c, 'expense')),
+    ...LEGACY_EXPENSE_CATEGORIES.map((c) => toLegacyCategory(c, 'expense')),
     // 「カード引き落とし」は旧フォームの選択肢には無いが、
     // transactionRules の判定・CSVインポート経由で取引データに存在しうる
     {
@@ -183,10 +212,10 @@ export const buildLegacySettings = (): UserSettings => {
       color: NEUTRAL_COLOR,
       subcategories: [],
     },
-    ...INCOME_CATEGORIES.map((c) => toLegacyCategory(c, 'income')),
+    ...LEGACY_INCOME_CATEGORIES.map((c) => toLegacyCategory(c, 'income')),
   ];
 
-  const paymentMethods: PaymentMethodSetting[] = PAYMENT_METHODS.map((name) => ({
+  const paymentMethods: PaymentMethodSetting[] = LEGACY_PAYMENT_METHODS.map((name) => ({
     id: newId(),
     name,
     isCash: name === '現金',

@@ -165,31 +165,33 @@ export const CategorySection = () => {
               <ColorSwatch
                 color={isDark ? category.color.dark : category.color.light}
                 size={14}
+                style={{ flexShrink: 0 }}
               />
               <div style={{ minWidth: 0 }}>
                 <Text size="sm" fw={600} truncate>
                   {category.name}
                 </Text>
-                <Group gap={4}>
-                  {category.subcategories.length > 0 && (
-                    <Text size="xs" c="dimmed" truncate>
-                      {category.subcategories.map((sub) => sub.name).join('・')}
-                    </Text>
-                  )}
-                </Group>
+                {category.subcategories.length > 0 && (
+                  <Text size="xs" c="dimmed" truncate>
+                    {category.subcategories.map((sub) => sub.name).join('・')}
+                  </Text>
+                )}
+                {(() => {
+                  const roles = [
+                    ...category.roles,
+                    ...category.subcategories.flatMap((sub) => sub.roles),
+                  ].filter((role, i, arr) => arr.indexOf(role) === i);
+                  return roles.length > 0 ? (
+                    <Group gap={4} mt={2}>
+                      {roles.map((role) => (
+                        <Badge key={role} size="xs" variant="light" color="indigo">
+                          {CATEGORY_ROLE_LABELS[role]}
+                        </Badge>
+                      ))}
+                    </Group>
+                  ) : null;
+                })()}
               </div>
-              <Group gap={4} wrap="nowrap">
-                {[
-                  ...category.roles,
-                  ...category.subcategories.flatMap((sub) => sub.roles),
-                ]
-                  .filter((role, i, arr) => arr.indexOf(role) === i)
-                  .map((role) => (
-                    <Badge key={role} size="xs" variant="light" color="indigo">
-                      {CATEGORY_ROLE_LABELS[role]}
-                    </Badge>
-                  ))}
-              </Group>
             </Group>
 
             <Group gap={2} wrap="nowrap">
