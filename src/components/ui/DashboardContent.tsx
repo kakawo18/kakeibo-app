@@ -27,6 +27,7 @@ import {
   IconPlus, IconTrendingUp, IconWallet, IconDotsVertical, IconFileImport,
   IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight,
   IconMinus, IconCalendar, IconCoins, IconRepeat, IconLogout, IconSun, IconMoon,
+  IconSettings,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useTransactions } from '@/contexts/TransactionsContext';
@@ -386,8 +387,22 @@ export function DashboardContent() {
                     <Menu.Item leftSection={<IconFileImport size={14} />} onClick={() => setCsvModalOpened(true)}>
                       CSV インポート/エクスポート
                     </Menu.Item>
+                    <Menu.Item leftSection={<IconSettings size={14} />} onClick={() => router.push('/settings')}>
+                      設定
+                    </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
+              )}
+              {!isMobile && (
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  size="lg"
+                  onClick={() => router.push('/settings')}
+                  aria-label="設定"
+                >
+                  <IconSettings size={18} />
+                </ActionIcon>
               )}
               <ActionIcon
                 variant="subtle"
