@@ -21,7 +21,7 @@ import { Transaction, TransactionKind } from '@/types';
 import { formatDateJa } from '@/utils/dateUtils';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { ResponsiveSelect } from './ResponsiveSelect';
-import { getInputStyles } from './formStyles';
+import { getInputStyles, getTextareaStyles } from './formStyles';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -62,6 +62,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   // モバイル表示判定
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
+  const textareaStyles = getTextareaStyles(isMobile ?? false);
 
   // uncontrolledモードでは form.values が再レンダリングをトリガーしないため、
   // 画面内で直接参照する項目（種別・カテゴリ・日付）のみローカルstateで管理する
@@ -330,7 +331,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
             autosize
             minRows={isMobile ? 2 : 3}
             maxRows={isMobile ? 4 : 6}
-            styles={inputStyles}
+            styles={textareaStyles}
           />
 
           <Group justify="flex-end">

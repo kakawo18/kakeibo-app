@@ -18,7 +18,7 @@ import { RecurringTransaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { formatDateJa } from '@/utils/dateUtils';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
-import { getInputStyles } from '@/components/forms/formStyles';
+import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
 
 interface RecurringTransactionConfirmProps {
   opened: boolean;
@@ -51,6 +51,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
   const [loading, setLoading] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
+  const textareaStyles = getTextareaStyles(isMobile ?? false);
 
   const form = useForm({
     initialValues: {
@@ -221,7 +222,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
             autosize
             minRows={isMobile ? 2 : 3}
             maxRows={isMobile ? 4 : 6}
-            styles={inputStyles}
+            styles={textareaStyles}
           />
 
           <Group justify="flex-end">

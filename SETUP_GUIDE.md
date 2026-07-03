@@ -30,9 +30,18 @@ nvm use --lts
 npm install
 ```
 
-### 2. 環境変数の設定
-1. `.env.example` を参考に `.env.local` ファイルを作成
-2. Firebase Console から設定値を取得して設定
+### 2. Firebase プロジェクトの準備
+
+このアプリは認証・データ保存に Firebase を使用します。自分の Firebase プロジェクトが必要です。
+
+1. [Firebase Console](https://console.firebase.google.com/) で新しいプロジェクトを作成
+2. **Authentication** → 「始める」→ ログイン方法で **メール/パスワード** を有効化
+3. **Firestore Database** → データベースを作成（本番モードで作成し、ルールは後で設定）
+4. プロジェクトの設定（歯車アイコン）→「全般」→「マイアプリ」→ ウェブアプリを追加し、`firebaseConfig` の値を控える
+
+### 3. 環境変数の設定
+1. `.env.example` をコピーして `.env.local` ファイルを作成
+2. 手順2で控えた Firebase の設定値に置き換える
 
 ```bash
 # .env.local ファイルの例
@@ -44,17 +53,17 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
 ```
 
-### 3. 型チェック
+### 4. 型チェック
 ```bash
 npm run type-check
 ```
 
-### 4. リンターチェック
+### 5. リンターチェック
 ```bash
 npm run lint
 ```
 
-### 5. 開発サーバーの起動
+### 6. 開発サーバーの起動
 ```bash
 npm run dev
 ```
@@ -85,6 +94,11 @@ npm install --save-dev @types/node @types/react @types/react-dom
 1. `.env.local` ファイルの設定値を確認
 2. Firebase Console でプロジェクト設定を確認
 3. 認証ドメインの設定を確認
+
+### 正しいはずのメール/パスワードでログインできない（auth/invalid-credential）
+アカウントは **Firebase プロジェクトごとに独立** しています。
+`.env.local` の `NEXT_PUBLIC_FIREBASE_PROJECT_ID` が、そのアカウントを登録したプロジェクトと一致しているか確認してください。
+別プロジェクトに切り替えた場合は、ログイン画面の「新規登録」からアカウントを作り直す必要があります。
 
 ## ビルドとデプロイ
 
