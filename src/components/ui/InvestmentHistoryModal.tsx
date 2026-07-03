@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Modal, Stack, Card, Text, Group, Box, Divider, Badge } from '@mantine/core';
 import { IconCoins } from '@tabler/icons-react';
 import { Transaction } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { formatMonthLocal, getMonthName } from '@/utils/dateUtils';
 
 interface InvestmentHistoryModalProps {
@@ -19,14 +20,15 @@ export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({
   transactions,
   year,
 }) => {
+  const { rules } = useSettings();
+
   // 年間投資データの計算
   const investmentData = useMemo(() => {
     // 投資取引のフィルタリング
     const investmentTransactions = transactions.filter(t =>
       t.date.getFullYear() === year &&
       t.type === 'expense' &&
-      t.category === '固定費' &&
-      t.subcategory === '投資'
+      rules.isInvestment(t)
     );
 
     // 年間合計
@@ -55,7 +57,7 @@ export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({
       yearlyTotal,
       monthlyData,
     };
-  }, [transactions, year]);
+  }, [transactions, year, rules]);
 
   return (
     <Modal

@@ -15,14 +15,9 @@ import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useMantineColo
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { MonthlyData, Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
-import { getCategoryColor } from '@/utils/calculations';
-import { isInvestment, isAdvancePayment } from '@/utils/transactionRules';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数
-
-/** 支出推移の分析対象か（投資・立替金は除外） */
-const isAnalyzedExpense = (t: Transaction): boolean =>
-  t.type === 'expense' && !isInvestment(t) && !isAdvancePayment(t);
 
 interface LineChartProps {
   title: string;
@@ -33,6 +28,14 @@ interface LineChartProps {
 export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions = [] }) => {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
+  const { rules, getColor } = useSettings();
+
+  // 支出推移の分析対象か（投資・立替金は除外）
+  const isAnalyzedExpense = useMemo(
+    () => (t: Transaction): boolean =>
+      t.type === 'expense' && !rules.isInvestment(t) && !rules.isAdvancePayment(t),
+    [rules]
+  );
   // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
   const [userSelectedCategories, setUserSelectedCategories] = useState<string[] | null>(null);
 
@@ -55,7 +58,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       .sort((a, b) => b[1] - a[1]) // 金額降順
       .slice(0, 3) // Top 3
       .map(entry => entry[0]);
-  }, [transactions]);
+  }, [transactions, isAnalyzedExpense]);
 
   const selectedCategories = userSelectedCategories ?? defaultTopCategories;
 
@@ -65,7 +68,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
       transactions.filter(isAnalyzedExpense).map(t => t.category)
     )).sort();
     return categories.map(cat => ({ value: cat, label: cat }));
-  }, [transactions]);
+  }, [transactions, isAnalyzedExpense]);
 
   // 全データを計算（スライス前）
   const allCategoryData = useMemo(() => {
@@ -95,7 +98,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
         month: getMonthName(month).replace('年', '/').replace('月', ''),
         ...categories,
       }));
-  }, [transactions]);
+  }, [transactions, isAnalyzedExpense]);
 
   // 表示開始位置（未操作時は最新の6ヶ月）と表示データ
   const displayStartIndex = userStartIndex ?? Math.max(0, allCategoryData.length - DISPLAY_MONTHS);
@@ -227,9 +230,9 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
                 key={category}
                 type="monotone"
                 dataKey={category}
-                stroke={getCategoryColor(category, isDark)}
+                stroke={getColor(category, isDark)}
                 strokeWidth={2}
-                dot={{ r: 3, strokeWidth: 0, fill: getCategoryColor(category, isDark) }}
+                dot={{ r: 3, strokeWidth: 0, fill: getColor(category, isDark) }}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--app-surface)' }}
                 connectNulls={false}
               />

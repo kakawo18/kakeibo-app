@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Group, FileInput, Text, Alert, Modal, Stack } from '@mantine/core';
 import { IconDownload, IconUpload, IconFileText } from '@tabler/icons-react';
 import { useTransactions } from '@/contexts/TransactionsContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { exportToCSV, parseCSV } from '@/utils/csvUtils';
 import { notifications } from '@mantine/notifications';
 
@@ -14,6 +15,7 @@ interface CSVImportExportProps {
 
 export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClose }) => {
   const { transactions, addTransaction } = useTransactions();
+  const { rules } = useSettings();
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
 
@@ -41,7 +43,7 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
     setImporting(true);
     try {
       const text = await importFile.text();
-      const parsedTransactions = parseCSV(text);
+      const parsedTransactions = parseCSV(text, rules);
 
       if (parsedTransactions.length === 0) {
         notifications.show({

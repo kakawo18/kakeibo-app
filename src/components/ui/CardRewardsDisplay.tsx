@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { Modal, Card, Text, Group, Stack, Progress, Badge, Grid, Box, ThemeIcon } from '@mantine/core';
 import { IconCreditCard, IconCoins, IconTrendingUp } from '@tabler/icons-react';
 import { Transaction } from '@/types';
-import { calculateMonthlyCardRewards, CARD_COLORS, CARD_REWARD_RATES } from '@/utils/cardRewards';
+import { useSettings } from '@/contexts/SettingsContext';
+import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
 interface CardRewardsDisplayProps {
   transactions: Transaction[];
   selectedMonth: string;
@@ -28,10 +29,12 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
     [transactions, selectedMonth]
   );
 
+  const { paymentMethods } = useSettings();
+
   // 還元ポイント計算
-  const rewardsData = useMemo(() => 
-    calculateMonthlyCardRewards(monthlyTransactions),
-    [monthlyTransactions]
+  const rewardsData = useMemo(() =>
+    calculateMonthlyCardRewards(monthlyTransactions, paymentMethods),
+    [monthlyTransactions, paymentMethods]
   );
 
   return (
@@ -110,8 +113,9 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
             {Object.entries(rewardsData.cardRewards)
               .sort(([,a], [,b]) => b.points - a.points)
               .map(([cardType, data]) => {
-                const rate = CARD_REWARD_RATES[cardType as keyof typeof CARD_REWARD_RATES];
-                const color = CARD_COLORS[cardType as keyof typeof CARD_COLORS];
+                const method = paymentMethods.find((m) => m.name === cardType);
+                const rate = method?.rewardRate ?? 0;
+                const color = method?.color ?? '#8b919e';
                 
                 return (
                   <Card key={cardType} withBorder p="sm" style={{ borderLeft: `4px solid ${color}` }}>

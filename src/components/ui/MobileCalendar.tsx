@@ -20,7 +20,7 @@ import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 import { Transaction } from '@/types';
-import { isInvestment, isAdvancePayment, isAdvanceRepayment } from '@/utils/transactionRules';
+import { useSettings } from '@/contexts/SettingsContext';
 
 /** カレンダー表示に必要な取引フィールド */
 type CalendarTransaction = Pick<
@@ -45,6 +45,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
   transactions = [],
   isSelector = false,
 }) => {
+  const { rules } = useSettings();
   const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
   const [selectedDate, setSelectedDate] = useState(() => dayjs(value));
   const [drawerOpened, setDrawerOpened] = useState(false);
@@ -107,11 +108,11 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
     const dayTransactions = transactionsByDate.get(key) || [];
 
     const income = dayTransactions
-      .filter(t => t.type === 'income' && !isAdvanceRepayment(t))
+      .filter(t => t.type === 'income' && !rules.isAdvanceRepayment(t))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const expense = dayTransactions
-      .filter(t => t.type === 'expense' && !isAdvancePayment(t) && !isInvestment(t))
+      .filter(t => t.type === 'expense' && !rules.isAdvancePayment(t) && !rules.isInvestment(t))
       .reduce((sum, t) => sum + t.amount, 0);
 
     return { income, expense, balance: income - expense };
@@ -342,7 +343,7 @@ export const MobileCalendar: React.FC<MobileCalendarProps> = ({
                     <Group justify="space-between">
                       <Group gap="sm">
                         <ThemeIcon
-                          color={t.type === 'income' ? 'green' : (t.category === '立替金' ? 'orange' : 'red')}
+                          color={t.type === 'income' ? 'green' : (rules.isAdvancePayment(t) ? 'orange' : 'red')}
                           variant="light"
                           size="lg"
                           radius="xl"

@@ -19,12 +19,29 @@ import {
   INCOME_CATEGORIES,
   PAYMENT_METHODS,
 } from '@/types';
-import { CARD_REWARD_RATES, CARD_COLORS, CardType } from '@/utils/cardRewards';
 import {
   CATEGORY_PALETTE,
   NEUTRAL_COLOR,
   LEGACY_ENTITY_COLORS,
 } from '@/config/colorPalette';
+
+/** 旧 cardRewards.ts にハードコードされていたカード別還元率(レガシーシード用) */
+const LEGACY_CARD_REWARD_RATES: Record<string, number> = {
+  '楽天カード': 0.01,        // 1%
+  '三菱UFJカード': 0.07,     // 7%
+  'EPOSカード': 0.0025,      // 0.25%
+  'amazonカード': 0.01,      // 1%
+  '三井住友カード': 0.005,   // 0.5%
+};
+
+/** 旧 cardRewards.ts にハードコードされていたカード色(レガシーシード用) */
+const LEGACY_CARD_COLORS: Record<string, string> = {
+  '楽天カード': '#bf0000',
+  '三菱UFJカード': '#dc143c',
+  'EPOSカード': '#ff6b35',
+  'amazonカード': '#ff9900',
+  '三井住友カード': '#009639',
+};
 
 const DEFAULT_MONTHLY_BUDGET = 100000;
 
@@ -173,8 +190,8 @@ export const buildLegacySettings = (): UserSettings => {
     id: newId(),
     name,
     isCash: name === '現金',
-    rewardRate: CARD_REWARD_RATES[name as CardType] ?? 0,
-    color: CARD_COLORS[name as keyof typeof CARD_COLORS] ?? '#8b919e',
+    rewardRate: LEGACY_CARD_REWARD_RATES[name] ?? 0,
+    color: LEGACY_CARD_COLORS[name] ?? '#8b919e',
   }));
 
   return {

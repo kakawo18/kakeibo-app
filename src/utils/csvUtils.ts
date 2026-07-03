@@ -1,6 +1,6 @@
 import { Transaction, TransactionInput } from '@/types';
 import { formatDate } from './dateUtils';
-import { deriveTransactionFlags } from './transactionRules';
+import { TransactionRules } from './transactionRules';
 
 // CSVフィールドのエスケープ（RFC 4180: ダブルクォートは二重化する）
 const escapeCSVField = (field: string | number): string => {
@@ -79,7 +79,7 @@ export const exportToCSV = (transactions: Transaction[]): void => {
   URL.revokeObjectURL(url);
 };
 
-export const parseCSV = (csvText: string): TransactionInput[] => {
+export const parseCSV = (csvText: string, rules: TransactionRules): TransactionInput[] => {
   // BOM除去 + CRLF対応
   const lines = csvText.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
 
@@ -101,7 +101,7 @@ export const parseCSV = (csvText: string): TransactionInput[] => {
       paymentMethod,
       // カード支払い・引き落としの集計フラグを再導出する
       // （エクスポート→インポートで支出の二重計上が起きないようにする）
-      ...deriveTransactionFlags(category, paymentMethod),
+      ...rules.deriveTransactionFlags(category, paymentMethod),
     };
   }).filter(transaction =>
     !isNaN(transaction.date.getTime()) &&

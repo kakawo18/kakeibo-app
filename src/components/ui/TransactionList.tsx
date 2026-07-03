@@ -18,7 +18,7 @@ import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { Transaction } from '@/types';
-import { getCategoryColor } from '@/utils/calculations';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -42,6 +42,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
   const { deleteTransaction } = useTransactions();
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
+  const { getColor } = useSettings();
 
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -212,7 +213,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
                       const categoryLabel = transaction.subcategory
                         ? `${transaction.category}・${transaction.subcategory}`
                         : transaction.category;
-                      const dotColor = getCategoryColor(
+                      const dotColor = getColor(
                         transaction.subcategory || transaction.category,
                         isDark
                       );

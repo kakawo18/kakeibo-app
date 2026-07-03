@@ -41,7 +41,6 @@ import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
-import { isInvestment, deriveTransactionFlags } from '@/utils/transactionRules';
 import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
 import { Transaction, RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
@@ -53,9 +52,6 @@ import { RecurringTransactionNotice } from '@/components/recurring/RecurringTran
 import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
-
-// 支出ペースチャートの月間予算（円）
-const MONTHLY_BUDGET = 100000;
 
 // ============================================================
 // 前月比トレンド（色付きの矢印 + % のみ。バッジの面は使わない）
@@ -129,7 +125,7 @@ export function DashboardContent() {
   // データ取得フック
   // ------------------------------------------------------------
   const { transactions, loading: transactionsLoading, addTransaction } = useTransactions();
-  const { loading: settingsLoading } = useSettings();
+  const { loading: settingsLoading, settings, rules, getColor, paymentMethods } = useSettings();
   const { user, logout } = useAuth();
   const {
     getActiveRecurringTransactions,
@@ -171,7 +167,7 @@ export function DashboardContent() {
   // ------------------------------------------------------------
   // データ計算
   // ------------------------------------------------------------
-  const monthlyData = useMemo(() => calculateMonthlyData(transactions), [transactions]);
+  const monthlyData = useMemo(() => calculateMonthlyData(transactions, rules), [transactions, rules]);
 
   const selectedMonthData = useMemo(() =>
     monthlyData.find(data => data.month === selectedMonth),
@@ -197,13 +193,13 @@ export function DashboardContent() {
   );
 
   const incomeChartData = useMemo(() =>
-    calculateCategoryChartData(selectedMonthTransactions, 'income'),
-    [selectedMonthTransactions]
+    calculateCategoryChartData(selectedMonthTransactions, 'income', rules, getColor),
+    [selectedMonthTransactions, rules, getColor]
   );
 
   const expenseChartData = useMemo(() =>
-    calculateCategoryChartData(selectedMonthTransactions, 'expense'),
-    [selectedMonthTransactions]
+    calculateCategoryChartData(selectedMonthTransactions, 'expense', rules, getColor),
+    [selectedMonthTransactions, rules, getColor]
   );
 
   // 貯蓄額と貯蓄率の計算
@@ -212,7 +208,7 @@ export function DashboardContent() {
       .filter(t =>
         t.date.getFullYear() === selectedYear &&
         t.type === 'expense' &&
-        isInvestment(t)
+        rules.isInvestment(t)
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -220,7 +216,7 @@ export function DashboardContent() {
       .filter(t =>
         t.date.getFullYear() === selectedYear &&
         t.type === 'income' &&
-        t.category === '給与'
+        rules.isSalaryIncome(t)
       )
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -229,12 +225,12 @@ export function DashboardContent() {
       : 0;
 
     return { yearlyInvestmentAmount, yearlySavingsRate };
-  }, [transactions, selectedYear]);
+  }, [transactions, selectedYear, rules]);
 
   // 月間カード還元ポイント
   const monthlyCardPoints = useMemo(
-    () => calculateMonthlyCardRewards(selectedMonthTransactions).totalPoints,
-    [selectedMonthTransactions]
+    () => calculateMonthlyCardRewards(selectedMonthTransactions, paymentMethods).totalPoints,
+    [selectedMonthTransactions, paymentMethods]
   );
 
   // 表示すべき定期取引
@@ -274,7 +270,7 @@ export function DashboardContent() {
     await addTransaction({
       type: 'expense',
       ...data,
-      ...deriveTransactionFlags(data.category, data.paymentMethod),
+      ...rules.deriveTransactionFlags(data.category, data.paymentMethod),
     });
   };
 
@@ -639,7 +635,7 @@ export function DashboardContent() {
           <SpendingPaceChart
             transactions={selectedMonthTransactions}
             selectedMonth={selectedMonth}
-            budget={MONTHLY_BUDGET}
+            budget={settings?.monthlyBudget ?? 100000}
           />
 
           <LineChart
