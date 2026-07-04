@@ -42,7 +42,6 @@ export interface Transaction {
   paymentMethod?: string;        // 支払方法（例: "現金", "三井住友カード"）
   transactionType?: TransactionType;  // 取引タイプ
   affectsExpense?: boolean;      // 支出計算に影響するか
-  affectsBalance?: boolean;      // 残高計算に影響するか
   date: Date;                    // 取引日
   description?: string;          // 説明・メモ
   createdAt: Date;               // 作成日時
@@ -96,8 +95,7 @@ export interface MonthlyData {
   month: string;                      // 月（YYYY-MM形式）
   income: number;                     // 収入合計
   expense: number;                    // 支出合計（投資除外）
-  balance: number;                    // 実残高
-  categories: Record<string, number>; // カテゴリ別支出
+  balance: number;                    // 収支（収入 - 支出）
 }
 
 /**

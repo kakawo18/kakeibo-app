@@ -7,7 +7,7 @@
 import { Transaction, PaymentMethodSetting } from '@/types';
 
 // カード還元ポイント計算(小数点以下切り捨て)
-export const calculateCardRewards = (amount: number, rate: number): number =>
+const calculateCardRewards = (amount: number, rate: number): number =>
   Math.floor(amount * rate);
 
 // 月間カード別還元ポイント集計

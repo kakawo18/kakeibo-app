@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useMantineColorScheme } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { MonthlyData, Transaction } from '@/types';
+import { Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 import { useSettings } from '@/contexts/SettingsContext';
 
@@ -21,11 +21,10 @@ const DISPLAY_MONTHS = 6; // 一度に表示する月数
 
 interface LineChartProps {
   title: string;
-  data: MonthlyData[];
   transactions?: Transaction[]; // カテゴリ分析用
 }
 
-export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions = [] }) => {
+export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }) => {
   const { colorScheme } = useMantineColorScheme();
   const isDark = colorScheme === 'dark';
   const { rules, getColor } = useSettings();
@@ -124,7 +123,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, data, transactions 
     }
   };
 
-  if (!data || data.length === 0) {
+  if (allCategoryData.length === 0) {
     return (
       <Paper className="ledger-card" p="lg">
         <Text className="section-title">{title}</Text>

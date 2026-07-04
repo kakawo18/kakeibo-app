@@ -9,9 +9,8 @@
  * - calculateMonthlyComparison: 前月比較データを計算
  * 
  * 【重要な計算ルール】
- * - 投資（固定費→投資）は支出から除外される
- * - カード支払いは翌月の残高に影響する
- * - 実残高 = 前月残高 + 今月収入 - 今月現金支払い - 前月カード支払い
+ * - 投資・立替金・カード引き落とし等の除外判定は rules（transactionRules.ts）に従う
+ * - 残高 = 収入 - 支出（発生主義）
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
 import { formatMonthLocal, getNextMonth } from './dateUtils';
@@ -30,8 +29,7 @@ export type CategoryColorResolver = (name: string, isDark: boolean) => string;
  * 【計算内容】
  * - 各月の収入合計
  * - 各月の支出合計（投資は除外）
- * - 各月の実残高（カード支払いの翌月反映を考慮）
- * - カテゴリ別の支出内訳
+ * - 各月の収支（収入 - 支出）
  */
 export const calculateMonthlyData = (
   transactions: Transaction[],
@@ -49,7 +47,6 @@ export const calculateMonthlyData = (
         income: 0,
         expense: 0,
         balance: 0,
-        categories: {},
       });
     }
 
@@ -64,9 +61,6 @@ export const calculateMonthlyData = (
       // 支出: 投資（資産移動）・立替金・カード引き落とし等は除外
       if (!rules.isExcludedFromExpense(transaction)) {
         monthData.expense += transaction.amount;
-        // カテゴリ別集計（円グラフ用）
-        const category = transaction.subcategory || transaction.category;
-        monthData.categories[category] = (monthData.categories[category] || 0) + transaction.amount;
       }
     }
   });
@@ -85,7 +79,6 @@ export const calculateMonthlyData = (
           income: 0,
           expense: 0,
           balance: 0,
-          categories: {},
         });
       }
       currentMonth = getNextMonth(currentMonth);
@@ -133,28 +126,6 @@ export const calculateCategoryChartData = (
       color: getColor(name, false),
     }))
     .sort((a, b) => b.value - a.value);
-};
-
-export const calculatePreviousMonthComparison = (
-  currentMonth: MonthlyData,
-  previousMonth: MonthlyData | undefined
-): Record<string, number> => {
-  if (!previousMonth) return {};
-
-  const comparison: Record<string, number> = {};
-
-  Object.keys(currentMonth.categories).forEach((category) => {
-    const current = currentMonth.categories[category] || 0;
-    const previous = previousMonth.categories[category] || 0;
-
-    if (previous > 0) {
-      comparison[category] = Math.round(((current - previous) / previous) * 100);
-    } else if (current > 0) {
-      comparison[category] = 100;
-    }
-  });
-
-  return comparison;
 };
 
 export const calculateMonthlyComparison = (
