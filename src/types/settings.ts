@@ -17,7 +17,7 @@ export type CategoryRole =
   | 'investment'         // 投資: 支出から除外し年間投資額に集計
   | 'advance_payment'    // 立替金: 支出から除外
   | 'advance_repayment'  // 立替回収: 収入から除外
-  | 'card_withdrawal'    // カード引き落とし: 支出集計に含めず残高のみ減らす
+  | 'card_withdrawal'    // カード引き落とし: 支出集計から除外(カード支払い分との二重計上を防ぐ)
   | 'exclude_from_pace'; // 支出ペースチャートから除外(家賃など毎月の固定額)
 
 /** 役割の日本語ラベル(設定UIで使用) */

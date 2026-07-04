@@ -42,7 +42,6 @@ interface CleanTransactionData {
   date?: Timestamp;
   transactionType?: TransactionType;
   affectsExpense?: boolean;
-  affectsBalance?: boolean;
   subcategory?: string;
   paymentMethod?: string;
   description?: string;
@@ -72,9 +71,6 @@ const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransacti
   }
   if (transaction.affectsExpense !== undefined) {
     cleaned.affectsExpense = transaction.affectsExpense;
-  }
-  if (transaction.affectsBalance !== undefined) {
-    cleaned.affectsBalance = transaction.affectsBalance;
   }
 
   // subcategory と paymentMethod: 値がある場合のみ追加、空文字列は除外
@@ -143,7 +139,6 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
             paymentMethod: data.paymentMethod || undefined,
             transactionType: data.transactionType || 'normal',
             affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
-            affectsBalance: data.affectsBalance !== undefined ? data.affectsBalance : true,
             date: data.date?.toDate() || new Date(),
             description: data.description || undefined,
             createdAt: data.createdAt?.toDate() || new Date(),
@@ -171,7 +166,6 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
         ...transaction,
         transactionType: transaction.transactionType || 'normal',
         affectsExpense: transaction.affectsExpense !== undefined ? transaction.affectsExpense : true,
-        affectsBalance: transaction.affectsBalance !== undefined ? transaction.affectsBalance : true,
       });
 
       const transactionData = {

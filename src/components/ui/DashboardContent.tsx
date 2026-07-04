@@ -709,7 +709,6 @@ export function DashboardContent() {
 
           <LineChart
             title="カテゴリ別支出推移"
-            data={monthlyData}
             transactions={transactions}
           />
 
