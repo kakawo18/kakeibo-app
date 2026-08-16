@@ -51,6 +51,15 @@ npm run type-check          # tsc --noEmit
 - Firestore のアクセス制御はセキュリティルールで担保する（各ユーザーは `users/{uid}/**` のみ read/write。ルール例は `docs/deployment.md`）。
 - 本番デプロイ先ドメインは Firebase Console の Authentication → Authorized domains に追加が必要。
 
+## バージョン管理
+
+ユーザーに見える変更を入れたら**毎回バージョンを更新する**。バージョンは `package.json` の `version` が唯一の情報源で、画面下部の `VersionDisplay`（`v5.1.0 / © Gorillaburg Inc.`）がそれを表示する。どのデプロイが入っているかの判別に使うため、更新漏れは避ける。
+
+- 付け方は Semantic Versioning。破壊的変更・全面刷新 = major / 機能追加 = minor / バグ修正・軽微な調整 = patch。
+- 同じ PR の中で `docs/CHANGELOG.md` の**先頭**に `## [x.y.z] - YYYY-MM-DD` の節を追加し、`### 追加` / `### 改善` / `### 修正` / `### 技術的変更` に変更点を書く。
+- バージョン更新は独立した PR に切り出さず、変更本体と同じ PR に含める。
+- リファクタのみ・ドキュメントのみなど、ユーザーの見える挙動が変わらない変更はバージョンを上げなくてよい。
+
 ## コミット / PR
 
 - コミットは日本語。Conventional Commits 形式のプレフィックス（`feat:` / `fix:` / `refactor:` / `chore:` / `style:`）を付けるのが基本。
