@@ -16,8 +16,16 @@ import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 import { useSettings } from '@/contexts/SettingsContext';
+import { usePersistedState } from '@/hooks/usePersistedState';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数
+
+/** 比較カテゴリの選択を保存する localStorage キー */
+const SELECTED_CATEGORIES_KEY = 'kakeibo:category-trend-selected';
+
+/** 保存済みの選択を検証する（文字列配列以外は未保存として扱う） */
+const parseSelectedCategories = (raw: unknown): string[] | null =>
+  Array.isArray(raw) && raw.every((value) => typeof value === 'string') ? raw : null;
 
 interface LineChartProps {
   title: string;
@@ -36,7 +44,11 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
     [rules]
   );
   // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
-  const [userSelectedCategories, setUserSelectedCategories] = useState<string[] | null>(null);
+  // 選択はリロード後も保つため localStorage に永続化する（端末ごとの表示設定）
+  const [userSelectedCategories, setUserSelectedCategories] = usePersistedState<string[]>(
+    SELECTED_CATEGORIES_KEY,
+    parseSelectedCategories
+  );
 
   // ユーザーがページングするまでは常に最新期間を表示する
   // （固定値で初期化すると、データ月数が変わったとき初期表示がずれる）
@@ -59,8 +71,6 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
       .map(entry => entry[0]);
   }, [transactions, isAnalyzedExpense]);
 
-  const selectedCategories = userSelectedCategories ?? defaultTopCategories;
-
   // 利用可能なカテゴリを取得
   const availableCategories = useMemo(() => {
     const categories = Array.from(new Set(
@@ -68,6 +78,15 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
     )).sort();
     return categories.map(cat => ({ value: cat, label: cat }));
   }, [transactions, isAnalyzedExpense]);
+
+  // 保存済みの選択のうち、現在の取引に存在しないカテゴリ（改名・削除された等）は除外する。
+  // 保存値自体は書き換えないため、該当カテゴリの取引が戻れば再び表示される。
+  const selectedCategories = useMemo(() => {
+    const available = new Set(availableCategories.map(option => option.value));
+    return (userSelectedCategories ?? defaultTopCategories).filter(category =>
+      available.has(category)
+    );
+  }, [userSelectedCategories, defaultTopCategories, availableCategories]);
 
   // 全データを計算（スライス前）
   const allCategoryData = useMemo(() => {
