@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Group, FileInput, Text, Alert, Modal, Stack } from '@mantine/core';
 import { IconDownload, IconUpload, IconFileText } from '@tabler/icons-react';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { exportToCSV, parseCSV } from '@/utils/csvUtils';
+import {
+  exportToCSV,
+  parseCSV,
+  MAX_IMPORT_FILE_BYTES,
+  MAX_IMPORT_ROWS,
+} from '@/utils/csvUtils';
 import { notifications } from '@mantine/notifications';
 
 interface CSVImportExportProps {
@@ -14,10 +19,20 @@ interface CSVImportExportProps {
 }
 
 export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClose }) => {
-  const { transactions, addTransaction } = useTransactions();
-  const { rules } = useSettings();
+  const { transactions, addTransactions } = useTransactions();
+  const { rules, settings } = useSettings();
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+
+  // 設定に登録済みのカテゴリ/サブカテゴリ名（未登録カテゴリの警告用）
+  const knownCategories = useMemo(() => {
+    const names = new Set<string>();
+    for (const category of settings?.categories ?? []) {
+      names.add(category.name);
+      for (const sub of category.subcategories) names.add(sub.name);
+    }
+    return names;
+  }, [settings]);
 
   const handleExport = () => {
     if (transactions.length === 0) {
@@ -40,12 +55,22 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
   const handleImport = async () => {
     if (!importFile) return;
 
+    // 巨大なファイルを読み込む前に弾く（読み込み自体でブラウザが固まるため）
+    if (importFile.size > MAX_IMPORT_FILE_BYTES) {
+      notifications.show({
+        title: 'インポートエラー',
+        message: `ファイルが大きすぎます（上限 ${Math.floor(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB）`,
+        color: 'red',
+      });
+      return;
+    }
+
     setImporting(true);
     try {
       const text = await importFile.text();
-      const parsedTransactions = parseCSV(text, rules);
+      const result = parseCSV(text, rules, { knownCategories });
 
-      if (parsedTransactions.length === 0) {
+      if (result.transactions.length === 0) {
         notifications.show({
           title: 'インポートエラー',
           message: '有効なデータが見つかりませんでした',
@@ -54,26 +79,38 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
         return;
       }
 
-      // Import all transactions
-      let importedCount = 0;
-      for (const transaction of parsedTransactions) {
-        try {
-          await addTransaction(transaction);
-          importedCount++;
-        } catch (error) {
-          console.error('Error importing transaction:', error);
-        }
+      const importedCount = await addTransactions(result.transactions);
+
+      // 結果の内訳（スキップ・打ち切り・未登録カテゴリ）を伝える
+      const notes: string[] = [];
+      if (result.skippedRows.length > 0) {
+        const reasons = new Map<string, number>();
+        result.skippedRows.forEach(({ reason }) =>
+          reasons.set(reason, (reasons.get(reason) ?? 0) + 1)
+        );
+        const breakdown = Array.from(reasons.entries())
+          .map(([reason, count]) => `${reason}: ${count}件`)
+          .join(' / ');
+        notes.push(`${result.skippedRows.length}件をスキップしました（${breakdown}）`);
+      }
+      if (result.truncated) {
+        notes.push(`上限の${MAX_IMPORT_ROWS}行までを取り込みました`);
+      }
+      if (result.unknownCategories.length > 0) {
+        notes.push(`設定に無いカテゴリ: ${result.unknownCategories.join('、')}`);
       }
 
       notifications.show({
         title: 'インポート完了',
-        message: `${importedCount}件のデータをインポートしました`,
-        color: 'green',
+        message: [`${importedCount}件のデータをインポートしました`, ...notes].join('\n'),
+        color: notes.length > 0 ? 'yellow' : 'green',
+        autoClose: notes.length > 0 ? 10000 : undefined,
       });
 
       setImportFile(null);
       onClose();
-    } catch {
+    } catch (error) {
+      console.error('Error importing CSV:', error);
       notifications.show({
         title: 'インポートエラー',
         message: 'ファイルの読み込みに失敗しました',
@@ -110,7 +147,8 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
           <Alert color="blue" mb="md">
             <Text size="sm">
               CSVファイルは以下の形式である必要があります：<br />
-              日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ, 支払方法
+              日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ, 支払方法<br />
+              （上限: {Math.floor(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB / {MAX_IMPORT_ROWS}行）
             </Text>
           </Alert>
 

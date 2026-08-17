@@ -19,10 +19,15 @@ const KNOWN_AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/weak-password': 'パスワードが弱すぎます。6文字以上で設定してください。',
   'auth/too-many-requests': '試行回数が多すぎます。しばらく時間をおいてお試しください。',
   'auth/network-request-failed': 'ネットワークエラーが発生しました。接続を確認してください。',
-  'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。未登録の場合は新規登録してください。',
-  'auth/user-not-found': 'このメールアドレスは登録されていません。新規登録をお試しください。',
-  'auth/wrong-password': 'パスワードが正しくありません。',
+  // 「未登録」と「パスワード違い」は区別しない。
+  // 区別すると、任意のメールアドレスが登録済みかを外部から判定できてしまう（アカウント列挙）。
+  'auth/invalid-credential': 'メールアドレスまたはパスワードが正しくありません。',
+  'auth/user-not-found': 'メールアドレスまたはパスワードが正しくありません。',
+  'auth/wrong-password': 'メールアドレスまたはパスワードが正しくありません。',
 };
+
+/** 新規登録時に要求するパスワードの最小文字数（Firebase の既定は6文字） */
+const MIN_SIGNUP_PASSWORD_LENGTH = 10;
 
 const isKnownAuthError = (error: unknown): error is FirebaseError =>
   error instanceof FirebaseError && error.code in KNOWN_AUTH_ERROR_MESSAGES;
@@ -93,12 +98,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
       password: '',
     },
     validate: {
-      email: (value) => (/^\S+@\S+$/.test(value) ? null : 'Invalid email'),
-      password: (value) => (value.length < 6 ? 'Password must be at least 6 characters' : null),
+      email: (value) =>
+        /^\S+@\S+$/.test(value) ? null : 'メールアドレスの形式が正しくありません',
+      // 既存アカウントは6文字で作られている可能性があるため、ログイン時はここで弾かない。
+      // 新規登録時の下限は handleSubmit で別途チェックする。
+      password: (value) => (value.length < 6 ? 'パスワードは6文字以上で入力してください' : null),
     },
   });
 
   const handleSubmit = async (values: { email: string; password: string }) => {
+    // 新規登録時のみ、より長いパスワードを要求する
+    if (!isLogin && values.password.length < MIN_SIGNUP_PASSWORD_LENGTH) {
+      setError(`パスワードは${MIN_SIGNUP_PASSWORD_LENGTH}文字以上で設定してください。`);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -177,7 +191,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
 
             <PasswordInput
               label="パスワード"
-              placeholder="パスワード（6文字以上）"
+              placeholder={isLogin ? 'パスワード' : `パスワード（${MIN_SIGNUP_PASSWORD_LENGTH}文字以上）`}
               required
               {...form.getInputProps('password')}
               leftSection={<IconLock size={16} />}

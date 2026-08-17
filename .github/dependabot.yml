@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # パッチ/マイナーはまとめて1つのPRにする（PRが増えすぎるのを防ぐ）
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"

@@ -28,6 +28,7 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  writeBatch,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -89,10 +90,15 @@ const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransacti
   return cleaned;
 };
 
+/** writeBatch の上限（Firestore の制約） */
+const WRITE_BATCH_LIMIT = 500;
+
 interface TransactionsContextType {
   transactions: Transaction[];
   loading: boolean;
   addTransaction: (transaction: TransactionInput) => Promise<void>;
+  /** CSVインポート用の一括追加。500件ずつバッチ書き込みする */
+  addTransactions: (transactions: TransactionInput[]) => Promise<number>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 }
@@ -125,7 +131,12 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
           const data = docSnapshot.data();
           // データの型安全性を確保（金額0の取引は有効なので == null で判定）
           if (!data.type || data.amount == null || !data.category || !data.date) {
-            console.warn('Incomplete transaction data:', docSnapshot.id, data);
+            // 取引の中身はコンソールに出さない（共有端末・拡張機能経由の漏洩を避ける）。
+            // 調査に必要な「どのドキュメントの、どのフィールドが欠けているか」だけを出す。
+            const missingFields = (['type', 'amount', 'category', 'date'] as const).filter(
+              (field) => (field === 'amount' ? data.amount == null : !data[field])
+            );
+            console.warn('Incomplete transaction data:', docSnapshot.id, missingFields);
             return;
           }
 
@@ -185,6 +196,41 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     [user]
   );
 
+  const addTransactions = useCallback(
+    async (inputs: TransactionInput[]): Promise<number> => {
+      if (!user || inputs.length === 0) return 0;
+
+      const now = Timestamp.fromDate(new Date());
+      let written = 0;
+
+      // 1件ずつ addDoc すると件数分の往復が発生するため、500件ずつまとめて書く
+      for (let start = 0; start < inputs.length; start += WRITE_BATCH_LIMIT) {
+        const chunk = inputs.slice(start, start + WRITE_BATCH_LIMIT);
+        const batch = writeBatch(db);
+
+        chunk.forEach((input) => {
+          const cleanedData = cleanTransactionData({
+            ...input,
+            transactionType: input.transactionType || 'normal',
+            affectsExpense: input.affectsExpense !== undefined ? input.affectsExpense : true,
+          });
+          batch.set(doc(collection(db, 'transactions')), {
+            ...cleanedData,
+            userId: user.uid,
+            createdAt: now,
+            updatedAt: now,
+          });
+        });
+
+        await batch.commit();
+        written += chunk.length;
+      }
+
+      return written;
+    },
+    [user]
+  );
+
   const updateTransaction = useCallback(
     async (id: string, updates: Partial<Transaction>) => {
       if (!user) return;
@@ -219,8 +265,8 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo(
-    () => ({ transactions, loading, addTransaction, updateTransaction, deleteTransaction }),
-    [transactions, loading, addTransaction, updateTransaction, deleteTransaction]
+    () => ({ transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction }),
+    [transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

@@ -25,18 +25,16 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 ## Firebase 側の必須設定
 
 - **Authorized domains**: Firebase Console → Authentication → Settings → Authorized domains に、Vercel が発行した本番ドメイン（例: `kakeibo-app-xxxx.vercel.app`）とカスタムドメインを追加する。追加しないとデプロイ先でログインできない。
-- **Firestore セキュリティルール**: 各ユーザーが自分のデータのみ読み書きできるようにする。
+- **Firestore セキュリティルール**: ルールはリポジトリの `firestore.rules` で管理する。**このファイルを編集したら必ず反映すること**（反映しないと本番のルールは古いままになる）。
 
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
+```bash
+firebase deploy --only firestore:rules
 ```
+
+  Firebase CLI を使わない場合は、`firestore.rules` の中身を Firebase Console → Firestore Database → ルール に貼り付けて公開する。
+
+  取引データはトップレベルの `transactions` コレクションに `userId` フィールド付きで保存され、設定と定期取引は `users/{uid}/` 配下にある。**`users/{uid}/**` だけを許可するルールでは取引データが保護されない（あるいはアプリが動かない）**ので、必ず `firestore.rules` の内容と一致させる。
+- **App Check（任意・推奨）**: Firebase Console → App Check で reCAPTCHA v3 を登録し、サイトキーを Vercel の環境変数 `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` に設定する。まず「未強制（監視のみ）」で様子を見てから強制に切り替える。
 
 ## 更新とロールバック
 
@@ -53,5 +51,5 @@ service cloud.firestore {
 ## トラブルシューティング
 
 - **ビルドエラー**: ローカルで `npm run build` を通してから push する。
-- **ログイン/データ取得できない**: Vercel の環境変数と Firebase の Authorized domains を再確認。
+- **ログイン/データ取得できない**: Vercel の環境変数と Firebase の Authorized domains を再確認。取引の読み書きだけ失敗する場合は Firestore のルールが `firestore.rules` と一致しているかを確認。
 - **白画面**: ブラウザ devtools のコンソールでエラー確認（多くは環境変数未設定）。
