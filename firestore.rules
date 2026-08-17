@@ -1,0 +1,61 @@
+rules_version = '2';
+
+// 家計簿アプリの Firestore セキュリティルール
+//
+// このアプリはクライアントから直接 Firestore を読み書きする（サーバー側の API 層が無い）。
+// つまり、他人のデータへのアクセスを止めているのはこのファイルだけである。
+//
+// デプロイ:
+//   firebase deploy --only firestore:rules
+//   （または Firebase Console → Firestore Database → ルール に貼り付け）
+//
+// データ構成:
+//   transactions/{id}                       … 取引。userId フィールドで所有者を持つ
+//   users/{uid}/settings/app                … カテゴリ・支払方法・月間予算
+//   users/{uid}/recurringTransactions/{id}  … 定期取引
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 取引データ（トップレベルコレクション）
+    match /transactions/{transactionId} {
+      function isOwner() {
+        return isSignedIn() && resource.data.userId == request.auth.uid;
+      }
+
+      function isValidNewTransaction() {
+        let incoming = request.resource.data;
+        return isSignedIn()
+          && incoming.userId == request.auth.uid
+          && incoming.type in ['income', 'expense']
+          && incoming.amount is number
+          && incoming.amount >= 0
+          && incoming.category is string
+          && incoming.category.size() > 0
+          && incoming.category.size() <= 50
+          && incoming.date is timestamp;
+      }
+
+      allow read, delete: if isOwner();
+      allow create: if isValidNewTransaction();
+      // 所有者の付け替え（他人への譲渡・なりすまし）を禁止する
+      allow update: if isOwner()
+        && isValidNewTransaction()
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    // ユーザー個別のデータ（設定・定期取引）
+    match /users/{userId}/{document=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 上記に当てはまらないパスは全て拒否
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

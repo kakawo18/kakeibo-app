@@ -47,9 +47,12 @@ npm run type-check          # tsc --noEmit
 
 ## セキュリティ
 
-- `.env.local` は**コミットしない**（`.gitignore` 済み）。Firebase 設定は `NEXT_PUBLIC_*` としてクライアントに露出する前提。
-- Firestore のアクセス制御はセキュリティルールで担保する（各ユーザーは `users/{uid}/**` のみ read/write。ルール例は `docs/deployment.md`）。
+- `.env.local` は**コミットしない**（`.gitignore` 済み）。クライアントに出してよい値は `NEXT_PUBLIC_*` のみ。`next.config.ts` の `env` は使わない（`NEXT_PUBLIC_` 無しでもバンドルに埋め込まれるため、秘密情報の混入に気づけない）。
+- **Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、サーバー側の API 層が無い）。取引は トップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
+- 取引の更新・削除はクライアント側で所有者チェックをしていない。所有者の検証はルール側の責務。
 - 本番デプロイ先ドメインは Firebase Console の Authentication → Authorized domains に追加が必要。
+- セキュリティヘッダーは `next.config.ts` の `securityHeaders` に集約。CSP は現在 **Report-Only**。接続先（Firebase 等）を増やしたら `connect-src` を更新する。
+- 家計データを `console` に出さない。本番ビルドでは `console.error` 以外は除去される（`compiler.removeConsole`）が、`error` に取引の中身を渡さないこと。
 
 ## バージョン管理
 
@@ -65,3 +68,13 @@ npm run type-check          # tsc --noEmit
 - コミットは日本語。Conventional Commits 形式のプレフィックス（`feat:` / `fix:` / `refactor:` / `chore:` / `style:`）を付けるのが基本。
 - `main` へ直接コミットしない。フィーチャーブランチで作業し PR を作る。
 - push で Vercel が自動デプロイ（本番 = `main`、PR = プレビュー）。
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

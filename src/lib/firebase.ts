@@ -51,6 +51,25 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Firebase App Check（任意）
+// Firebase の設定値はクライアントに露出する前提のため、これが無いと
+// アプリの画面を経由しないスクリプトからも API を叩ける。
+// NEXT_PUBLIC_RECAPTCHA_SITE_KEY を設定すると有効になる。
+// 未設定なら何もしない（App Check のコードはバンドルにも載らない）。
+const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+if (typeof window !== 'undefined' && recaptchaSiteKey) {
+  import('firebase/app-check')
+    .then(({ initializeAppCheck, ReCaptchaV3Provider }) => {
+      initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(recaptchaSiteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    })
+    .catch((error) => {
+      console.error('Failed to initialize App Check:', error);
+    });
+}
+
 // ローカル開発用: NEXT_PUBLIC_FIREBASE_EMULATOR=1 のときエミュレータに接続
 if (
   process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === '1' &&

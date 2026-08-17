@@ -1,24 +1,26 @@
 // キャッシュ名を変えると activate 時に旧キャッシュが削除される。
 // キャッシュ戦略を変更したら必ずバージョンを上げること。
-const CACHE_NAME = 'kakeibo-app-v2';
+const CACHE_NAME = 'kakeibo-app-v3';
 const PRECACHE_URLS = [
   '/',
   '/manifest.json',
   '/favicon.png',
 ];
 
-// キャッシュしないリクエストの判定（Firebase / 非GET / 拡張機能など）
+// キャッシュしないリクエストの判定
+// 自オリジンの GET のみをキャッシュする。Firebase との通信も拡張機能の
+// リクエストも自動的に対象外になる（ドメイン名の文字列一致に頼らない）。
 const shouldBypass = (request) => {
   if (request.method !== 'GET') return true;
-  const url = request.url;
-  return (
-    !url.startsWith('http') ||
-    url.includes('firebaseapp.com') ||
-    url.includes('googleapis.com') ||
-    url.includes('firestore') ||
-    url.includes('firebase')
-  );
+  try {
+    return new URL(request.url).origin !== self.location.origin;
+  } catch {
+    return true; // URL として解釈できないものはキャッシュしない
+  }
 };
+
+// キャッシュに保存してよいレスポンスか（自オリジンの正常応答のみ）
+const isCacheable = (response) => response && response.ok && response.type === 'basic';
 
 // インストール: 最低限のシェルを事前キャッシュし、即座に待機を解除
 self.addEventListener('install', (event) => {
@@ -59,8 +61,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          if (isCacheable(response)) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(() =>
@@ -74,7 +78,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       const network = fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (isCacheable(response)) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
