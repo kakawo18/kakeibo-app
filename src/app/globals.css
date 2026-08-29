@@ -37,6 +37,10 @@
   --series-other-income: #2a78d6;
   --series-investment: #4a3aa7;
 
+  /* 下部タブバーの高さ。FAB の位置と本文の下余白がこれを参照する。
+     バーはモバイルにしか出ないので、既定は 0 にして下のメディアクエリで与える */
+  --tabbar-height: 0px;
+
   /* 角丸スケール: カード > 内側タイル > コントロール */
   --radius-card: 16px;
   --radius-tile: 12px;
@@ -80,6 +84,12 @@
 
   --background: var(--app-page);
   --foreground: var(--ink-1);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --tabbar-height: 58px;
+  }
 }
 
 @theme inline {
@@ -175,6 +185,39 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--hairline);
+}
+
+/* デスクトップのタブ列（ヘッダー直下に貼り付く） */
+.app-subnav {
+  position: sticky;
+  top: 52px; /* .app-header の高さ */
+  z-index: 100;
+  background: color-mix(in srgb, var(--app-page) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* モバイルの下部タブバー
+   z-index はヘッダーと同格の 100。モーダル(200)より下にする理由は上と同じ。
+   safe-area の分だけ内側に余白を足し、iOS のホームインジケータにラベルが被らないようにする */
+.app-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--app-page) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--hairline);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* タブ配下ページの下余白。モバイルは固定タブバーの分だけ余分に空ける
+   （--tabbar-height はデスクトップでは 0） */
+.tab-page {
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 32px);
 }
 
 /* カード見出し（カード左上のタイトル） */
