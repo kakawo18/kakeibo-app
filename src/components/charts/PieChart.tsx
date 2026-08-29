@@ -8,7 +8,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
-import { Paper, Text, Stack, Box, useMantineColorScheme } from '@mantine/core';
+import { Paper, Text, Stack, Box, useComputedColorScheme } from '@mantine/core';
 import { ChartData } from '@/types';
 import { useMediaQuery } from '@mantine/hooks';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -132,8 +132,10 @@ const renderLeaderLabel = (props: PieLabelProps) => {
  */
 export const PieChartBody: React.FC<PieChartBodyProps> = ({ data, totalAmount }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
+  // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
+  // OS がダークでも isDark が false になる
+  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
   const { getColor } = useSettings();
 
   // データ処理: 3%未満を「その他」にまとめ、カテゴリ固定色を解決

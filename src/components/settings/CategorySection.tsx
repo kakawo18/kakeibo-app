@@ -17,7 +17,7 @@ import {
   Badge,
   Button,
   ColorSwatch,
-  useMantineColorScheme,
+  useComputedColorScheme,
 } from '@mantine/core';
 import {
   IconChevronUp,
@@ -36,8 +36,10 @@ import { CategoryEditModal } from './CategoryEditModal';
 export const CategorySection = () => {
   const { updateSettings, expenseCategories, incomeCategories } = useSettings();
   const { transactions } = useTransactions();
-  const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
+  // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
+  // OS がダークでも isDark が false になる
+  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
 
   const [type, setType] = useState<'expense' | 'income'>('expense');
   const [editorOpened, setEditorOpened] = useState(false);

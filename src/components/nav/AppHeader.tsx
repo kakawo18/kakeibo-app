@@ -6,7 +6,16 @@
  * ブランド表示とアカウント操作だけを持つ。画面固有の操作（月の切り替えなど）は
  * 各ページ側に置く。タブ間の移動は AppTabBar が担うので、ここに遷移用のアイコンは置かない。
  */
-import { ActionIcon, Box, Container, Group, Menu, Text, useMantineColorScheme } from '@mantine/core';
+import {
+  ActionIcon,
+  Box,
+  Container,
+  Group,
+  Menu,
+  Text,
+  useComputedColorScheme,
+  useMantineColorScheme,
+} from '@mantine/core';
 import {
   IconDotsVertical,
   IconFileImport,
@@ -27,8 +36,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenCsvModal,
 }) => {
   const { user, logout } = useAuth();
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { setColorScheme } = useMantineColorScheme();
+  // useMantineColorScheme().colorScheme は、ユーザーが明示的に選ぶまで 'auto' のまま。
+  // これを 'dark' と比較すると OS がダークでも false になり、
+  // 1回目のタップが「すでにその見た目」への切り替えになって何も起きない（初回だけ2回押す必要があった）。
+  // useComputedColorScheme は 'auto' を実際の light/dark に解決する。
+  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
 
   return (
     <Box className="app-header">

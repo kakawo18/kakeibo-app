@@ -9,7 +9,9 @@
  * タブ列が見えてしまうため。表示されていない方は display:none なので支援技術からも見えない。
  *
  * z-index はヘッダーと同じ 100。Mantine のモーダル(200)より必ず下にする（AGENTS.md）。
- * 高さは globals.css の --tabbar-height。FAB の位置と本文の下余白がこれを参照する。
+ * 高さは globals.css の --tabbar-content-height（アイコン行）と --tabbar-bottom-gap
+ * （ホームインジケータ避けの余白）。合計が --tabbar-height で、FAB の位置と
+ * 本文の下余白がこれを参照する。
  */
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -59,7 +61,7 @@ export const AppTabBar = () => {
 
       {/* モバイル: 画面下部の固定バー */}
       <Box className="app-tabbar" component="nav" aria-label="メインナビゲーション" hiddenFrom="sm">
-        <Group gap={0} grow h="var(--tabbar-height)" align="stretch">
+        <Group gap={0} grow h="var(--tabbar-content-height)" align="stretch">
           {TABS.map((tab) => {
             const active = tab.href === activeHref;
             const Icon = tab.icon;

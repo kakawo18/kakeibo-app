@@ -11,7 +11,7 @@ import {
   Box,
   Chip,
   SegmentedControl,
-  useMantineColorScheme,
+  useComputedColorScheme,
 } from '@mantine/core';
 import { IconTrash, IconCreditCard } from '@tabler/icons-react';
 import { modals } from '@mantine/modals';
@@ -40,8 +40,10 @@ const formatDayHeader = (date: Date): string =>
  */
 export const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEditTransaction }) => {
   const { deleteTransaction } = useTransactions();
-  const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
+  // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
+  // OS がダークでも isDark が false になる
+  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
   const { getColor } = useSettings();
 
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
