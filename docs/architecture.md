@@ -9,13 +9,17 @@
 src/
 ├── app/                # Next.js App Router
 │   ├── layout.tsx      # Mantine テーマ + 3 つの Context プロバイダ + PWA メタデータ
-│   ├── page.tsx        # 認証ガード → ログイン画面 or ダッシュボード
-│   ├── review/         # 年間振り返りページ（/review）
-│   ├── settings/       # 設定ページ（/settings）
+│   ├── (tabs)/         # タブ配下。ルートグループなので URL には現れない
+│   │   ├── layout.tsx  # 認証ガード + ローディング + 共通ヘッダー + タブバー
+│   │   ├── page.tsx    # ホーム（/）
+│   │   ├── history/    # 履歴（/history）リスト⇄カレンダー
+│   │   ├── review/     # 年間振り返り（/review）
+│   │   └── settings/   # 設定（/settings）
 │   └── globals.css     # デザイントークン（CSS 変数）と "Quiet Ledger" スタイル
 ├── components/
 │   ├── charts/         # Recharts ベース（PieChart, LineChart, SpendingPaceChart, CategoryBreakdown）
 │   ├── forms/          # TransactionForm ほか。ResponsiveSelect でモバイルはネイティブ select
+│   ├── nav/            # タブ定義・タブバー・共通ヘッダー
 │   ├── recurring/      # 定期取引の管理・確認・通知
 │   ├── review/         # 年間振り返りの各セクション（使い道/前年比/月別内訳）
 │   ├── settings/       # 設定ページの各セクション（カテゴリ/支払方法/予算）
@@ -34,7 +38,8 @@ src/
   - `AuthContext` — Firebase 認証ユーザーとログイン/ログアウト。
   - `SettingsContext` — `users/{uid}/settings/app` をリアルタイム購読。設定 doc 未作成時は自動シード（既存ユーザー=レガシー設定 / 新規=汎用デフォルト）。集計ルール `rules` と色リゾルバ `getColor` を供給。
   - `TransactionsContext` — 取引を 1 本の Firestore リスナーに集約し、追加/更新/削除を提供。
-- **表示中の年月はローカル state ではなく URL クエリ `?month=YYYY-MM`** に持つ。`useSearchParams` で読み、`router.push` で更新する。`selectedYear` は月文字列から導出。
+- **表示中の年月はローカル state ではなく URL クエリ `?month=YYYY-MM`** に持つ。読み書きは `useSelectedMonth`（`src/hooks/`）に集約し、UI は `MonthNav` を使う。`selectedYear` は月文字列から導出。
+- **どのタブを開いているかも URL（パス）が持つ**。タブを state で切り替えないのは、月が URL・タブが state という二重管理を避けるため。副作用として、タブを切り替えるとスクロール位置は保持されない（各タブは上から読む画面なので許容している）。
 
 ## データフロー
 
@@ -62,6 +67,17 @@ src/
 ## カード支払いの会計モデル
 
 クレジットカードの支出は**購入月に支出計上し、残高へは翌月反映**する（実際の引き落としタイミングを模す）。取引は `transactionType`（`normal` / `card_payment` / `card_withdrawal`）と `affectsExpense` / `affectsBalance` フラグで表現し、これらは `rules.deriveTransactionFlags` が導出する。
+
+## ナビゲーション
+
+タブの定義は `src/components/nav/tabs.ts` の配列が唯一の情報源。増やすときはここに足す。
+`AppTabBar` はモバイル（下部固定バー）とデスクトップ（ヘッダー直下の横並び）の両方を描画し、
+**出し分けは JS のメディアクエリではなく CSS**（Mantine の `hiddenFrom` / `visibleFrom`）で行う。
+`useMediaQuery` は初回レンダリングで `undefined` を返すため、モバイルで一瞬デスクトップ用の
+タブ列が見えてしまうのを避けている。
+
+z-index は ヘッダー / タブバー = 100、取引追加の FAB = 150、Mantine のモーダル = 200。
+タブバーの高さは `--tabbar-height` で定義し、FAB の位置と `.tab-page` の下余白が参照する。
 
 ## デザインシステム "Quiet Ledger"
 

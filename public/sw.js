@@ -1,8 +1,9 @@
 // キャッシュ名を変えると activate 時に旧キャッシュが削除される。
 // キャッシュ戦略を変更したら必ずバージョンを上げること。
-const CACHE_NAME = 'kakeibo-app-v3';
+const CACHE_NAME = 'kakeibo-app-v4';
 const PRECACHE_URLS = [
   '/',
+  '/history',
   '/manifest.json',
   '/favicon.png',
 ];
