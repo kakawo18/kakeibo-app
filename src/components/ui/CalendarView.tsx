@@ -46,6 +46,9 @@ export interface CalendarViewProps {
   fillHeight?: boolean;
   /** 表示月が変わったとき（前後ボタン・スワイプ）。ページ側で URL を更新する用 */
   onMonthChange?: (month: string) => void;
+  /** 左右スワイプで月を移動するか。ページ側にスワイプ領域がある場合は false にする
+   *  （入れ子にすると1回のスワイプで月が2つ進む） */
+  swipeable?: boolean;
 }
 
 const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
@@ -63,6 +66,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onClose,
   fillHeight = false,
   onMonthChange,
+  swipeable = true,
 }) => {
   const { rules } = useSettings();
   const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
@@ -185,7 +189,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         {/* 日付グリッド。左右スワイプで月を移動する
             touchAction は pan-y。none にするとページの縦スクロールまで止まる */}
         <motion.div
-          drag="x"
+          drag={swipeable ? 'x' : false}
           dragConstraints={{ left: 0, right: 0 }}
           dragElastic={0.2}
           dragMomentum={false}

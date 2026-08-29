@@ -9,8 +9,10 @@
  * useSearchParams（表示月）を使うため Suspense で包む。
  */
 import { Suspense, useMemo, useState } from 'react';
-import { Box, Container, Loader, Paper, Stack, Text } from '@mantine/core';
+import { Box, Container, Group, Loader, Paper, SegmentedControl, Stack, Text } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { MonthNav } from '@/components/ui/MonthNav';
+import { MonthSwipeArea } from '@/components/ui/MonthSwipeArea';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { CalendarView } from '@/components/ui/CalendarView';
 import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
@@ -28,8 +30,9 @@ const VIEW_TABS: { value: ViewMode; label: string }[] = [
 ];
 
 function HistoryContent() {
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const { transactions } = useTransactions();
-  const { selectedMonth, setMonth } = useSelectedMonth();
+  const { selectedMonth, setMonth, goPreviousMonth, goNextMonth } = useSelectedMonth();
   const [view, setView] = useState<ViewMode>('list');
   const [formOpened, setFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -52,56 +55,46 @@ function HistoryContent() {
     setEditingTransaction(null);
   };
 
-  const activeIndex = VIEW_TABS.findIndex((tab) => tab.value === view);
-
   return (
     <Container size="lg">
-      <Stack gap="md">
-        <MonthNav />
-
-        {/* リスト / カレンダーの切り替え。カードには入れず画面幅いっぱいの帯にする */}
-        <Box className="underline-tabs" role="tablist">
-          {VIEW_TABS.map((tab) => (
-            <button
-              key={tab.value}
-              type="button"
-              role="tab"
-              className="underline-tab"
-              aria-selected={view === tab.value}
-              onClick={() => setView(tab.value)}
-            >
-              {tab.label}
-            </button>
-          ))}
-          <Box
-            className="underline-tabs-indicator"
-            style={{
-              width: `calc(100% / ${VIEW_TABS.length})`,
-              transform: `translateX(${activeIndex * 100}%)`,
-            }}
-          />
-        </Box>
-
-        {view === 'list' ? (
-          <Box key="list" className="chart-swap">
-            <TransactionList
-              transactions={selectedMonthTransactions}
-              onEditTransaction={handleEditTransaction}
+      {/* 画面のどこを左右にスワイプしても月が変わる。
+          カレンダー側のスワイプは切ってある（入れ子にすると月が2つ進む） */}
+      <MonthSwipeArea enabled={isMobile} onPrevious={goPreviousMonth} onNext={goNextMonth}>
+        <Stack gap="md">
+          {/* 月の切り替えと表示の切り替えを1行に収める。専用の行を作ると高さだけを食う */}
+          <Group justify="space-between" align="center" wrap="nowrap">
+            <MonthNav />
+            <SegmentedControl
+              value={view}
+              onChange={(value) => setView(value as ViewMode)}
+              data={VIEW_TABS}
+              size="xs"
+              radius={8}
             />
-          </Box>
-        ) : (
-          <Paper key="calendar" className="ledger-card chart-swap" p="xs">
-            <CalendarView
-              value={calendarValue}
-              // 日付タップはドロワーで内訳を出すだけなので、選択の通知は不要
-              onChange={() => {}}
-              transactions={selectedMonthTransactions}
-              showHeader={false}
-              onMonthChange={setMonth}
-            />
-          </Paper>
-        )}
-      </Stack>
+          </Group>
+
+          {view === 'list' ? (
+            <Box key="list" className="chart-swap">
+              <TransactionList
+                transactions={selectedMonthTransactions}
+                onEditTransaction={handleEditTransaction}
+              />
+            </Box>
+          ) : (
+            <Paper key="calendar" className="ledger-card chart-swap" p="xs">
+              <CalendarView
+                value={calendarValue}
+                // 日付タップはドロワーで内訳を出すだけなので、選択の通知は不要
+                onChange={() => {}}
+                transactions={selectedMonthTransactions}
+                showHeader={false}
+                swipeable={false}
+                onMonthChange={setMonth}
+              />
+            </Paper>
+          )}
+        </Stack>
+      </MonthSwipeArea>
 
       <AddTransactionFab onClick={() => setFormOpened(true)} hidden={formOpened} />
 

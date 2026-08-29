@@ -20,7 +20,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Container, Stack, Grid, Text, Group, Box, Paper, SimpleGrid } from '@mantine/core';
+import { Container, Stack, Grid, Text, Group, Box, Paper, SimpleGrid, UnstyledButton } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import {
   IconTrendingUp, IconWallet, IconArrowUpRight, IconArrowDownRight,
@@ -33,10 +33,11 @@ import { CategoryBreakdown } from '@/components/charts/CategoryBreakdown';
 import { LineChart } from '@/components/charts/LineChart';
 import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { MonthNav } from '@/components/ui/MonthNav';
+import { MonthSwipeArea } from '@/components/ui/MonthSwipeArea';
 import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
-import { getMonthName, getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
+import { getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
 import { RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
@@ -136,7 +137,7 @@ export function DashboardContent() {
 
   const isMobile = useMediaQuery('(max-width: 768px)');
   const router = useRouter();
-  const { selectedMonth, selectedYear } = useSelectedMonth();
+  const { selectedMonth, selectedYear, goPreviousMonth, goNextMonth } = useSelectedMonth();
 
   // ------------------------------------------------------------
   // データ計算
@@ -240,67 +241,62 @@ export function DashboardContent() {
 
   return (
     <Container size="lg">
-      <Stack gap={isMobile ? 'md' : 'lg'}>
-        <MonthNav />
+      {/* 画面のどこを左右にスワイプしても月が変わる（カレンダーと同じ操作感） */}
+      <MonthSwipeArea
+        enabled={isMobile}
+        onPrevious={goPreviousMonth}
+        onNext={goNextMonth}
+      >
+        <Stack gap={isMobile ? 'md' : 'lg'}>
+          {/* 定期取引通知 */}
+          {displayRecurringTransactions.length > 0 && (
+            <RecurringTransactionNotice
+              recurringTransactions={displayRecurringTransactions}
+              onRecord={handleRecordRecurringTransaction}
+            />
+          )}
 
-        {/* 定期取引通知 */}
-        {displayRecurringTransactions.length > 0 && (
-          <RecurringTransactionNotice
-            recurringTransactions={displayRecurringTransactions}
-            onRecord={handleRecordRecurringTransaction}
-          />
-        )}
+          {/* ============================================================
+              収支バンド: 今月の収支（ヒーロー）| 収入 | 支出
+              ============================================================ */}
+          <Paper className="ledger-card" p={isMobile ? 'lg' : 'xl'}>
+            {/* 月の切り替えはこの行に同居させる。専用の行を作ると高さだけを食うため。
+                カード自体はクリック対象にしない（中に月移動のボタンがあるため） */}
+            <Group justify="space-between" align="center" wrap="nowrap" mb={isMobile ? 'sm' : 'md'}>
+              <MonthNav />
+              <UnstyledButton onClick={openAnnualReview} aria-label="年間振り返りを開く">
+                <Group gap={2} style={{ color: 'var(--ink-3)' }} wrap="nowrap">
+                  <Text size="xs" fw={600} style={{ color: 'inherit', whiteSpace: 'nowrap' }}>年間振り返り</Text>
+                  <IconChevronRight size={13} />
+                </Group>
+              </UnstyledButton>
+            </Group>
 
-        {/* ============================================================
-            収支バンド: 今月の収支（ヒーロー）| 収入 | 支出
-            ============================================================ */}
-        <Paper
-          className="ledger-card ledger-card-clickable"
-          p={isMobile ? 'lg' : 'xl'}
-          pos="relative"
-          onClick={openAnnualReview}
-        >
-          {/* 右上: 年間振り返りタブへの導線 */}
-          <Group
-            gap={2}
-            style={{
-              position: 'absolute',
-              top: isMobile ? 14 : 18,
-              right: isMobile ? 16 : 22,
-              color: 'var(--ink-3)',
-            }}
-          >
-            <Text size="xs" fw={600} style={{ color: 'inherit' }}>年間振り返り</Text>
-            <IconChevronRight size={13} />
-          </Group>
-
-          <Grid gutter={isMobile ? 'lg' : 'xl'} align="center">
-            {/* ヒーロー: 今月の収支 */}
-            <Grid.Col span={{ base: 12, sm: 6 }}>
-              <Stack gap={8} align={isMobile ? 'center' : 'flex-start'}>
-                <Text className="overline-label">
-                  {getMonthName(selectedMonth)}の収支
-                </Text>
-                <Text
-                  className="tabular-nums"
-                  style={{
-                    fontSize: isMobile ? '2.375rem' : '2.75rem',
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    letterSpacing: '-0.025em',
-                    color: monthBalance >= 0 ? 'var(--income)' : 'var(--expense)',
-                  }}
-                >
-                  {monthBalance >= 0 ? '+' : '-'}
-                  <span className="amount-symbol">¥</span>
-                  {Math.abs(monthBalance).toLocaleString()}
-                </Text>
-                {monthlyComparison && (
-                  <TrendIndicator
-                    trend={monthlyComparison.balance.trend}
-                    percentage={monthlyComparison.balance.percentage}
-                  />
-                )}
+            <Grid gutter={isMobile ? 'lg' : 'xl'} align="center">
+              {/* ヒーロー: 今月の収支 */}
+              <Grid.Col span={{ base: 12, sm: 6 }}>
+                <Stack gap={8} align={isMobile ? 'center' : 'flex-start'}>
+                  <Text className="overline-label">収支</Text>
+                  <Text
+                    className="tabular-nums"
+                    style={{
+                      fontSize: isMobile ? '2.375rem' : '2.75rem',
+                      fontWeight: 700,
+                      lineHeight: 1,
+                      letterSpacing: '-0.025em',
+                      color: monthBalance >= 0 ? 'var(--income)' : 'var(--expense)',
+                    }}
+                  >
+                    {monthBalance >= 0 ? '+' : '-'}
+                    <span className="amount-symbol">¥</span>
+                    {Math.abs(monthBalance).toLocaleString()}
+                  </Text>
+                  {monthlyComparison && (
+                    <TrendIndicator
+                      trend={monthlyComparison.balance.trend}
+                      percentage={monthlyComparison.balance.percentage}
+                    />
+                  )}
               </Stack>
             </Grid.Col>
 
@@ -402,8 +398,9 @@ export function DashboardContent() {
           transactions={transactions}
         />
 
-        <VersionDisplay />
-      </Stack>
+          <VersionDisplay />
+        </Stack>
+      </MonthSwipeArea>
 
       <AddTransactionFab
         onClick={() => setTransactionFormOpened(true)}
