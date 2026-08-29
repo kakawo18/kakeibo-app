@@ -5,12 +5,13 @@
  *
  * ホームと履歴で共用する。表示月は URL クエリに持つので、このコンポーネントは
  * useSelectedMonth を直接使い、親から値を受け取らない。
- * モバイルは左右スワイプでも月を移動できる。
+ *
+ * スワイプでの月移動はここには持たない。ページ全体を包む MonthSwipeArea が担当する。
+ * 両方に持たせると、この上でスワイプしたときに月が2つ進む。
  */
 import { ActionIcon, Group, Select } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
-import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { getMonthOptions } from '@/utils/dateUtils';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
@@ -56,23 +57,7 @@ export const MonthNav = () => {
         <IconChevronLeft size={isMobile ? 18 : 20} />
       </ActionIcon>
 
-      {isMobile ? (
-        <motion.div
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
-          dragMomentum={false}
-          onDragEnd={(event, info) => {
-            if (info.offset.x > 50) goPreviousMonth();
-            else if (info.offset.x < -50) goNextMonth();
-          }}
-          style={{ touchAction: 'pan-y' }}
-        >
-          {monthSelector}
-        </motion.div>
-      ) : (
-        monthSelector
-      )}
+      {monthSelector}
 
       <ActionIcon
         variant="subtle"
