@@ -29,7 +29,25 @@
       "purpose": "maskable"
     }
   ],
-  "categories": ["finance", "productivity"],
+  "shortcuts": [
+    {
+      "name": "年間振り返り",
+      "short_name": "振り返り",
+      "description": "年ごとの収入・支出・投資の推移を見る",
+      "url": "/review",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "categories": [
+    "finance",
+    "productivity"
+  ],
   "lang": "ja",
   "dir": "ltr"
 }
