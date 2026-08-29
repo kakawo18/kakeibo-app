@@ -10,12 +10,14 @@ src/
 ├── app/                # Next.js App Router
 │   ├── layout.tsx      # Mantine テーマ + 3 つの Context プロバイダ + PWA メタデータ
 │   ├── page.tsx        # 認証ガード → ログイン画面 or ダッシュボード
+│   ├── review/         # 年間振り返りページ（/review）
 │   ├── settings/       # 設定ページ（/settings）
 │   └── globals.css     # デザイントークン（CSS 変数）と "Quiet Ledger" スタイル
 ├── components/
 │   ├── charts/         # Recharts ベース（PieChart, LineChart, SpendingPaceChart, CategoryBreakdown）
 │   ├── forms/          # TransactionForm ほか。ResponsiveSelect でモバイルはネイティブ select
 │   ├── recurring/      # 定期取引の管理・確認・通知
+│   ├── review/         # 年間振り返りの各セクション（使い道/前年比/月別内訳）
 │   ├── settings/       # 設定ページの各セクション（カテゴリ/支払方法/予算）
 │   └── ui/             # DashboardContent（メイン画面）, TransactionList, 各種モーダル ほか
 ├── config/             # defaultSettings.ts（新規/既存ユーザーの初期設定）, colorPalette.ts
@@ -43,6 +45,19 @@ src/
 「投資」「立替金」「カード引き落とし」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/utils/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
 
 役割の一覧と意味は `docs/user-guide.md` の「カテゴリ管理」を参照。
+
+## 額面年収の推定（年間振り返り）
+
+アプリが記録するのは口座に入った金額（＝手取り）だけで、控除の記録は持たない。
+`/review` の「年収の推移」で使う額面は、`src/utils/tax/estimateGross.ts` が
+「額面 → 手取り」を計算する関数を二分探索で反転させて求めた**概算**である。
+
+料率と控除額はすべて `src/utils/tax/rates.ts` に集約してある。**改定があったときは
+このファイルだけを更新すればよい**（新しい年分を `TAX_YEARS` に足して `LATEST_TAX_YEAR` を上げる）。
+2025年・2026年の「年収の壁」改正で基礎控除と給与所得控除が大きく動いたため、年分ごとに
+テーブルを分けている。年を無視して一律の係数を掛けると数十万円ずれる。
+
+前提と、考慮していない控除の一覧は `estimateGross.ts` の冒頭コメントと画面の注記に書いてある。
 
 ## カード支払いの会計モデル
 

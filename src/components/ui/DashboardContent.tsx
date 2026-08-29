@@ -27,7 +27,7 @@ import {
   IconPlus, IconTrendingUp, IconWallet, IconDotsVertical, IconFileImport,
   IconChevronLeft, IconChevronRight, IconArrowUpRight, IconArrowDownRight,
   IconMinus, IconCalendar, IconCoins, IconRepeat, IconLogout, IconSun, IconMoon,
-  IconSettings,
+  IconSettings, IconChartHistogram,
 } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useTransactions } from '@/contexts/TransactionsContext';
@@ -46,7 +46,6 @@ import { getCurrentMonth, getMonthName, getMonthOptions, getNextMonth, getPrevio
 import { Transaction, RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
-import { YearSummaryModal } from '@/components/ui/YearSummaryModal';
 import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
 import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
 import { RecurringTransactionNotice } from '@/components/recurring/RecurringTransactionNotice';
@@ -153,7 +152,6 @@ export function DashboardContent() {
   const [calendarOpened, setCalendarOpened] = useState(false);
   const [calendarSelectedDate, setCalendarSelectedDate] = useState(new Date());
   const [cardRewardsOpened, setCardRewardsOpened] = useState(false);
-  const [yearSummaryOpened, setYearSummaryOpened] = useState(false);
   const [investmentHistoryOpened, setInvestmentHistoryOpened] = useState(false);
   const [savingsRateDetailOpened, setSavingsRateDetailOpened] = useState(false);
 
@@ -290,6 +288,9 @@ export function DashboardContent() {
       router.push(`?${params.toString()}`, { scroll: false });
     }
   };
+
+  /** 年間振り返りページへ。表示中の年をそのまま引き継ぐ */
+  const openAnnualReview = () => router.push(`/review?year=${selectedYear}`);
 
   const handlePreviousMonth = () => handleMonthChange(getPreviousMonthFromCurrent(selectedMonth));
   const handleNextMonth = () => handleMonthChange(getNextMonth(selectedMonth));
@@ -462,6 +463,9 @@ export function DashboardContent() {
                     </ActionIcon>
                   </Menu.Target>
                   <Menu.Dropdown>
+                    <Menu.Item leftSection={<IconChartHistogram size={14} />} onClick={openAnnualReview}>
+                      年間振り返り
+                    </Menu.Item>
                     <Menu.Item leftSection={<IconRepeat size={14} />} onClick={() => setRecurringManagerOpened(true)}>
                       定期取引
                     </Menu.Item>
@@ -484,6 +488,15 @@ export function DashboardContent() {
               {/* デスクトップ: 従来どおり全アイコンを常設 */}
               {!isMobile && (
                 <>
+                  <ActionIcon
+                    variant="subtle"
+                    color="gray"
+                    size="lg"
+                    onClick={openAnnualReview}
+                    aria-label="年間振り返り"
+                  >
+                    <IconChartHistogram size={18} />
+                  </ActionIcon>
                   <ActionIcon
                     variant="subtle"
                     color="gray"
@@ -568,9 +581,9 @@ export function DashboardContent() {
             className="ledger-card ledger-card-clickable"
             p={isMobile ? 'lg' : 'xl'}
             pos="relative"
-            onClick={() => setYearSummaryOpened(true)}
+            onClick={openAnnualReview}
           >
-            {/* 右上: 年間収支への導線 */}
+            {/* 右上: 年間振り返りページへの導線 */}
             <Group
               gap={2}
               style={{
@@ -580,7 +593,7 @@ export function DashboardContent() {
                 color: 'var(--ink-3)',
               }}
             >
-              <Text size="xs" fw={600} style={{ color: 'inherit' }}>年間収支</Text>
+              <Text size="xs" fw={600} style={{ color: 'inherit' }}>年間振り返り</Text>
               <IconChevronRight size={13} />
             </Group>
 
@@ -792,14 +805,6 @@ export function DashboardContent() {
         selectedMonth={selectedMonth}
         opened={cardRewardsOpened}
         onClose={() => setCardRewardsOpened(false)}
-      />
-
-      <YearSummaryModal
-        opened={yearSummaryOpened}
-        onClose={() => setYearSummaryOpened(false)}
-        transactions={transactions}
-        monthlyData={monthlyData}
-        selectedMonth={selectedMonth}
       />
 
       <InvestmentHistoryModal
