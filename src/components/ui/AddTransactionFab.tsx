@@ -19,7 +19,7 @@ interface AddTransactionFabProps {
 export const AddTransactionFab: React.FC<AddTransactionFabProps> = ({ onClick, hidden }) => (
   <Affix
     position={{
-      bottom: 'calc(var(--tabbar-height) + 24px + env(safe-area-inset-bottom))',
+      bottom: 'calc(var(--tabbar-height) + 24px)',
       right: 18,
     }}
     style={{ zIndex: hidden ? 1 : 150 }}

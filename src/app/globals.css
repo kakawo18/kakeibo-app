@@ -37,8 +37,13 @@
   --series-other-income: #2a78d6;
   --series-investment: #4a3aa7;
 
-  /* 下部タブバーの高さ。FAB の位置と本文の下余白がこれを参照する。
+  /* 下部タブバー。アイコン行の高さと、その下に確保する余白を分けて持つ。
+     iOS のホームインジケータ（画面下端のバー）にタップ領域が近すぎると
+     スワイプ操作を誤爆するため、ラベルの下に余白を空ける。
+     --tabbar-height はバー全体の高さで、FAB の位置と本文の下余白がこれを参照する。
      バーはモバイルにしか出ないので、既定は 0 にして下のメディアクエリで与える */
+  --tabbar-content-height: 56px;
+  --tabbar-bottom-gap: 12px;
   --tabbar-height: 0px;
 
   /* 角丸スケール: カード > 内側タイル > コントロール */
@@ -88,7 +93,9 @@
 
 @media (max-width: 768px) {
   :root {
-    --tabbar-height: 58px;
+    --tabbar-height: calc(
+      var(--tabbar-content-height) + var(--tabbar-bottom-gap) + env(safe-area-inset-bottom)
+    );
   }
 }
 
@@ -211,13 +218,14 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-top: 1px solid var(--hairline);
-  padding-bottom: env(safe-area-inset-bottom);
+  /* ホームインジケータからタップ領域を離す */
+  padding-bottom: calc(var(--tabbar-bottom-gap) + env(safe-area-inset-bottom));
 }
 
 /* タブ配下ページの下余白。モバイルは固定タブバーの分だけ余分に空ける
-   （--tabbar-height はデスクトップでは 0） */
+   （--tabbar-height はバー全体の高さ。デスクトップでは 0） */
 .tab-page {
-  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 32px);
+  padding-bottom: calc(var(--tabbar-height) + 32px);
 }
 
 /* カード見出し（カード左上のタイトル） */

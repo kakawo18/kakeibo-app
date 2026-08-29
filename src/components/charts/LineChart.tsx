@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useMantineColorScheme } from '@mantine/core';
+import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useComputedColorScheme } from '@mantine/core';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
@@ -33,8 +33,10 @@ interface LineChartProps {
 }
 
 export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }) => {
-  const { colorScheme } = useMantineColorScheme();
-  const isDark = colorScheme === 'dark';
+  // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
+  // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
+  // OS がダークでも isDark が false になる
+  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
   const { rules, getColor } = useSettings();
 
   // 支出推移の分析対象か（投資・立替金は除外）
