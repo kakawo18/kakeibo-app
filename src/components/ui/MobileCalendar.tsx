@@ -7,14 +7,15 @@
  * 履歴タブでは CalendarView を直接ページに埋め込んでいる。
  */
 import { Modal } from '@mantine/core';
-import { CalendarTransaction, CalendarView } from '@/components/ui/CalendarView';
+import { CalendarView } from '@/components/ui/CalendarView';
+import { Transaction } from '@/types';
 
 interface MobileCalendarProps {
   opened: boolean;
   onClose: () => void;
   value: Date;
   onChange: (date: Date) => void;
-  transactions?: CalendarTransaction[];
+  transactions?: Transaction[];
   isSelector?: boolean;
 }
 
