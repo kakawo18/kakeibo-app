@@ -84,12 +84,13 @@ function HistoryContent() {
             <Paper key="calendar" className="ledger-card chart-swap" p="xs">
               <CalendarView
                 value={calendarValue}
-                // 日付タップはドロワーで内訳を出すだけなので、選択の通知は不要
+                // 日付タップは下の欄に内訳を出すだけなので、選択の通知は不要
                 onChange={() => {}}
                 transactions={selectedMonthTransactions}
                 showHeader={false}
                 swipeable={false}
                 onMonthChange={setMonth}
+                onEditTransaction={handleEditTransaction}
               />
             </Paper>
           )}

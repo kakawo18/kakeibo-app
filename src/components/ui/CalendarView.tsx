@@ -10,8 +10,6 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   ActionIcon,
   Box,
-  Card,
-  Divider,
   Group,
   SimpleGrid,
   Stack,
@@ -23,17 +21,14 @@ import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
-
-/** カレンダー表示に必要な取引フィールド */
-export type CalendarTransaction = Pick<
-  Transaction,
-  'id' | 'date' | 'amount' | 'type' | 'category' | 'subcategory' | 'description' | 'paymentMethod'
->;
+import { TransactionRow } from '@/components/ui/TransactionRow';
 
 export interface CalendarViewProps {
   value: Date;
   onChange: (date: Date) => void;
-  transactions?: CalendarTransaction[];
+  transactions?: Transaction[];
+  /** 日別内訳の行をタップしたとき。省略すると行は編集できない */
+  onEditTransaction?: (transaction: Transaction) => void;
   /** true なら日付タップで即 onChange（取引フォームの日付選択用） */
   isSelector?: boolean;
   /** 月の見出しと前後ボタンを出すか。ページ側に月ナビがある場合は false */
@@ -65,6 +60,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   fillHeight = false,
   onMonthChange,
   swipeable = true,
+  onEditTransaction,
 }) => {
   const { rules } = useSettings();
   const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
@@ -103,7 +99,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // 日付をキーに取引を事前インデックス化する（42マス分の線形探索を避ける）
   const transactionsByDate = useMemo(() => {
-    const map = new Map<string, CalendarTransaction[]>();
+    const map = new Map<string, Transaction[]>();
     transactions.forEach((t) => {
       const key = dayjs(t.date).format('YYYY-MM-DD');
       if (!map.has(key)) map.set(key, []);
@@ -126,11 +122,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return { income, expense, balance: income - expense };
   };
 
-  const {
-    income: selectedIncome,
-    expense: selectedExpense,
-    balance: selectedBalance,
-  } = getDailyBalance(selectedDate);
+  // 収支はカレンダーのセルに出ているので、内訳の見出しでは収入と支出だけ出す
+  const { income: selectedIncome, expense: selectedExpense } = getDailyBalance(selectedDate);
   const selectedDayTransactions = transactionsByDate.get(selectedDate.format('YYYY-MM-DD')) || [];
 
   // 内訳を開いたまま日付を渡り歩けるようにする。
@@ -329,92 +322,41 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <IconChevronRight size={18} />
               </ActionIcon>
             </Group>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={() => setDetailVisible(false)}
-              aria-label="内訳を閉じる"
-            >
-              <IconX size={18} />
-            </ActionIcon>
-          </Group>
-
-          <Card
-            p="sm"
-            mb="sm"
-            radius="md"
-            style={{ background: 'var(--app-surface-2)', border: '1px solid var(--hairline)' }}
-          >
-            {/* 幅が狭いと金額が折り返すため、桁を含めて改行させない */}
-            <Group justify="space-between" align="center" gap="xs" wrap="nowrap">
-              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
-                <Text className="overline-label">収入</Text>
-                <Text fw={700} size="sm" className="tabular-nums" style={{ color: 'var(--income)', whiteSpace: 'nowrap' }}>
+            <Group gap="sm" wrap="nowrap">
+              {selectedIncome > 0 && (
+                <Text size="xs" fw={600} className="tabular-nums amount-income" style={{ whiteSpace: 'nowrap' }}>
                   +¥{selectedIncome.toLocaleString()}
                 </Text>
-              </Stack>
-              <Divider orientation="vertical" />
-              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
-                <Text className="overline-label">支出</Text>
-                <Text fw={700} size="sm" className="tabular-nums" style={{ color: 'var(--expense)', whiteSpace: 'nowrap' }}>
-                  −¥{selectedExpense.toLocaleString()}
+              )}
+              {selectedExpense > 0 && (
+                <Text size="xs" fw={600} c="dimmed" className="tabular-nums" style={{ whiteSpace: 'nowrap' }}>
+                  -¥{selectedExpense.toLocaleString()}
                 </Text>
-              </Stack>
-              <Divider orientation="vertical" />
-              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
-                <Text className="overline-label">収支</Text>
-                <Text
-                  fw={800}
-                  size="sm"
-                  className="tabular-nums"
-                  style={{
-                    color: selectedBalance >= 0 ? 'var(--income)' : 'var(--expense)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {selectedBalance >= 0 ? '+' : '−'}¥{Math.abs(selectedBalance).toLocaleString()}
-                </Text>
-              </Stack>
+              )}
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={() => setDetailVisible(false)}
+                aria-label="内訳を閉じる"
+              >
+                <IconX size={18} />
+              </ActionIcon>
             </Group>
-          </Card>
+          </Group>
 
+          {/* 行の描画は履歴タブと同じ TransactionRow を使う（見た目を揃えるため） */}
           {selectedDayTransactions.length > 0 ? (
-            <Stack gap="sm">
-              {selectedDayTransactions.map((t) => {
-                const color = t.type === 'income' ? 'var(--income)' : 'var(--expense)';
-                return (
-                  <Card
-                    key={t.id}
-                    p="sm"
-                    radius="md"
-                    style={{ background: 'var(--app-surface)', border: '1px solid var(--hairline)' }}
-                  >
-                    <Group justify="space-between" wrap="nowrap">
-                      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                        <Box
-                          w={8}
-                          h={8}
-                          style={{ borderRadius: '50%', background: color, flexShrink: 0 }}
-                        />
-                        <Box style={{ minWidth: 0 }}>
-                          <Text size="sm" fw={600} truncate>
-                            {t.subcategory || t.category}
-                          </Text>
-                          <Text size="xs" c="dimmed" truncate>
-                            {t.description || t.paymentMethod || t.category}
-                          </Text>
-                        </Box>
-                      </Group>
-                      <Text fw={700} className="tabular-nums" style={{ color, whiteSpace: 'nowrap' }}>
-                        {t.type === 'income' ? '+' : '−'}¥{t.amount.toLocaleString()}
-                      </Text>
-                    </Group>
-                  </Card>
-                );
-              })}
+            <Stack gap={0}>
+              {selectedDayTransactions.map((t) => (
+                <TransactionRow
+                  key={t.id}
+                  transaction={t}
+                  onEdit={onEditTransaction ?? (() => {})}
+                />
+              ))}
             </Stack>
           ) : (
-            <Text ta="center" c="dimmed" py="xl" size="sm">
+            <Text ta="center" c="dimmed" py="lg" size="sm">
               この日の取引はありません
             </Text>
           )}

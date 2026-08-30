@@ -2,23 +2,16 @@
 
 import { useMemo, useState } from 'react';
 import {
-  ActionIcon,
   Text,
   Group,
-  Badge,
   Stack,
   Paper,
   Box,
   Chip,
   SegmentedControl,
-  useComputedColorScheme,
 } from '@mantine/core';
-import { IconTrash, IconCreditCard } from '@tabler/icons-react';
-import { modals } from '@mantine/modals';
-import { notifications } from '@mantine/notifications';
-import { useTransactions } from '@/contexts/TransactionsContext';
 import { Transaction } from '@/types';
-import { useSettings } from '@/contexts/SettingsContext';
+import { TransactionRow } from '@/components/ui/TransactionRow';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -35,17 +28,9 @@ const formatDayHeader = (date: Date): string =>
  * 【デザイン方針】
  * - モバイル/デスクトップで同一のリストデザイン（テーブル廃止）
  * - 日付ごとにグループ化し、日次合計を右肩に表示
- * - 行: カテゴリ色ドット + カテゴリ/サブカテゴリ + メモ + カード種別 | 金額
- * - 行クリックで編集、ゴミ箱アイコンで削除
+ * - 行の描画は TransactionRow（カレンダーの日別内訳と共用）
  */
 export const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEditTransaction }) => {
-  const { deleteTransaction } = useTransactions();
-  // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
-  // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
-  // OS がダークでも isDark が false になる
-  const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
-  const { getColor } = useSettings();
-
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -99,26 +84,6 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
     return { income, expense, balance: income - expense };
   }, [filteredTransactions]);
 
-  const handleDelete = (id: string) => {
-    modals.openConfirmModal({
-      title: '取引を削除',
-      children: <Text size="sm">この取引を削除しますか？この操作は取り消せません。</Text>,
-      labels: { confirm: '削除', cancel: 'キャンセル' },
-      confirmProps: { color: 'red' },
-      onConfirm: async () => {
-        try {
-          await deleteTransaction(id);
-        } catch (error) {
-          console.error('Error deleting transaction:', error);
-          notifications.show({
-            title: 'エラー',
-            message: '削除に失敗しました。もう一度お試しください。',
-            color: 'red',
-          });
-        }
-      },
-    });
-  };
 
   return (
     <Paper className="ledger-card" p="lg">
@@ -211,96 +176,13 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
 
                   {/* 取引行 */}
                   <Stack gap={0}>
-                    {items.map((transaction) => {
-                      const categoryLabel = transaction.subcategory
-                        ? `${transaction.category}・${transaction.subcategory}`
-                        : transaction.category;
-                      const dotColor = getColor(
-                        transaction.subcategory || transaction.category,
-                        isDark
-                      );
-
-                      return (
-                        <Group
-                          key={transaction.id}
-                          className="ledger-row"
-                          justify="space-between"
-                          wrap="nowrap"
-                          py={10}
-                          px={8}
-                          style={{
-                            borderBottom: '1px solid var(--hairline)',
-                            cursor: 'pointer',
-                          }}
-                          onClick={() => onEditTransaction(transaction)}
-                        >
-                          {/* 左: カテゴリ・メモ */}
-                          <Group gap={10} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
-                            <Box
-                              w={8}
-                              h={8}
-                              style={{
-                                borderRadius: '50%',
-                                background: dotColor,
-                                flexShrink: 0,
-                              }}
-                            />
-                            <Box style={{ minWidth: 0 }}>
-                              <Group gap={6} wrap="nowrap">
-                                <Text size="sm" fw={600} truncate>
-                                  {categoryLabel}
-                                </Text>
-                                {transaction.transactionType === 'card_payment' && (
-                                  <IconCreditCard
-                                    size={13}
-                                    style={{ color: 'var(--ink-3)', flexShrink: 0 }}
-                                    aria-label="カード支払い"
-                                  />
-                                )}
-                                {transaction.transactionType === 'card_withdrawal' && (
-                                  <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
-                                    引落
-                                  </Badge>
-                                )}
-                              </Group>
-                              {(transaction.description || transaction.paymentMethod) && (
-                                <Text size="xs" c="dimmed" truncate>
-                                  {[transaction.description, transaction.paymentMethod]
-                                    .filter(Boolean)
-                                    .join(' · ')}
-                                </Text>
-                              )}
-                            </Box>
-                          </Group>
-
-                          {/* 右: 金額・削除 */}
-                          <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-                            <Text
-                              size="sm"
-                              fw={700}
-                              className={`tabular-nums ${
-                                transaction.type === 'income' ? 'amount-income' : ''
-                              }`}
-                            >
-                              {transaction.type === 'income' ? '+' : '-'}
-                              ¥{transaction.amount.toLocaleString()}
-                            </Text>
-                            <ActionIcon
-                              variant="subtle"
-                              color="gray"
-                              size="sm"
-                              aria-label="削除"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDelete(transaction.id);
-                              }}
-                            >
-                              <IconTrash size={14} />
-                            </ActionIcon>
-                          </Group>
-                        </Group>
-                      );
-                    })}
+                    {items.map((transaction) => (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                        onEdit={onEditTransaction}
+                      />
+                    ))}
                   </Stack>
                 </Box>
               );
