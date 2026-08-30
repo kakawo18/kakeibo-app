@@ -40,9 +40,12 @@ const LEGACY_EXPENSE_CATEGORIES: Category[] = [
 ];
 
 const LEGACY_INCOME_CATEGORIES: Category[] = [
-  { name: '給与', subcategories: ['給与', 'ボーナス', '賞与', '配当収入'] },           // 給与関連（貯蓄率計算に使用）
+  // 配当収入をここに置かないこと。hasRole は「カテゴリ または サブカテゴリに役割があれば true」
+  // という実装なので、salary_income を持つ '給与' の下に置くとサブカテゴリ側で打ち消せない。
+  // 配当が給与収入として数えられ、貯蓄率の分母と額面推定の両方が狂う。
+  { name: '給与', subcategories: ['給与', 'ボーナス', '賞与'] },                      // 給与関連（貯蓄率計算・額面推定に使用）
   { name: '立替回収' },                                                             // 立て替え分の回収（収支から除外）
-  { name: 'その他' },                                                // その他の収入
+  { name: 'その他', subcategories: ['配当収入'] },                                   // 給与以外の収入（額面推定の対象外）
 ];
 
 const LEGACY_PAYMENT_METHODS = [
