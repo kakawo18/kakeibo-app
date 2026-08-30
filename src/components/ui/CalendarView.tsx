@@ -135,6 +135,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   } = getDailyBalance(selectedDate);
   const selectedDayTransactions = transactionsByDate.get(selectedDate.format('YYYY-MM-DD')) || [];
 
+  // 内訳を開いたまま日付を渡り歩けるようにする。
+  // 動ける範囲は表示中の42日グリッド（＝画面に出ている日付）に合わせる。
+  // 月をまたいで動かすと、親から渡される value と表示月がずれるため。
+  const gridStart = calendarDays[0];
+  const gridEnd = calendarDays[calendarDays.length - 1];
+  const canGoPreviousDay = selectedDate.isAfter(gridStart, 'day');
+  const canGoNextDay = selectedDate.isBefore(gridEnd, 'day');
+  const goToPreviousDay = () => setSelectedDate((prev) => prev.subtract(1, 'day'));
+  const goToNextDay = () => setSelectedDate((prev) => prev.add(1, 'day'));
+
   return (
     <>
       <Box
@@ -294,15 +304,51 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         onClose={() => setDrawerOpened(false)}
         position="bottom"
         size="60%"
+        // オーバーレイを出さず、背後のカレンダーを操作できるようにする。
+        // 日付を見比べるたびに閉じ直すのが面倒だったため。
+        // closeOnClickOutside を切らないと、背後の日付をタップしたときに
+        // 内訳が開き直らずに閉じてしまう。
+        withOverlay={false}
+        closeOnClickOutside={false}
+        trapFocus={false}
+        lockScroll={false}
         title={
-          <Group gap="xs">
-            <Text fw={700} size="xl" className="tabular-nums">{selectedDate.date()}</Text>
-            <Text fw={600} size="lg" c="dimmed">
-              {selectedDate.format('M月')}（{WEEKDAYS[selectedDate.day()]}）
-            </Text>
+          <Group gap={2} wrap="nowrap">
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={goToPreviousDay}
+              disabled={!canGoPreviousDay}
+              aria-label="前の日へ"
+            >
+              <IconChevronLeft size={18} />
+            </ActionIcon>
+            <Group gap={6} wrap="nowrap" px={4}>
+              <Text fw={700} size="xl" className="tabular-nums">{selectedDate.date()}</Text>
+              <Text fw={600} size="lg" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                {selectedDate.format('M月')}（{WEEKDAYS[selectedDate.day()]}）
+              </Text>
+            </Group>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              onClick={goToNextDay}
+              disabled={!canGoNextDay}
+              aria-label="次の日へ"
+            >
+              <IconChevronRight size={18} />
+            </ActionIcon>
           </Group>
         }
-        styles={{ body: { padding: 0 }, header: { borderBottom: '1px solid var(--hairline)' } }}
+        styles={{
+          body: { padding: 0 },
+          header: { borderBottom: '1px solid var(--hairline)' },
+          // オーバーレイが無いぶん、面としての境界を影と罫線で作る
+          content: {
+            borderTop: '1px solid var(--hairline-strong)',
+            boxShadow: 'var(--shadow-raised)',
+          },
+        }}
       >
         <ScrollArea h="100%">
           <Box p="md">
