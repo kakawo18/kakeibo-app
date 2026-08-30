@@ -12,9 +12,7 @@ import {
   Box,
   Card,
   Divider,
-  Drawer,
   Group,
-  ScrollArea,
   SimpleGrid,
   Stack,
   Text,
@@ -71,7 +69,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const { rules } = useSettings();
   const [currentMonth, setCurrentMonth] = useState(() => dayjs(value));
   const [selectedDate, setSelectedDate] = useState(() => dayjs(value));
-  const [drawerOpened, setDrawerOpened] = useState(false);
+  const [detailVisible, setDetailVisible] = useState(false);
   const isSmallScreen = useMediaQuery('(max-width: 380px)');
 
   // 親から渡される日付が変わったら追従する
@@ -85,7 +83,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     if (isSelector) {
       onChange(date.toDate());
     } else {
-      setDrawerOpened(true);
+      setDetailVisible(true);
     }
   };
 
@@ -146,291 +144,282 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const goToNextDay = () => setSelectedDate((prev) => prev.add(1, 'day'));
 
   return (
-    <>
-      <Box
-        style={
-          fillHeight
-            ? { height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--app-page)' }
-            : undefined
-        }
-      >
-        {/* 見出し + 曜日 */}
-        <Box px={showHeader ? 'md' : 0} pt={showHeader ? 'md' : 0} pb="xs">
-          {showHeader && (
-            <Group justify="space-between" align="center" mb="xs">
-              {onClose ? (
-                <ActionIcon variant="subtle" color="gray" onClick={onClose} size="lg" aria-label="閉じる">
-                  <IconX size={20} />
-                </ActionIcon>
-              ) : (
-                <Box w={34} />
-              )}
-              <Group gap={4}>
-                <Text size="lg" fw={400} c="dimmed">{currentMonth.year()}年</Text>
-                <Text size="xl" fw={700}>{currentMonth.format('M')}月</Text>
-              </Group>
-              <Group gap={0}>
-                <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => handleMonthChange('prev')} aria-label="前の月へ">
-                  <IconChevronLeft size={20} />
-                </ActionIcon>
-                <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => handleMonthChange('next')} aria-label="次の月へ">
-                  <IconChevronRight size={20} />
-                </ActionIcon>
-              </Group>
+    <Box
+      style={
+        fillHeight
+          ? { height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--app-page)' }
+          : undefined
+      }
+    >
+      {/* 見出し + 曜日 */}
+      <Box px={showHeader ? 'md' : 0} pt={showHeader ? 'md' : 0} pb="xs">
+        {showHeader && (
+          <Group justify="space-between" align="center" mb="xs">
+            {onClose ? (
+              <ActionIcon variant="subtle" color="gray" onClick={onClose} size="lg" aria-label="閉じる">
+                <IconX size={20} />
+              </ActionIcon>
+            ) : (
+              <Box w={34} />
+            )}
+            <Group gap={4}>
+              <Text size="lg" fw={400} c="dimmed">{currentMonth.year()}年</Text>
+              <Text size="xl" fw={700}>{currentMonth.format('M')}月</Text>
             </Group>
-          )}
+            <Group gap={0}>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => handleMonthChange('prev')} aria-label="前の月へ">
+                <IconChevronLeft size={20} />
+              </ActionIcon>
+              <ActionIcon variant="subtle" color="gray" size="lg" onClick={() => handleMonthChange('next')} aria-label="次の月へ">
+                <IconChevronRight size={20} />
+              </ActionIcon>
+            </Group>
+          </Group>
+        )}
 
-          <SimpleGrid cols={7} spacing={0}>
-            {WEEKDAYS.map((day, index) => (
-              <Text
-                key={day}
-                ta="center"
-                size="xs"
-                fw={600}
-                pb={6}
-                style={{ color: weekdayColor(index) }}
-              >
-                {day}
-              </Text>
-            ))}
-          </SimpleGrid>
-        </Box>
-
-        {/* 日付グリッド。左右スワイプで月を移動する
-            touchAction は pan-y。none にするとページの縦スクロールまで止まる */}
-        <motion.div
-          drag={swipeable ? 'x' : false}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.2}
-          dragMomentum={false}
-          onDragEnd={(event, info) => {
-            if (info.offset.x > 50) handleMonthChange('prev');
-            else if (info.offset.x < -50) handleMonthChange('next');
-          }}
-          style={
-            fillHeight
-              ? { flex: 1, display: 'flex', flexDirection: 'column', touchAction: 'pan-y' }
-              : { touchAction: 'pan-y' }
-          }
-        >
-          <SimpleGrid
-            cols={7}
-            spacing={0}
-            h={fillHeight ? '100%' : undefined}
-            style={{
-              borderTop: '1px solid var(--hairline)',
-              borderLeft: '1px solid var(--hairline)',
-            }}
-          >
-            {calendarDays.map((date, index) => {
-              const isToday = date.isSame(today, 'day');
-              const isSelected = date.isSame(selectedDate, 'day');
-              const inCurrentMonth = date.month() === currentMonth.month();
-              const { income, expense, balance } = getDailyBalance(date);
-              const hasEntries = income > 0 || expense > 0;
-
-              return (
-                <Box
-                  key={index}
-                  onClick={() => handleDateClick(date)}
-                  style={{
-                    borderBottom: '1px solid var(--hairline)',
-                    borderRight: '1px solid var(--hairline)',
-                    background: isSelected
-                      ? 'var(--accent-soft)'
-                      : isToday
-                        ? 'color-mix(in srgb, var(--accent) 6%, transparent)'
-                        : 'transparent',
-                    boxShadow: isSelected ? 'inset 0 0 0 2px var(--accent)' : 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'flex-start',
-                    padding: 4,
-                    opacity: inCurrentMonth ? 1 : 0.35,
-                    minHeight: fillHeight ? 80 : 62,
-                  }}
-                >
-                  <Text
-                    size="sm"
-                    fw={isToday ? 700 : 500}
-                    my={2}
-                    className="tabular-nums"
-                    style={{
-                      lineHeight: 1.2,
-                      color: isToday ? 'var(--accent)' : weekdayColor(date.day()) === 'var(--ink-3)' ? 'var(--ink-1)' : weekdayColor(date.day()),
-                    }}
-                  >
-                    {date.date() === 1 ? `${date.month() + 1}/${date.date()}` : date.date()}
-                  </Text>
-
-                  {hasEntries && (
-                    <Stack gap={2} mt="auto" mb={2} align="center" w="100%">
-                      <Group gap={4} h={6}>
-                        {income > 0 && (
-                          <Box w={6} h={6} style={{ borderRadius: '50%', background: 'var(--income)' }} />
-                        )}
-                        {expense > 0 && (
-                          <Box w={6} h={6} style={{ borderRadius: '50%', background: 'var(--expense)' }} />
-                        )}
-                      </Group>
-                      <Text
-                        size={isSmallScreen ? '8px' : '10px'}
-                        fw={600}
-                        className="tabular-nums"
-                        style={{
-                          lineHeight: 1,
-                          color: balance >= 0 ? 'var(--income)' : 'var(--expense)',
-                        }}
-                      >
-                        {balance >= 0 ? '+' : '−'}
-                        {Math.abs(balance) >= 10000
-                          ? `${Math.round(Math.abs(balance) / 1000)}k`
-                          : Math.abs(balance).toLocaleString()}
-                      </Text>
-                    </Stack>
-                  )}
-                </Box>
-              );
-            })}
-          </SimpleGrid>
-        </motion.div>
+        <SimpleGrid cols={7} spacing={0}>
+          {WEEKDAYS.map((day, index) => (
+            <Text
+              key={day}
+              ta="center"
+              size="xs"
+              fw={600}
+              pb={6}
+              style={{ color: weekdayColor(index) }}
+            >
+              {day}
+            </Text>
+          ))}
+        </SimpleGrid>
       </Box>
 
-      {/* 日別の内訳 */}
-      <Drawer
-        opened={drawerOpened}
-        onClose={() => setDrawerOpened(false)}
-        position="bottom"
-        size="60%"
-        // オーバーレイを出さず、背後のカレンダーを操作できるようにする。
-        // 日付を見比べるたびに閉じ直すのが面倒だったため。
-        // closeOnClickOutside を切らないと、背後の日付をタップしたときに
-        // 内訳が開き直らずに閉じてしまう。
-        withOverlay={false}
-        closeOnClickOutside={false}
-        trapFocus={false}
-        lockScroll={false}
-        title={
-          <Group gap={2} wrap="nowrap">
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={goToPreviousDay}
-              disabled={!canGoPreviousDay}
-              aria-label="前の日へ"
-            >
-              <IconChevronLeft size={18} />
-            </ActionIcon>
-            <Group gap={6} wrap="nowrap" px={4}>
-              <Text fw={700} size="xl" className="tabular-nums">{selectedDate.date()}</Text>
-              <Text fw={600} size="lg" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                {selectedDate.format('M月')}（{WEEKDAYS[selectedDate.day()]}）
-              </Text>
+      {/* 日付グリッド。左右スワイプで月を移動する
+          touchAction は pan-y。none にするとページの縦スクロールまで止まる */}
+      <motion.div
+        drag={swipeable ? 'x' : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.2}
+        dragMomentum={false}
+        onDragEnd={(event, info) => {
+          if (info.offset.x > 50) handleMonthChange('prev');
+          else if (info.offset.x < -50) handleMonthChange('next');
+        }}
+        style={
+          fillHeight
+            ? { flex: 1, display: 'flex', flexDirection: 'column', touchAction: 'pan-y' }
+            : { touchAction: 'pan-y' }
+        }
+      >
+        <SimpleGrid
+          cols={7}
+          spacing={0}
+          h={fillHeight ? '100%' : undefined}
+          style={{
+            borderTop: '1px solid var(--hairline)',
+            borderLeft: '1px solid var(--hairline)',
+          }}
+        >
+          {calendarDays.map((date, index) => {
+            const isToday = date.isSame(today, 'day');
+            const isSelected = date.isSame(selectedDate, 'day');
+            const inCurrentMonth = date.month() === currentMonth.month();
+            const { income, expense, balance } = getDailyBalance(date);
+            const hasEntries = income > 0 || expense > 0;
+
+            return (
+              <Box
+                key={index}
+                onClick={() => handleDateClick(date)}
+                style={{
+                  borderBottom: '1px solid var(--hairline)',
+                  borderRight: '1px solid var(--hairline)',
+                  background: isSelected
+                    ? 'var(--accent-soft)'
+                    : isToday
+                      ? 'color-mix(in srgb, var(--accent) 6%, transparent)'
+                      : 'transparent',
+                  boxShadow: isSelected ? 'inset 0 0 0 2px var(--accent)' : 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  padding: 4,
+                  opacity: inCurrentMonth ? 1 : 0.35,
+                  minHeight: fillHeight ? 80 : 62,
+                }}
+              >
+                <Text
+                  size="sm"
+                  fw={isToday ? 700 : 500}
+                  my={2}
+                  className="tabular-nums"
+                  style={{
+                    lineHeight: 1.2,
+                    color: isToday ? 'var(--accent)' : weekdayColor(date.day()) === 'var(--ink-3)' ? 'var(--ink-1)' : weekdayColor(date.day()),
+                  }}
+                >
+                  {date.date() === 1 ? `${date.month() + 1}/${date.date()}` : date.date()}
+                </Text>
+
+                {hasEntries && (
+                  <Stack gap={2} mt="auto" mb={2} align="center" w="100%">
+                    <Group gap={4} h={6}>
+                      {income > 0 && (
+                        <Box w={6} h={6} style={{ borderRadius: '50%', background: 'var(--income)' }} />
+                      )}
+                      {expense > 0 && (
+                        <Box w={6} h={6} style={{ borderRadius: '50%', background: 'var(--expense)' }} />
+                      )}
+                    </Group>
+                    <Text
+                      size={isSmallScreen ? '8px' : '10px'}
+                      fw={600}
+                      className="tabular-nums"
+                      style={{
+                        lineHeight: 1,
+                        color: balance >= 0 ? 'var(--income)' : 'var(--expense)',
+                      }}
+                    >
+                      {balance >= 0 ? '+' : '−'}
+                      {Math.abs(balance) >= 10000
+                        ? `${Math.round(Math.abs(balance) / 1000)}k`
+                        : Math.abs(balance).toLocaleString()}
+                    </Text>
+                  </Stack>
+                )}
+              </Box>
+            );
+          })}
+        </SimpleGrid>
+      </motion.div>
+      {/* 日別の内訳。カレンダーに被せず、その下に並べる。
+          画面下から出すシートにすると月の後半が隠れて選べなかったため。 */}
+      {!isSelector && detailVisible && (
+        <Box
+          mt="md"
+          pt="md"
+          mih={220}
+          style={{ borderTop: '1px solid var(--hairline)' }}
+        >
+          <Group justify="space-between" wrap="nowrap" mb="sm">
+            <Group gap={2} wrap="nowrap">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={goToPreviousDay}
+                disabled={!canGoPreviousDay}
+                aria-label="前の日へ"
+              >
+                <IconChevronLeft size={18} />
+              </ActionIcon>
+              <Group gap={6} wrap="nowrap" px={2}>
+                <Text fw={700} size="lg" className="tabular-nums">{selectedDate.date()}</Text>
+                <Text fw={600} size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                  {selectedDate.format('M月')}（{WEEKDAYS[selectedDate.day()]}）
+                </Text>
+              </Group>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                onClick={goToNextDay}
+                disabled={!canGoNextDay}
+                aria-label="次の日へ"
+              >
+                <IconChevronRight size={18} />
+              </ActionIcon>
             </Group>
             <ActionIcon
               variant="subtle"
               color="gray"
-              onClick={goToNextDay}
-              disabled={!canGoNextDay}
-              aria-label="次の日へ"
+              onClick={() => setDetailVisible(false)}
+              aria-label="内訳を閉じる"
             >
-              <IconChevronRight size={18} />
+              <IconX size={18} />
             </ActionIcon>
           </Group>
-        }
-        styles={{
-          body: { padding: 0 },
-          header: { borderBottom: '1px solid var(--hairline)' },
-          // オーバーレイが無いぶん、面としての境界を影と罫線で作る
-          content: {
-            borderTop: '1px solid var(--hairline-strong)',
-            boxShadow: 'var(--shadow-raised)',
-          },
-        }}
-      >
-        <ScrollArea h="100%">
-          <Box p="md">
-            <Card
-              p="md"
-              mb="md"
-              radius="md"
-              style={{ background: 'var(--app-surface-2)', border: '1px solid var(--hairline)' }}
-            >
-              <Group justify="space-between" align="center">
-                <Stack gap={0} align="center" style={{ flex: 1 }}>
-                  <Text className="overline-label">収入</Text>
-                  <Text fw={700} size="lg" className="tabular-nums" style={{ color: 'var(--income)' }}>
-                    +¥{selectedIncome.toLocaleString()}
-                  </Text>
-                </Stack>
-                <Divider orientation="vertical" />
-                <Stack gap={0} align="center" style={{ flex: 1 }}>
-                  <Text className="overline-label">支出</Text>
-                  <Text fw={700} size="lg" className="tabular-nums" style={{ color: 'var(--expense)' }}>
-                    −¥{selectedExpense.toLocaleString()}
-                  </Text>
-                </Stack>
-                <Divider orientation="vertical" />
-                <Stack gap={0} align="center" style={{ flex: 1 }}>
-                  <Text className="overline-label">収支</Text>
-                  <Text
-                    fw={800}
-                    size="lg"
-                    className="tabular-nums"
-                    style={{ color: selectedBalance >= 0 ? 'var(--income)' : 'var(--expense)' }}
-                  >
-                    {selectedBalance >= 0 ? '+' : '−'}¥{Math.abs(selectedBalance).toLocaleString()}
-                  </Text>
-                </Stack>
-              </Group>
-            </Card>
 
-            {selectedDayTransactions.length > 0 ? (
-              <Stack gap="sm">
-                {selectedDayTransactions.map((t) => {
-                  const color = t.type === 'income' ? 'var(--income)' : 'var(--expense)';
-                  return (
-                    <Card
-                      key={t.id}
-                      p="sm"
-                      radius="md"
-                      style={{ background: 'var(--app-surface)', border: '1px solid var(--hairline)' }}
-                    >
-                      <Group justify="space-between" wrap="nowrap">
-                        <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                          <Box
-                            w={8}
-                            h={8}
-                            style={{ borderRadius: '50%', background: color, flexShrink: 0 }}
-                          />
-                          <Box style={{ minWidth: 0 }}>
-                            <Text size="sm" fw={600} truncate>
-                              {t.subcategory || t.category}
-                            </Text>
-                            <Text size="xs" c="dimmed" truncate>
-                              {t.description || t.paymentMethod || t.category}
-                            </Text>
-                          </Box>
-                        </Group>
-                        <Text fw={700} className="tabular-nums" style={{ color, whiteSpace: 'nowrap' }}>
-                          {t.type === 'income' ? '+' : '−'}¥{t.amount.toLocaleString()}
-                        </Text>
-                      </Group>
-                    </Card>
-                  );
-                })}
+          <Card
+            p="sm"
+            mb="sm"
+            radius="md"
+            style={{ background: 'var(--app-surface-2)', border: '1px solid var(--hairline)' }}
+          >
+            {/* 幅が狭いと金額が折り返すため、桁を含めて改行させない */}
+            <Group justify="space-between" align="center" gap="xs" wrap="nowrap">
+              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
+                <Text className="overline-label">収入</Text>
+                <Text fw={700} size="sm" className="tabular-nums" style={{ color: 'var(--income)', whiteSpace: 'nowrap' }}>
+                  +¥{selectedIncome.toLocaleString()}
+                </Text>
               </Stack>
-            ) : (
-              <Text ta="center" c="dimmed" py="xl" size="sm">
-                この日の取引はありません
-              </Text>
-            )}
-            <Box h={40} />
-          </Box>
-        </ScrollArea>
-      </Drawer>
-    </>
+              <Divider orientation="vertical" />
+              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
+                <Text className="overline-label">支出</Text>
+                <Text fw={700} size="sm" className="tabular-nums" style={{ color: 'var(--expense)', whiteSpace: 'nowrap' }}>
+                  −¥{selectedExpense.toLocaleString()}
+                </Text>
+              </Stack>
+              <Divider orientation="vertical" />
+              <Stack gap={0} align="center" style={{ flex: 1, minWidth: 0 }}>
+                <Text className="overline-label">収支</Text>
+                <Text
+                  fw={800}
+                  size="sm"
+                  className="tabular-nums"
+                  style={{
+                    color: selectedBalance >= 0 ? 'var(--income)' : 'var(--expense)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {selectedBalance >= 0 ? '+' : '−'}¥{Math.abs(selectedBalance).toLocaleString()}
+                </Text>
+              </Stack>
+            </Group>
+          </Card>
+
+          {selectedDayTransactions.length > 0 ? (
+            <Stack gap="sm">
+              {selectedDayTransactions.map((t) => {
+                const color = t.type === 'income' ? 'var(--income)' : 'var(--expense)';
+                return (
+                  <Card
+                    key={t.id}
+                    p="sm"
+                    radius="md"
+                    style={{ background: 'var(--app-surface)', border: '1px solid var(--hairline)' }}
+                  >
+                    <Group justify="space-between" wrap="nowrap">
+                      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Box
+                          w={8}
+                          h={8}
+                          style={{ borderRadius: '50%', background: color, flexShrink: 0 }}
+                        />
+                        <Box style={{ minWidth: 0 }}>
+                          <Text size="sm" fw={600} truncate>
+                            {t.subcategory || t.category}
+                          </Text>
+                          <Text size="xs" c="dimmed" truncate>
+                            {t.description || t.paymentMethod || t.category}
+                          </Text>
+                        </Box>
+                      </Group>
+                      <Text fw={700} className="tabular-nums" style={{ color, whiteSpace: 'nowrap' }}>
+                        {t.type === 'income' ? '+' : '−'}¥{t.amount.toLocaleString()}
+                      </Text>
+                    </Group>
+                  </Card>
+                );
+              })}
+            </Stack>
+          ) : (
+            <Text ta="center" c="dimmed" py="xl" size="sm">
+              この日の取引はありません
+            </Text>
+          )}
+        </Box>
+      )}
+    </Box>
   );
 };
