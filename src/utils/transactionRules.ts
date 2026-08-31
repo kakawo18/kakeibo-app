@@ -1,9 +1,8 @@
 /**
  * 取引の分類ルール
  *
- * 「投資は支出ではない」「立替金は収支から除外」「カード引き落としは
- * 二重計上を防ぐため支出集計から除外」といった、アプリ全体で共有すべき
- * 業務ルールを一箇所に集約する。
+ * 「投資は支出ではない」「立替金は収支から除外」といった、
+ * アプリ全体で共有すべき業務ルールを一箇所に集約する。
  *
  * 判定はユーザー設定のカテゴリ役割(CategoryRole)に基づく。
  * createTransactionRules(settings) で判定関数一式を生成し、
@@ -84,9 +83,6 @@ export const createTransactionRules = (settings: UserSettings): TransactionRules
     isExcludedFromIncome: (t) => isAdvanceRepayment(t),
     isExcludedFromPace: (t) => hasRole(t, 'exclude_from_pace'),
     deriveTransactionFlags: (category, paymentMethod) => {
-      if (categoryRoles.get(category)?.has('card_withdrawal')) {
-        return { transactionType: 'card_withdrawal', affectsExpense: false };
-      }
       // 設定に未登録の支払方法もカード扱い(旧「'現金'以外は全てカード」互換。
       // CSVインポート等で未知の名前が来ても取引タイプの判定を変えないため)
       if (paymentMethod && !cashMethods.has(paymentMethod)) {

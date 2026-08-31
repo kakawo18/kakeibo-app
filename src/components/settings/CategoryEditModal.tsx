@@ -30,6 +30,7 @@ import {
   CategoryRole,
   CategoryColor,
   CATEGORY_ROLE_LABELS,
+  CATEGORY_ROLE_DESCRIPTIONS,
 } from '@/types';
 import { SWATCH_COLORS, pickLeastUsedColor } from '@/config/colorPalette';
 
@@ -180,14 +181,20 @@ const CategoryEditor: React.FC<
           <Text size="xs" c="dimmed" mb={8}>
             貯蓄率・投資額などの集計はカテゴリ名ではなく役割で判定されます
           </Text>
+          {/* 役割はラベルだけでは何が起きるか分からないので、1つずつ説明を添える */}
           <Chip.Group multiple value={roles} onChange={setRoles}>
-            <Group gap={6}>
+            <Stack gap={12}>
               {ROLE_OPTIONS.map((role) => (
-                <Chip key={role.value} value={role.value} size="xs">
-                  {role.label}
-                </Chip>
+                <div key={role.value}>
+                  <Chip value={role.value} size="xs">
+                    {role.label}
+                  </Chip>
+                  <Text size="xs" c="dimmed" mt={5} style={{ lineHeight: 1.55 }}>
+                    {CATEGORY_ROLE_DESCRIPTIONS[role.value]}
+                  </Text>
+                </div>
               ))}
-            </Group>
+            </Stack>
           </Chip.Group>
         </div>
 

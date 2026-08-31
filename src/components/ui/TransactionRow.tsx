@@ -77,6 +77,7 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onE
                 aria-label="カード支払い"
               />
             )}
+            {/* 役割を廃止したので新規には付かない。過去の取引を説明するために残している */}
             {transaction.transactionType === 'card_withdrawal' && (
               <Badge size="xs" variant="light" color="gray" style={{ flexShrink: 0 }}>
                 引落

@@ -205,16 +205,6 @@ export const buildLegacySettings = (): UserSettings => {
 
   const categories: CategorySetting[] = [
     ...LEGACY_EXPENSE_CATEGORIES.map((c) => toLegacyCategory(c, 'expense')),
-    // 「カード引き落とし」は旧フォームの選択肢には無いが、
-    // transactionRules の判定・CSVインポート経由で取引データに存在しうる
-    {
-      id: newId(),
-      name: 'カード引き落とし',
-      type: 'expense',
-      roles: ['card_withdrawal'],
-      color: NEUTRAL_COLOR,
-      subcategories: [],
-    },
     ...LEGACY_INCOME_CATEGORIES.map((c) => toLegacyCategory(c, 'income')),
   ];
 

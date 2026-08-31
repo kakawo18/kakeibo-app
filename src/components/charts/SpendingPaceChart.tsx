@@ -122,7 +122,7 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
 
     transactions.forEach((t) => {
       if (t.type !== 'expense') return;
-      // 投資・立替金・カード引き落とし等の共通除外に加え、
+      // 投資・立替金などの共通除外に加え、
       // 「支出ペース除外」役割のカテゴリ（家賃など毎月固定額の支出）も除外する
       if (rules.isExcludedFromExpense(t)) return;
       if (rules.isExcludedFromPace(t)) return;

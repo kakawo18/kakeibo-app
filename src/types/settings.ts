@@ -13,11 +13,10 @@
 
 /** カテゴリ/サブカテゴリに付与できる役割 */
 export type CategoryRole =
-  | 'salary_income'      // 給与収入: 貯蓄率の分母・年間収入に集計
+  | 'salary_income'      // 給与収入: 貯蓄率の分母・額面推定の対象
   | 'investment'         // 投資: 支出から除外し年間投資額に集計
   | 'advance_payment'    // 立替金: 支出から除外
   | 'advance_repayment'  // 立替回収: 収入から除外
-  | 'card_withdrawal'    // カード引き落とし: 支出集計から除外(カード支払い分との二重計上を防ぐ)
   | 'exclude_from_pace'; // 支出ペースチャートから除外(家賃など毎月の固定額)
 
 /** 役割の日本語ラベル(設定UIで使用) */
@@ -26,8 +25,24 @@ export const CATEGORY_ROLE_LABELS: Record<CategoryRole, string> = {
   investment: '投資',
   advance_payment: '立替金',
   advance_repayment: '立替回収',
-  card_withdrawal: 'カード引き落とし',
   exclude_from_pace: '支出ペース除外',
+};
+
+/**
+ * 役割の説明(設定UIで使用)
+ *
+ * 「この役割を付けると集計がどう変わるか」を書く。
+ * 役割を足したらここにも必ず1行足すこと。設定画面はこの内容をそのまま表示する。
+ */
+export const CATEGORY_ROLE_DESCRIPTIONS: Record<CategoryRole, string> = {
+  salary_income:
+    '貯蓄率の分母になります。年収の額面を推定する対象にもなるため、給与と賞与だけに付けてください（配当などは付けない）',
+  investment:
+    '支出から外し、年間投資額として集計します。証券口座へ入れたお金に付けてください',
+  advance_payment: '支出から外します。他人の分を立て替えて払ったときに使います',
+  advance_repayment: '収入から外します。立て替えた分が返ってきたときに使います',
+  exclude_from_pace:
+    '支出ペースのグラフから外します。家賃のように毎月同じ額が出ていくものに付けると、日々の使いすぎが見やすくなります',
 };
 
 /** ライト/ダーク両テーマの色ペア */

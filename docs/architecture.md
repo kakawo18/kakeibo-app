@@ -47,7 +47,7 @@ src/
 
 ## 役割ベースの集計（重要な設計）
 
-「投資」「立替金」「カード引き落とし」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/utils/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
+「投資」「立替金」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/utils/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
 
 役割の一覧と意味は `docs/user-guide.md` の「カテゴリ管理」を参照。
 
@@ -66,7 +66,9 @@ src/
 
 ## カード支払いの会計モデル
 
-クレジットカードの支出は**購入月に支出計上し、残高へは翌月反映**する（実際の引き落としタイミングを模す）。取引は `transactionType`（`normal` / `card_payment` / `card_withdrawal`）と `affectsExpense` / `affectsBalance` フラグで表現し、これらは `rules.deriveTransactionFlags` が導出する。
+クレジットカードの支出は**購入月に支出計上する**。取引は `transactionType`（`normal` / `card_payment`）と `affectsExpense` フラグで表現し、これらは `rules.deriveTransactionFlags` が導出する。
+
+`transactionType` には `card_withdrawal` というレガシー値もある。かつて「カード引き落とし」という役割を付けたカテゴリの取引に付いていたもので、カード支払い分との二重計上を防ぐために支出集計から外していた。**この役割は廃止済み**で新しい取引には付かないが、過去のドキュメントは値を持っているため型からは外していない。集計から外れるかどうかは `affectsExpense` が決めるので、この値の有無で過去の集計結果は変わらない。
 
 ## ナビゲーション
 
