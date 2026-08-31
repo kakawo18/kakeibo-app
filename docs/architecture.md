@@ -21,7 +21,7 @@ src/
 │   ├── forms/          # TransactionForm ほか。ResponsiveSelect でモバイルはネイティブ select
 │   ├── nav/            # タブ定義・タブバー・共通ヘッダー
 │   ├── recurring/      # 定期取引の管理・確認・通知
-│   ├── review/         # 年間振り返りの各セクション（使い道/前年比/月別内訳）
+│   ├── review/         # 年間振り返りの各セクション（使い道/月別内訳）
 │   ├── settings/       # 設定ページの各セクション（カテゴリ/支払方法/予算）
 │   └── ui/             # DashboardContent（メイン画面）, TransactionList, 各種モーダル ほか
 ├── config/             # defaultSettings.ts（新規/既存ユーザーの初期設定）, colorPalette.ts
