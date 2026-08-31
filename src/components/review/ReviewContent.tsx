@@ -19,12 +19,14 @@ import {
   calculateMonthlyDetail,
   getAvailableYears,
 } from '@/utils/annualSummary';
+import { calculateCategoryChartData } from '@/utils/calculations';
 import { AnnualIncomeChart } from '@/components/charts/AnnualIncomeChart';
 import { AnnualFlowChart } from '@/components/charts/AnnualFlowChart';
 import { SavingsRateTrendChart } from '@/components/charts/SavingsRateTrendChart';
 import { CumulativeInvestmentChart } from '@/components/charts/CumulativeInvestmentChart';
+import { PieChartBody } from '@/components/charts/PieChart';
 import { NetIncomeAllocation } from '@/components/review/NetIncomeAllocation';
-import { CategoryYoYRanking } from '@/components/review/CategoryYoYRanking';
+import { CategoryYoYChart } from '@/components/charts/CategoryYoYChart';
 import { MonthlyBreakdown } from '@/components/review/MonthlyBreakdown';
 
 interface ReviewTileProps {
@@ -60,7 +62,7 @@ export const ReviewContent = () => {
   const searchParams = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { transactions } = useTransactions();
-  const { rules } = useSettings();
+  const { rules, getColor } = useSettings();
 
   const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
   const summaries = useMemo(
@@ -86,6 +88,17 @@ export const ReviewContent = () => {
   const categoryYoY = useMemo(
     () => calculateCategoryYoY(transactions, selectedYear, rules),
     [transactions, selectedYear, rules]
+  );
+  // 年間のカテゴリ別支出。ホームの月次内訳と同じ集計（サブカテゴリ優先・投資などは除外）
+  const categoryExpense = useMemo(
+    () =>
+      calculateCategoryChartData(
+        transactions.filter((t) => t.date.getFullYear() === selectedYear),
+        'expense',
+        rules,
+        getColor
+      ),
+    [transactions, selectedYear, rules, getColor]
   );
 
   const handleYearChange = (value: string | null) => {
@@ -187,7 +200,17 @@ export const ReviewContent = () => {
 
         {selectedSummary && <NetIncomeAllocation summary={selectedSummary} />}
 
-        <CategoryYoYRanking
+        {/* 年間合計は桁が多く中央に収まらないため、中央を塗りつぶした円グラフにする。
+            年単位はカテゴリ数が多く引き出し線ラベルが重なるので、扇の数に上限を置く */}
+        <Paper className="ledger-card" p="lg">
+          <Text className="section-title" mb="xs">{selectedYear}年 カテゴリ別支出の内訳</Text>
+          {/* 幅の広い画面で円が中央にぽつんと残らないよう、描画幅を絞る */}
+          <Box maw={560} mx="auto">
+            <PieChartBody data={categoryExpense} variant="pie" maxSlices={6} />
+          </Box>
+        </Paper>
+
+        <CategoryYoYChart
           year={selectedYear}
           entries={categoryYoY}
           hasPreviousYear={availableYears.includes(selectedYear - 1)}
