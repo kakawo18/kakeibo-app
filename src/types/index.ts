@@ -22,7 +22,15 @@ export * from './settings';
 /** 取引種別: 収入 or 支出 */
 export type TransactionKind = 'income' | 'expense';
 
-/** 取引タイプ: 通常 / カード支払い / カード引き落とし */
+/**
+ * 取引タイプ: 通常 / カード支払い / カード引き落とし
+ *
+ * 'card_withdrawal' は過去に記録された取引にのみ存在するレガシー値。
+ * 対応する役割 'card_withdrawal' は廃止したので新しい取引には付かないが、
+ * Firestore の既存ドキュメントは持っているため型からは外さない。
+ * なお集計から外れるかどうかは affectsExpense が決めるので、
+ * この値を消しても過去の集計結果は変わらない。
+ */
 export type TransactionType = 'normal' | 'card_payment' | 'card_withdrawal';
 
 /** 前月比較などのトレンド方向 */

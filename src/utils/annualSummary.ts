@@ -4,7 +4,7 @@
  * 年単位の数字（年収・年間支出・投資額・貯蓄率）はこれまで各コンポーネントの
  * useMemo に散らばっていたため、純関数としてここに集約する。
  *
- * 【重要】投資・立替金・カード引き落としの除外判定は必ず rules（transactionRules.ts）
+ * 【重要】投資・立替金などの除外判定は必ず rules（transactionRules.ts）
  * を通すこと。カテゴリ名で分岐すると、ユーザーがリネームした瞬間に壊れる。
  *
  * 【年間支出の定義】投資は「支出」に含めない。資産が現金から証券に移っただけで
@@ -33,7 +33,7 @@ export interface AnnualSummary {
   estimatedGross: number;
   /** 額面推定の内訳。すべて概算（utils/tax/estimateGross.ts 参照） */
   deductions: AnnualDeductions;
-  /** 年間支出（投資・立替金・カード引き落としを除く） */
+  /** 年間支出（投資・立替金などを除く） */
   expense: number;
   /** 年間投資額 */
   investment: number;

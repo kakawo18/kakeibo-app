@@ -9,7 +9,7 @@
  * - calculateMonthlyComparison: 前月比較データを計算
  * 
  * 【重要な計算ルール】
- * - 投資・立替金・カード引き落とし等の除外判定は rules（transactionRules.ts）に従う
+ * - 投資・立替金などの除外判定は rules（transactionRules.ts）に従う
  * - 残高 = 収入 - 支出（発生主義）
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
@@ -58,7 +58,7 @@ export const calculateMonthlyData = (
         monthData.income += transaction.amount;
       }
     } else {
-      // 支出: 投資（資産移動）・立替金・カード引き落とし等は除外
+      // 支出: 投資（資産移動）・立替金・affectsExpense が false の取引は除外
       if (!rules.isExcludedFromExpense(transaction)) {
         monthData.expense += transaction.amount;
       }
@@ -109,7 +109,7 @@ export const calculateCategoryChartData = (
     .filter((t) => t.type === type)
     .forEach((transaction) => {
       // 支出サマリーカードの金額と円グラフの合計を一致させるため、
-      // 集計と同じ除外ルール（投資・立替・カード引き落とし等）を適用する
+      // 集計と同じ除外ルール（投資・立替など）を適用する
       if (type === 'expense' && rules.isExcludedFromExpense(transaction)) return;
       if (type === 'income' && rules.isExcludedFromIncome(transaction)) return;
 
