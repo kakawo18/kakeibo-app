@@ -33,7 +33,7 @@ import { CategoryBreakdown } from '@/components/charts/CategoryBreakdown';
 import { LineChart } from '@/components/charts/LineChart';
 import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { MonthNav } from '@/components/ui/MonthNav';
-import { MonthSwipeArea } from '@/components/ui/MonthSwipeArea';
+import { SwipeArea } from '@/components/ui/SwipeArea';
 import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
@@ -242,7 +242,7 @@ export function DashboardContent() {
   return (
     <Container size="lg">
       {/* 画面のどこを左右にスワイプしても月が変わる（カレンダーと同じ操作感） */}
-      <MonthSwipeArea
+      <SwipeArea
         enabled={isMobile}
         onPrevious={goPreviousMonth}
         onNext={goNextMonth}
@@ -400,7 +400,7 @@ export function DashboardContent() {
 
           <VersionDisplay />
         </Stack>
-      </MonthSwipeArea>
+      </SwipeArea>
 
       <AddTransactionFab
         onClick={() => setTransactionFormOpened(true)}

@@ -6,7 +6,7 @@
  * ホームと履歴で共用する。表示月は URL クエリに持つので、このコンポーネントは
  * useSelectedMonth を直接使い、親から値を受け取らない。
  *
- * スワイプでの月移動はここには持たない。ページ全体を包む MonthSwipeArea が担当する。
+ * スワイプでの月移動はここには持たない。ページ全体を包む SwipeArea が担当する。
  * 両方に持たせると、この上でスワイプしたときに月が2つ進む。
  */
 import { ActionIcon, Group, Select } from '@mantine/core';
