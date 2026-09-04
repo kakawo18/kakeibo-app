@@ -12,20 +12,13 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useComputedColorScheme } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
 import { useSettings } from '@/contexts/SettingsContext';
-import { usePersistedState } from '@/hooks/usePersistedState';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数
-
-/** 比較カテゴリの選択を保存する localStorage キー */
-const SELECTED_CATEGORIES_KEY = 'kakeibo:category-trend-selected';
-
-/** 保存済みの選択を検証する（文字列配列以外は未保存として扱う） */
-const parseSelectedCategories = (raw: unknown): string[] | null =>
-  Array.isArray(raw) && raw.every((value) => typeof value === 'string') ? raw : null;
 
 interface LineChartProps {
   title: string;
@@ -37,7 +30,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
   // OS がダークでも isDark が false になる
   const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
-  const { rules, getColor } = useSettings();
+  const { rules, getColor, settings, updateSettings } = useSettings();
 
   // 支出推移の分析対象か（投資・立替金は除外）
   const isAnalyzedExpense = useMemo(
@@ -45,12 +38,25 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
       t.type === 'expense' && !rules.isInvestment(t) && !rules.isAdvancePayment(t),
     [rules]
   );
-  // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示
-  // 選択はリロード後も保つため localStorage に永続化する（端末ごとの表示設定）
-  const [userSelectedCategories, setUserSelectedCategories] = usePersistedState<string[]>(
-    SELECTED_CATEGORIES_KEY,
-    parseSelectedCategories
-  );
+  // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示。
+  // 選択は設定ドキュメント（Firestore）に保存する。以前は localStorage に
+  // 置いていたが、iOS のホーム画面アプリでは起動をまたいで消えることがあり、
+  // 開くたびに既定へ戻っていた
+  const userSelectedCategories = settings?.chartPreferences?.categoryTrendCategories ?? null;
+
+  const handleSelectedCategoriesChange = (value: string[]) => {
+    // Firestore はローカル書き込みを即座に onSnapshot へ反映するため、
+    // オフラインでも選択は待たずに画面へ出る
+    updateSettings({
+      chartPreferences: { ...settings?.chartPreferences, categoryTrendCategories: value },
+    }).catch(() => {
+      notifications.show({
+        title: 'エラー',
+        message: '表示するカテゴリの保存に失敗しました',
+        color: 'red',
+      });
+    });
+  };
 
   // ユーザーがページングするまでは常に最新期間を表示する
   // （固定値で初期化すると、データ月数が変わったとき初期表示がずれる）
@@ -202,7 +208,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
       <MultiSelect
         data={availableCategories}
         value={selectedCategories}
-        onChange={setUserSelectedCategories}
+        onChange={handleSelectedCategoriesChange}
         placeholder="比較するカテゴリを選択"
         size="sm"
         mb="lg"

@@ -11,7 +11,7 @@ rules_version = '2';
 //
 // データ構成:
 //   transactions/{id}                       … 取引。userId フィールドで所有者を持つ
-//   users/{uid}/settings/app                … カテゴリ・支払方法・月間予算
+//   users/{uid}/settings/app                … カテゴリ・支払方法・月間予算・グラフの表示設定
 //   users/{uid}/recurringTransactions/{id}  … 定期取引
 
 service cloud.firestore {
