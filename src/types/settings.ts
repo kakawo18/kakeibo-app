@@ -78,12 +78,26 @@ export interface PaymentMethodSetting {
   color: string;             // カード還元表示用の単色
 }
 
+/**
+ * グラフの表示設定
+ *
+ * 端末のストレージ(localStorage)ではなく設定ドキュメントに置く。
+ * iOS のホーム画面アプリでは localStorage が起動をまたいで消えることがあり、
+ * 選択が既定に戻ってしまうため。ここに置けば端末をまたいでも同じ表示になる。
+ */
+export interface ChartPreferences {
+  /** カテゴリ別支出推移で比較するカテゴリ名。未設定なら支出Top3を自動選択 */
+  categoryTrendCategories?: string[];
+}
+
 /** ユーザー設定(users/{uid}/settings/app) */
 export interface UserSettings {
   schemaVersion: 1;
   monthlyBudget: number;
   categories: CategorySetting[];      // expense/income混在、typeで区別。配列順=表示順
   paymentMethods: PaymentMethodSetting[];
+  /** 未設定なら既定の表示。値を持つ項目だけ保存する */
+  chartPreferences?: ChartPreferences;
   createdAt: Date;
   updatedAt: Date;
 }

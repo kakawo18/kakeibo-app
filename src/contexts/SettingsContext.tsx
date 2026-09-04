@@ -80,6 +80,14 @@ const serializeSettings = (settings: UserSettings): DocumentData => ({
     rewardRate: method.rewardRate,
     color: method.color,
   })),
+  // 未設定のときはキー自体を書かない。merge:true なので既存値はそのまま残る
+  ...(settings.chartPreferences?.categoryTrendCategories
+    ? {
+        chartPreferences: {
+          categoryTrendCategories: settings.chartPreferences.categoryTrendCategories,
+        },
+      }
+    : {}),
   createdAt: Timestamp.fromDate(settings.createdAt),
   updatedAt: Timestamp.fromDate(settings.updatedAt),
 });
@@ -119,6 +127,15 @@ const deserializeSettings = (data: DocumentData): UserSettings => ({
         })
       )
     : [],
+  ...(Array.isArray(data.chartPreferences?.categoryTrendCategories)
+    ? {
+        chartPreferences: {
+          categoryTrendCategories: data.chartPreferences.categoryTrendCategories.filter(
+            (name: unknown): name is string => typeof name === 'string'
+          ),
+        },
+      }
+    : {}),
   createdAt: data.createdAt?.toDate() ?? new Date(),
   updatedAt: data.updatedAt?.toDate() ?? new Date(),
 });

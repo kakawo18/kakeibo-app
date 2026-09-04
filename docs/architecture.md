@@ -39,6 +39,7 @@ src/
   - `SettingsContext` — `users/{uid}/settings/app` をリアルタイム購読。設定 doc 未作成時は自動シード（既存ユーザー=レガシー設定 / 新規=汎用デフォルト）。集計ルール `rules` と色リゾルバ `getColor` を供給。
   - `TransactionsContext` — 取引を 1 本の Firestore リスナーに集約し、追加/更新/削除を提供。
 - **表示中の年月はローカル state ではなく URL クエリ `?month=YYYY-MM`** に持つ。読み書きは `useSelectedMonth`（`src/hooks/`）に集約し、UI は `MonthNav` を使う。`selectedYear` は月文字列から導出。
+- **グラフの表示設定も設定ドキュメントに置く**（`chartPreferences`）。端末の `localStorage` は iOS のホーム画面アプリで起動をまたいで消えることがあり、選択が既定に戻ってしまうため使わない。
 - **どのタブを開いているかも URL（パス）が持つ**。タブを state で切り替えないのは、月が URL・タブが state という二重管理を避けるため。副作用として、タブを切り替えるとスクロール位置は保持されない（各タブは上から読む画面なので許容している）。
 
 ## データフロー
