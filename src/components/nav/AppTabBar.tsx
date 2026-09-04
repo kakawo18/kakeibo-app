@@ -12,13 +12,16 @@
  * 高さは globals.css の --tabbar-content-height（アイコン行）と --tabbar-bottom-gap
  * （ホームインジケータ避けの余白）。合計が --tabbar-height で、FAB の位置と
  * 本文の下余白がこれを参照する。
+ *
+ * ホームと履歴のあいだでは、見ている月(?month=)を引き継ぐ（tabHref を参照）。
  */
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Box, Container, Group, Text, UnstyledButton } from '@mantine/core';
-import { TABS, findActiveTab } from '@/components/nav/tabs';
+import { TABS, findActiveTab, tabHref } from '@/components/nav/tabs';
 
-export const AppTabBar = () => {
+const TabBarView = ({ month }: { month: string | null }) => {
   const pathname = usePathname();
   const activeHref = findActiveTab(pathname ?? '/')?.href;
 
@@ -35,7 +38,7 @@ export const AppTabBar = () => {
                 <UnstyledButton
                   key={tab.href}
                   component={Link}
-                  href={tab.href}
+                  href={tabHref(tab, month)}
                   aria-current={active ? 'page' : undefined}
                   px={12}
                   py={7}
@@ -69,7 +72,7 @@ export const AppTabBar = () => {
               <UnstyledButton
                 key={tab.href}
                 component={Link}
-                href={tab.href}
+                href={tabHref(tab, month)}
                 aria-current={active ? 'page' : undefined}
                 style={{
                   display: 'flex',
@@ -92,3 +95,16 @@ export const AppTabBar = () => {
     </>
   );
 };
+
+const TabBarWithMonth = () => {
+  const searchParams = useSearchParams();
+  return <TabBarView month={searchParams.get('month')} />;
+};
+
+export const AppTabBar = () => (
+  // useSearchParams は Suspense 境界を要求する。フォールバックでも同じバーを描くので
+  // タブが欠ける瞬間は無く、月の引き継ぎだけが効かない状態になる
+  <Suspense fallback={<TabBarView month={null} />}>
+    <TabBarWithMonth />
+  </Suspense>
+);
