@@ -12,7 +12,7 @@ import { Suspense, useMemo, useState } from 'react';
 import { Box, Container, Group, Loader, Paper, SegmentedControl, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { MonthNav } from '@/components/ui/MonthNav';
-import { MonthSwipeArea } from '@/components/ui/MonthSwipeArea';
+import { SwipeArea } from '@/components/ui/SwipeArea';
 import { TransactionList } from '@/components/ui/TransactionList';
 import { CalendarView } from '@/components/ui/CalendarView';
 import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
@@ -59,7 +59,7 @@ function HistoryContent() {
     <Container size="lg">
       {/* 画面のどこを左右にスワイプしても月が変わる。
           カレンダー側のスワイプは切ってある（入れ子にすると月が2つ進む） */}
-      <MonthSwipeArea enabled={isMobile} onPrevious={goPreviousMonth} onNext={goNextMonth}>
+      <SwipeArea enabled={isMobile} onPrevious={goPreviousMonth} onNext={goNextMonth}>
         <Stack gap="md">
           {/* 月の切り替えと表示の切り替えを1行に収める。専用の行を作ると高さだけを食う */}
           <Group justify="space-between" align="center" wrap="nowrap">
@@ -95,7 +95,7 @@ function HistoryContent() {
             </Paper>
           )}
         </Stack>
-      </MonthSwipeArea>
+      </SwipeArea>
 
       <AddTransactionFab onClick={() => setFormOpened(true)} hidden={formOpened} />
 

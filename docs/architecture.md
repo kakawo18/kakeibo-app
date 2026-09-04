@@ -91,4 +91,4 @@ z-index は ヘッダー / タブバー = 100、取引追加の FAB = 150、Mant
 
 - `next` の App Router + `public/manifest.json` によるインストール対応。
 - モバイル判定は `useMediaQuery('(max-width: 768px)')`（768px が全体共通のブレークポイント）。
-- 入力はズーム防止で 16px フォント・48px タップ領域。スワイプ操作は framer-motion。
+- 入力はズーム防止で 16px フォント・48px タップ領域。スワイプ操作は framer-motion（`SwipeArea` に集約）。

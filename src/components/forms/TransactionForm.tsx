@@ -20,6 +20,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { Transaction, TransactionKind } from '@/types';
 import { formatDateJa } from '@/utils/dateUtils';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
+import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from './ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from './formStyles';
 
@@ -206,6 +207,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
+  // スワイプでの切り替え。すでにその種別のときは何もしない
+  // （カテゴリが消えるだけの空振りになるため）
+  const handleSwipeToType = (type: TransactionKind) => {
+    if (selectedType === type) return;
+    handleTypeChange(type);
+  };
+
   const handleCategoryChange = (category: string) => {
     form.setFieldValue('category', category);
     form.setFieldValue('subcategory', '');
@@ -236,113 +244,120 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       }}
     >
       <form onSubmit={form.onSubmit(handleSubmit)}>
-        <Stack>
-          <SegmentedControl
-            data={[
-              { label: '支出', value: 'expense' },
-              { label: '収入', value: 'income' },
-            ]}
-            key={form.key('type')}
-            {...form.getInputProps('type')}
-            onChange={handleTypeChange}
-            fullWidth
-            size={isMobile ? 'md' : 'sm'}
-            radius={10}
-            styles={{
-              label: {
-                fontSize: isMobile ? '16px' : undefined,
-                padding: isMobile ? '12px' : undefined,
-                minHeight: isMobile ? '48px' : undefined,
-              }
-            }}
-          />
-
-          <NumberInput
-            label="金額"
-            placeholder="金額を入力"
-            min={0}
-            required
-            key={form.key('amount')}
-            {...form.getInputProps('amount')}
-            styles={inputStyles}
-          />
-
-          <ResponsiveSelect
-            label="カテゴリ"
-            placeholder="カテゴリを選択"
-            required
-            data={categoryOptions}
-            value={selectedCategory}
-            onChange={handleCategoryChange}
-            error={form.errors.category}
-          />
-
-          {subcategoryOptions.length > 0 && (
-            <ResponsiveSelect
-              label="サブカテゴリ"
-              placeholder="サブカテゴリを選択（任意）"
-              data={subcategoryOptions}
-              key={form.key('subcategory')}
-              {...form.getInputProps('subcategory')}
-            />
-          )}
-
-          {/* 支払方法は支出の場合のみ表示 */}
-          {selectedType === 'expense' && (
-            <ResponsiveSelect
-              label="支払方法"
-              placeholder="支払方法を選択（任意）"
-              data={paymentMethodOptions}
-              key={form.key('paymentMethod')}
-              {...form.getInputProps('paymentMethod')}
-            />
-          )}
-
-          {isMobile ? (
-            <TextInput
-              label="日付"
-              required
-              value={formatDateJa(selectedDate)}
-              onClick={() => setMobileCalendarOpened(true)}
-              readOnly
+        {/* スマホでは左右スワイプでも支出／収入を切り替えられる（タブの並び順と同じ向き） */}
+        <SwipeArea
+          enabled={isMobile ?? false}
+          onPrevious={() => handleSwipeToType('expense')}
+          onNext={() => handleSwipeToType('income')}
+        >
+          <Stack>
+            <SegmentedControl
+              data={[
+                { label: '支出', value: 'expense' },
+                { label: '収入', value: 'income' },
+              ]}
+              key={form.key('type')}
+              {...form.getInputProps('type')}
+              onChange={handleTypeChange}
+              fullWidth
+              size={isMobile ? 'md' : 'sm'}
+              radius={10}
               styles={{
-                ...inputStyles,
-                input: {
-                  ...inputStyles.input,
-                  cursor: 'pointer',
-                  backgroundColor: 'var(--app-surface-2)',
-                },
+                label: {
+                  fontSize: isMobile ? '16px' : undefined,
+                  padding: isMobile ? '12px' : undefined,
+                  minHeight: isMobile ? '48px' : undefined,
+                }
               }}
             />
-          ) : (
-            <DateInput
-              label="日付"
+
+            <NumberInput
+              label="金額"
+              placeholder="金額を入力"
+              min={0}
               required
-              key={form.key('date')}
-              {...form.getInputProps('date')}
+              key={form.key('amount')}
+              {...form.getInputProps('amount')}
+              styles={inputStyles}
             />
-          )}
 
-          <Textarea
-            label="メモ（任意）"
-            placeholder="メモを入力"
-            key={form.key('description')}
-            {...form.getInputProps('description')}
-            autosize
-            minRows={isMobile ? 2 : 3}
-            maxRows={isMobile ? 4 : 6}
-            styles={textareaStyles}
-          />
+            <ResponsiveSelect
+              label="カテゴリ"
+              placeholder="カテゴリを選択"
+              required
+              data={categoryOptions}
+              value={selectedCategory}
+              onChange={handleCategoryChange}
+              error={form.errors.category}
+            />
 
-          <Group justify="flex-end">
-            <Button variant="light" onClick={onClose}>
-              キャンセル
-            </Button>
-            <Button type="submit" loading={loading}>
-              {editingTransaction ? '更新' : '追加'}
-            </Button>
-          </Group>
-        </Stack>
+            {subcategoryOptions.length > 0 && (
+              <ResponsiveSelect
+                label="サブカテゴリ"
+                placeholder="サブカテゴリを選択（任意）"
+                data={subcategoryOptions}
+                key={form.key('subcategory')}
+                {...form.getInputProps('subcategory')}
+              />
+            )}
+
+            {/* 支払方法は支出の場合のみ表示 */}
+            {selectedType === 'expense' && (
+              <ResponsiveSelect
+                label="支払方法"
+                placeholder="支払方法を選択（任意）"
+                data={paymentMethodOptions}
+                key={form.key('paymentMethod')}
+                {...form.getInputProps('paymentMethod')}
+              />
+            )}
+
+            {isMobile ? (
+              <TextInput
+                label="日付"
+                required
+                value={formatDateJa(selectedDate)}
+                onClick={() => setMobileCalendarOpened(true)}
+                readOnly
+                styles={{
+                  ...inputStyles,
+                  input: {
+                    ...inputStyles.input,
+                    cursor: 'pointer',
+                    backgroundColor: 'var(--app-surface-2)',
+                  },
+                }}
+              />
+            ) : (
+              <DateInput
+                label="日付"
+                required
+                key={form.key('date')}
+                {...form.getInputProps('date')}
+              />
+            )}
+
+            <Textarea
+              label="メモ（任意）"
+              placeholder="メモを入力"
+              key={form.key('description')}
+              {...form.getInputProps('description')}
+              autosize
+              minRows={isMobile ? 2 : 3}
+              maxRows={isMobile ? 4 : 6}
+              styles={textareaStyles}
+            />
+
+            <Group justify="flex-end">
+              <Button variant="light" onClick={onClose}>
+                キャンセル
+              </Button>
+              <Button type="submit" loading={loading}>
+                {editingTransaction ? '更新' : '追加'}
+              </Button>
+            </Group>
+          </Stack>
+        </SwipeArea>
       </form>
 
       {/* モバイル専用カレンダー（選択モード） */}

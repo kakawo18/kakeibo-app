@@ -1,28 +1,32 @@
 'use client';
 
 /**
- * 左右スワイプで月を移動する領域
+ * 左右スワイプで「前へ / 次へ」を発火する領域
  *
- * 画面全体を包んで使う。1つの画面に複数のスワイプ領域を入れ子にすると
- * 1回の操作で2回month が動くので、ページごとにこれを1つだけ置くこと。
+ * ホームと履歴では月の移動に、取引フォームでは支出／収入の切り替えに使う。
+ * 画面（またはフォーム）全体を包んで使うこと。
+ *
+ * 入れ子にすると1回の操作で2回動いてしまうので、1つの画面にこれを1つだけ置く。
  * （そのため MonthNav とカレンダーは、この中に入るときは自前のスワイプを持たない）
  *
  * touch-action は pan-y。none にすると縦スクロールまで止まる。
  */
 import { motion } from 'framer-motion';
 
-/** これ以上動かしたら月替わりとみなす距離(px) */
+/** これ以上動かしたらスワイプとみなす距離(px) */
 const SWIPE_THRESHOLD = 60;
 
-interface MonthSwipeAreaProps {
+interface SwipeAreaProps {
   /** false のときは何もせず子をそのまま描画する（デスクトップ用） */
   enabled?: boolean;
+  /** 右へスワイプ（＝左のものへ戻る） */
   onPrevious: () => void;
+  /** 左へスワイプ（＝右のものへ進む） */
   onNext: () => void;
   children: React.ReactNode;
 }
 
-export const MonthSwipeArea: React.FC<MonthSwipeAreaProps> = ({
+export const SwipeArea: React.FC<SwipeAreaProps> = ({
   enabled = true,
   onPrevious,
   onNext,
