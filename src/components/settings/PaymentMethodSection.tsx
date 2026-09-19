@@ -126,7 +126,7 @@ const PaymentMethodEditor: React.FC<Omit<PaymentMethodEditModalProps, 'opened'>>
 
         <Switch
           label="現金扱い(カード支払いとして扱わない)"
-          description="オンにすると支払い時に残高から即時引き落とされる扱いになります"
+          description="現金や口座振替など、その場で決済される方法ならオン。カードとして扱わず、還元ポイントの対象外になります"
           checked={isCash}
           onChange={(e) => setIsCash(e.currentTarget.checked)}
         />
