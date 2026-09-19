@@ -42,7 +42,7 @@ npm run type-check          # tsc --noEmit
 
 - **Turbopack は `globals.css` の変更を反映しないことがある**（再起動でも直らない）。CSS 変更が computed style に出ないときは `.next` を削除して再起動する。
 - **z-index の階層**: Mantine モーダル = 200。`.app-header` は 100、モバイル FAB（Affix）は 150。**200 以上にしない**（フルスクリーンモーダルの閉じるボタンを覆い、PWA でユーザーが戻れなくなる）。
-- **カード支払いの会計ロジック**: クレジットカードの支出は購入月に計上し、残高には翌月反映される（実際の引き落としを模す）。`transactionType` / `affectsExpense` / `affectsBalance` フラグで表現。詳細は `docs/user-guide.md`。
+- **カード支払いの会計ロジック**: クレジットカードの支出は**購入月に計上する**。実際の口座残高や引き落とし月は扱わない（アプリが計算するのは「収支 = 選択月の収入−支出」のみ）。`transactionType`（`normal` / `card_payment`）と `affectsExpense` フラグで表現し、`rules.deriveTransactionFlags` が導出する。詳細は `docs/機能仕様書.md` の「クレジットカード払いの会計モデル」。
 - **モバイル入力**: iOS のズーム防止でフォントは 16px、タップ領域は 48px を確保する（`globals.css` の PWA 用ブロック）。
 
 ## セキュリティ

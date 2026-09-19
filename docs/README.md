@@ -2,6 +2,8 @@
 
 家計簿アプリの資料集。エージェント向けの作業ガイドはリポジトリ直下の `AGENTS.md` を参照。
 
+- [基本仕様書.md](基本仕様書.md) — システム全体の仕様（構成・データモデル・非機能要件）
+- [機能仕様書.md](機能仕様書.md) — 画面・機能ごとの詳細仕様
 - [architecture.md](architecture.md) — プロジェクト構成と設計判断
 - [setup.md](setup.md) — 開発環境セットアップ（Firebase・環境変数・エミュレータ）
 - [deployment.md](deployment.md) — Vercel / Firebase へのデプロイ
