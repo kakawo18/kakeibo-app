@@ -14,7 +14,7 @@
  * - カード払いは購入月の支出として計上する（引き落とし月には計上しない）
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
-import { formatMonthLocal, getNextMonth } from './dateUtils';
+import { formatDate, formatMonthLocal, getNextMonth, monthRange } from './dateUtils';
 import { TransactionRules } from './transactionRules';
 
 /** カテゴリ/サブカテゴリ名 → 表示色のリゾルバ(useSettings().getColor と同形) */
@@ -161,5 +161,88 @@ export const calculateMonthlyComparison = (
     income: { value: currentData.income, ...income },
     expense: { value: currentData.expense, ...expense },
     balance: { value: currentData.balance, ...balance },
+  };
+};
+/**
+ * 日付（YYYY-MM-DD）ごとの収入・支出（カレンダー用）
+ *
+ * 月次集計と同じ除外ルールを使う（#100）。以前はカレンダーだけが投資・立替を
+ * 個別に除いており、支出から外した過去の取引（affectsExpense = false）が
+ * カレンダーにだけ加算されてホームの支出と食い違っていた。
+ */
+export const calculateDailyTotals = (
+  transactions: Transaction[],
+  rules: TransactionRules
+): Map<string, { income: number; expense: number }> => {
+  const totals = new Map<string, { income: number; expense: number }>();
+
+  transactions.forEach((t) => {
+    const key = formatDate(t.date);
+    const day = totals.get(key) ?? { income: 0, expense: 0 };
+    if (t.type === 'income') {
+      if (!rules.isExcludedFromIncome(t)) day.income += t.amount;
+    } else if (!rules.isExcludedFromExpense(t)) {
+      day.expense += t.amount;
+    }
+    totals.set(key, day);
+  });
+
+  return totals;
+};
+
+export interface CategoryTrend {
+  /** 月ごとのカテゴリ別支出。取引の無い月・カテゴリも0で入る */
+  months: { month: string; totals: Record<string, number> }[];
+  /** 対象期間に支出のあるカテゴリ（名前順） */
+  categories: string[];
+  /** 同じカテゴリを全期間の支出の多い順に */
+  categoriesBySpending: string[];
+}
+
+/**
+ * カテゴリ別支出の月次推移（ホームの推移グラフ用）
+ *
+ * - 支出はホームと同じ除外ルール（投資・立替・affectsExpense = false）で数える（#100）
+ * - 最初の取引の月から「最後の取引の月か今月の遅い方」までを連続で並べ、
+ *   取引の無い月やカテゴリは0で埋める（#118）。以前は支出のある月だけを並べて
+ *   いたので、6ヶ月表示が実際には飛び飛びの6つの月になり、線も途切れていた
+ *
+ * @param currentMonth 今月（YYYY-MM）。テストで固定できるよう引数で受け取る
+ */
+export const calculateCategoryTrend = (
+  transactions: Transaction[],
+  rules: TransactionRules,
+  currentMonth: string
+): CategoryTrend => {
+  const byMonth = new Map<string, Map<string, number>>();
+  const totalByCategory = new Map<string, number>();
+
+  transactions.forEach((t) => {
+    if (t.type !== 'expense' || rules.isExcludedFromExpense(t)) return;
+    const month = formatMonthLocal(t.date);
+    const monthTotals = byMonth.get(month) ?? new Map<string, number>();
+    monthTotals.set(t.category, (monthTotals.get(t.category) ?? 0) + t.amount);
+    byMonth.set(month, monthTotals);
+    totalByCategory.set(t.category, (totalByCategory.get(t.category) ?? 0) + t.amount);
+  });
+
+  if (byMonth.size === 0) return { months: [], categories: [], categoriesBySpending: [] };
+
+  const categories = Array.from(totalByCategory.keys()).sort();
+  const recorded = Array.from(byMonth.keys()).sort();
+  const last = recorded[recorded.length - 1];
+  const end = last > currentMonth ? last : currentMonth;
+
+  return {
+    months: monthRange(recorded[0], end).map((month) => ({
+      month,
+      totals: Object.fromEntries(
+        categories.map((category) => [category, byMonth.get(month)?.get(category) ?? 0])
+      ),
+    })),
+    categories,
+    categoriesBySpending: Array.from(totalByCategory.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([category]) => category),
   };
 };

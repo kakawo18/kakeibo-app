@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { testRules as rules, tx } from '@/test/fixtures';
 import {
   calculateCategoryChartData,
+  calculateCategoryTrend,
+  calculateDailyTotals,
   calculateMonthlyComparison,
   calculateMonthlyData,
 } from '@/utils/calculations';
@@ -88,5 +90,89 @@ describe('calculateMonthlyComparison', () => {
 
   it('前月データが無ければ0として比較する', () => {
     expect(calculateMonthlyComparison(month(100, 0), undefined).income.trend).toBe('up');
+  });
+});
+
+describe('calculateDailyTotals（#100: カレンダーもホームと同じ除外ルール）', () => {
+  const transactions = [
+    tx('2026-03-05', 'expense', 1_000, '食費'),
+    tx('2026-03-05', 'expense', 50_000, '投資'),
+    tx('2026-03-05', 'expense', 3_000, '立替'),
+    tx('2026-03-05', 'expense', 30_000, '食費', { affectsExpense: false, transactionType: 'card_withdrawal' }),
+    tx('2026-03-05', 'income', 2_000, '立替回収'),
+    tx('2026-03-05', 'income', 10_000, '給与'),
+    tx('2026-03-06', 'expense', 500, '固定費', { subcategory: '積立NISA' }),
+  ];
+
+  it('投資・立替・支出除外フラグ・立替回収を除いて日ごとに集計する', () => {
+    const totals = calculateDailyTotals(transactions, rules);
+    expect(totals.get('2026-03-05')).toEqual({ income: 10_000, expense: 1_000 });
+    expect(totals.get('2026-03-06')).toEqual({ income: 0, expense: 0 });
+  });
+
+  it('日ごとの合計は月次集計と一致する', () => {
+    const totals = calculateDailyTotals(transactions, rules);
+    const month = calculateMonthlyData(transactions, rules).find((m) => m.month === '2026-03')!;
+    const sum = Array.from(totals.values()).reduce(
+      (acc, t) => ({ income: acc.income + t.income, expense: acc.expense + t.expense }),
+      { income: 0, expense: 0 }
+    );
+    expect(sum).toEqual({ income: month.income, expense: month.expense });
+  });
+});
+
+describe('calculateCategoryTrend（#100 #118）', () => {
+  it('取引の無い月も時系列に並べ、そのカテゴリの支出は0で埋める', () => {
+    const trend = calculateCategoryTrend(
+      [
+        tx('2026-01-10', 'expense', 1_000, '食費'),
+        tx('2026-04-10', 'expense', 2_000, '食費'),
+        tx('2026-04-11', 'expense', 500, '交通費'),
+      ],
+      rules,
+      '2026-04'
+    );
+    expect(trend.months.map((m) => m.month)).toEqual(['2026-01', '2026-02', '2026-03', '2026-04']);
+    expect(trend.months[1].totals).toEqual({ 食費: 0, 交通費: 0 });
+    expect(trend.months[0].totals).toEqual({ 食費: 1_000, 交通費: 0 });
+    expect(trend.months[3].totals).toEqual({ 食費: 2_000, 交通費: 500 });
+  });
+
+  it('最後の取引から今月までの月も0で続ける（最新6ヶ月が本当に直近の6ヶ月になる）', () => {
+    const trend = calculateCategoryTrend([tx('2026-01-10', 'expense', 1_000, '食費')], rules, '2026-03');
+    expect(trend.months.map((m) => m.month)).toEqual(['2026-01', '2026-02', '2026-03']);
+  });
+
+  it('ホームの支出と同じ除外ルールで集計する（支出除外フラグ・投資・立替）', () => {
+    const trend = calculateCategoryTrend(
+      [
+        tx('2026-03-01', 'expense', 1_000, '食費'),
+        tx('2026-03-02', 'expense', 30_000, '食費', { affectsExpense: false }),
+        tx('2026-03-03', 'expense', 50_000, '投資'),
+        tx('2026-03-04', 'expense', 3_000, '立替'),
+        tx('2026-03-05', 'expense', 600, '固定費', { subcategory: '積立NISA' }),
+      ],
+      rules,
+      '2026-03'
+    );
+    expect(trend.categories).toEqual(['食費']);
+    expect(trend.months[0].totals).toEqual({ 食費: 1_000 });
+  });
+
+  it('支出の多い順のカテゴリを返す（既定の選択に使う）', () => {
+    const trend = calculateCategoryTrend(
+      [
+        tx('2026-03-01', 'expense', 100, '交通費'),
+        tx('2026-03-01', 'expense', 300, '食費'),
+        tx('2026-03-01', 'expense', 200, '固定費'),
+      ],
+      rules,
+      '2026-03'
+    );
+    expect(trend.categoriesBySpending).toEqual(['食費', '固定費', '交通費']);
+  });
+
+  it('取引が無ければ空', () => {
+    expect(calculateCategoryTrend([], rules, '2026-03').months).toEqual([]);
   });
 });
