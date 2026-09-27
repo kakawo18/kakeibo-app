@@ -52,3 +52,12 @@ export const getPreviousMonthFromCurrent = (month: string): string => {
 export const formatMonthLocal = (date: Date): string => {
   return dayjs(date).format('YYYY-MM');
 };
+
+/** from〜to（YYYY-MM、両端を含む）の月を順に返す。from が to より後なら空 */
+export const monthRange = (from: string, to: string): string[] => {
+  const months: string[] = [];
+  for (let month = from; month <= to; month = getNextMonth(month)) {
+    months.push(month);
+  }
+  return months;
+};

@@ -15,7 +15,8 @@ import { Paper, Text, Group, MultiSelect, ActionIcon, Box, Stack, useComputedCol
 import { notifications } from '@mantine/notifications';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { Transaction } from '@/types';
-import { getMonthName, formatMonthLocal } from '@/utils/dateUtils';
+import { getCurrentMonth, getMonthName } from '@/utils/dateUtils';
+import { calculateCategoryTrend } from '@/utils/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数
@@ -32,11 +33,11 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
   const { rules, getColor, settings, updateSettings } = useSettings();
 
-  // 支出推移の分析対象か（投資・立替金は除外）
-  const isAnalyzedExpense = useMemo(
-    () => (t: Transaction): boolean =>
-      t.type === 'expense' && !rules.isInvestment(t) && !rules.isAdvancePayment(t),
-    [rules]
+  // 月ごとのカテゴリ別支出。ホームの支出と同じ除外ルールで数え、
+  // 取引の無い月も0で埋めて連続させる（#100 #118）
+  const trend = useMemo(
+    () => calculateCategoryTrend(transactions, rules, getCurrentMonth()),
+    [transactions, rules]
   );
   // ユーザーが明示的に選択するまでは支出Top 3カテゴリをデフォルト表示。
   // 選択は設定ドキュメント（Firestore）に保存する。以前は localStorage に
@@ -63,68 +64,35 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   const [userStartIndex, setUserStartIndex] = useState<number | null>(null);
 
   // 支出Top 3カテゴリ（デフォルト選択用）
-  const defaultTopCategories = useMemo(() => {
-    const categoryTotals = new Map<string, number>();
-
-    transactions.forEach(t => {
-      if (!isAnalyzedExpense(t)) return;
-
-      const cat = t.category;
-      categoryTotals.set(cat, (categoryTotals.get(cat) || 0) + t.amount);
-    });
-
-    return Array.from(categoryTotals.entries())
-      .sort((a, b) => b[1] - a[1]) // 金額降順
-      .slice(0, 3) // Top 3
-      .map(entry => entry[0]);
-  }, [transactions, isAnalyzedExpense]);
+  const defaultTopCategories = useMemo(
+    () => trend.categoriesBySpending.slice(0, 3),
+    [trend]
+  );
 
   // 利用可能なカテゴリを取得
-  const availableCategories = useMemo(() => {
-    const categories = Array.from(new Set(
-      transactions.filter(isAnalyzedExpense).map(t => t.category)
-    )).sort();
-    return categories.map(cat => ({ value: cat, label: cat }));
-  }, [transactions, isAnalyzedExpense]);
+  const availableCategories = useMemo(
+    () => trend.categories.map((cat) => ({ value: cat, label: cat })),
+    [trend]
+  );
 
   // 保存済みの選択のうち、現在の取引に存在しないカテゴリ（改名・削除された等）は除外する。
   // 保存値自体は書き換えないため、該当カテゴリの取引が戻れば再び表示される。
   const selectedCategories = useMemo(() => {
-    const available = new Set(availableCategories.map(option => option.value));
+    const available = new Set(trend.categories);
     return (userSelectedCategories ?? defaultTopCategories).filter(category =>
       available.has(category)
     );
-  }, [userSelectedCategories, defaultTopCategories, availableCategories]);
+  }, [userSelectedCategories, defaultTopCategories, trend]);
 
-  // 全データを計算（スライス前）
-  const allCategoryData = useMemo(() => {
-    // カテゴリ別の月間集計
-    const monthlyCategories: Record<string, Record<string, number>> = {};
-
-    transactions.forEach(transaction => {
-      if (!isAnalyzedExpense(transaction)) return;
-
-      const month = formatMonthLocal(transaction.date);
-
-      if (!monthlyCategories[month]) {
-        monthlyCategories[month] = {};
-      }
-
-      if (!monthlyCategories[month][transaction.category]) {
-        monthlyCategories[month][transaction.category] = 0;
-      }
-
-      monthlyCategories[month][transaction.category] += transaction.amount;
-    });
-
-    // 月を時系列順にソート（過去→現在）
-    return Object.entries(monthlyCategories)
-      .sort(([monthA], [monthB]) => monthA.localeCompare(monthB)) // YYYY-MM形式で文字列ソート
-      .map(([month, categories]) => ({
+  // 全データを計算（スライス前）。X軸のラベルは YYYY/MM
+  const allCategoryData = useMemo(
+    () =>
+      trend.months.map(({ month, totals }) => ({
         month: getMonthName(month).replace('年', '/').replace('月', ''),
-        ...categories,
-      }));
-  }, [transactions, isAnalyzedExpense]);
+        ...totals,
+      })),
+    [trend]
+  );
 
   // 表示開始位置（未操作時は最新の6ヶ月）と表示データ
   const displayStartIndex = userStartIndex ?? Math.max(0, allCategoryData.length - DISPLAY_MONTHS);

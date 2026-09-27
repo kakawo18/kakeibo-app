@@ -11,7 +11,7 @@
  * 消費ではないため。投資額は investment として常に別枠で返す。
  */
 import { Transaction } from '@/types';
-import { formatMonthLocal } from './dateUtils';
+import { formatMonthLocal, getCurrentMonth, monthRange } from './dateUtils';
 import { TransactionRules } from './transactionRules';
 import { GrossEstimateOptions, estimateGrossFromNet } from './tax/estimateGross';
 
@@ -174,10 +174,20 @@ export const calculateMonthlyDetail = (
   return months;
 };
 
-/** 記録開始からの投資額（元本）の累計を月次で返す */
+/**
+ * 記録開始からの投資額（元本）の累計を月次で返す
+ *
+ * 最初の投資の月から「最後の投資の月か今月の遅い方」までを連続で並べ、
+ * 投資しなかった月は直前の累計を保つ（#118）。以前は投資した月だけを並べて
+ * いたので、間隔が不均一でも等間隔に描かれ、投資していない期間にも
+ * 増えているように見えていた。
+ *
+ * @param currentMonth 今月（YYYY-MM）。テストで固定できるよう引数で受け取る
+ */
 export const calculateCumulativeInvestment = (
   transactions: Transaction[],
-  rules: TransactionRules
+  rules: TransactionRules,
+  currentMonth: string = getCurrentMonth()
 ): { month: string; cumulative: number }[] => {
   const byMonth = new Map<string, number>();
 
@@ -187,13 +197,17 @@ export const calculateCumulativeInvestment = (
     byMonth.set(month, (byMonth.get(month) ?? 0) + t.amount);
   });
 
+  if (byMonth.size === 0) return [];
+
+  const recorded = Array.from(byMonth.keys()).sort();
+  const last = recorded[recorded.length - 1];
+  const end = last > currentMonth ? last : currentMonth;
+
   let cumulative = 0;
-  return Array.from(byMonth.keys())
-    .sort((a, b) => a.localeCompare(b))
-    .map((month) => {
-      cumulative += byMonth.get(month) ?? 0;
-      return { month, cumulative };
-    });
+  return monthRange(recorded[0], end).map((month) => {
+    cumulative += byMonth.get(month) ?? 0;
+    return { month, cumulative };
+  });
 };
 
 /** 指定年とその前年のカテゴリ別支出を比較し、増減額の大きい順に返す */

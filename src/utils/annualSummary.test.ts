@@ -3,6 +3,7 @@ import { testRules as rules, tx } from '@/test/fixtures';
 import {
   calculateAnnualSummaries,
   calculateCategoryYoY,
+  calculateCumulativeInvestment,
   calculateMonthlyDetail,
   getAvailableYears,
 } from '@/utils/annualSummary';
@@ -86,5 +87,30 @@ describe('calculateCategoryYoY', () => {
       { name: '食費', current: 40_000, previous: 100_000, diff: -60_000, rate: -60 },
       { name: '家賃', current: 10_000, previous: 0, diff: 10_000, rate: null },
     ]);
+  });
+});
+
+describe('calculateCumulativeInvestment（#118）', () => {
+  it('投資しない月も時系列に並べ、累計は直前の値を保つ', () => {
+    const data = calculateCumulativeInvestment(
+      [
+        tx('2026-01-10', 'expense', 10_000, '投資'),
+        tx('2026-04-10', 'expense', 20_000, '固定費', { subcategory: '積立NISA' }),
+        tx('2026-02-10', 'expense', 999, '食費'),
+      ],
+      rules,
+      '2026-05'
+    );
+    expect(data).toEqual([
+      { month: '2026-01', cumulative: 10_000 },
+      { month: '2026-02', cumulative: 10_000 },
+      { month: '2026-03', cumulative: 10_000 },
+      { month: '2026-04', cumulative: 30_000 },
+      { month: '2026-05', cumulative: 30_000 },
+    ]);
+  });
+
+  it('投資が無ければ空', () => {
+    expect(calculateCumulativeInvestment([tx('2026-01-10', 'expense', 1, '食費')], rules, '2026-05')).toEqual([]);
   });
 });

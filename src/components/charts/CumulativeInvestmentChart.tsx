@@ -94,8 +94,9 @@ export const CumulativeInvestmentChart: React.FC<CumulativeInvestmentChartProps>
                 padding: '8px 12px',
               }}
             />
+            {/* 月ごとに連続した点を直線で結ぶ。投資しない月は横ばいになる（#118） */}
             <Area
-              type="monotone"
+              type="linear"
               dataKey="cumulative"
               isAnimationActive={false}
               stroke="var(--series-investment)"

@@ -20,6 +20,7 @@ import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 import { Transaction } from '@/types';
+import { calculateDailyTotals } from '@/utils/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 
@@ -108,17 +109,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return map;
   }, [transactions]);
 
+  // 日別の収入・支出。ホームの月次集計と同じ除外ルール（投資・立替・支出除外フラグ）
+  const dailyTotals = useMemo(
+    () => calculateDailyTotals(transactions, rules),
+    [transactions, rules]
+  );
+
   const today = dayjs();
 
-  // 日別の収支。投資と立替は日々の増減として見たくないので除く
   const getDailyBalance = (date: Dayjs) => {
-    const dayTransactions = transactionsByDate.get(date.format('YYYY-MM-DD')) || [];
-    const income = dayTransactions
-      .filter((t) => t.type === 'income' && !rules.isAdvanceRepayment(t))
-      .reduce((sum, t) => sum + t.amount, 0);
-    const expense = dayTransactions
-      .filter((t) => t.type === 'expense' && !rules.isAdvancePayment(t) && !rules.isInvestment(t))
-      .reduce((sum, t) => sum + t.amount, 0);
+    const { income, expense } = dailyTotals.get(date.format('YYYY-MM-DD')) ?? { income: 0, expense: 0 };
     return { income, expense, balance: income - expense };
   };
 
