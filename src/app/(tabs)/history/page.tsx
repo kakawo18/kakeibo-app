@@ -62,7 +62,8 @@ function HistoryContent() {
       <SwipeArea enabled={isMobile} onPrevious={goPreviousMonth} onNext={goNextMonth}>
         <Stack gap="md">
           {/* 月の切り替えと表示の切り替えを1行に収める。専用の行を作ると高さだけを食う */}
-          <Group justify="space-between" align="center" wrap="nowrap">
+          {/* 幅が足りない端末（320px など）では表示の切り替えを次の行へ回す */}
+          <Group justify="space-between" align="center" wrap="wrap" gap={8} style={{ rowGap: 4 }}>
             <MonthNav />
             <SegmentedControl
               value={view}

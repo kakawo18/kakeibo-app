@@ -70,7 +70,10 @@ export const MonthNav = () => {
       <ActionIcon
         variant="subtle"
         color="gray"
-        size={isMobile ? 'md' : 'lg'}
+        // スマホは指で押すので高さ 44px を確保する（#111）。幅は、履歴タブで表示の切り替えと
+        // 1行に並べても年月が欠けず、375px 幅でも折り返さない 34px にとどめる
+        size={isMobile ? 44 : 40}
+        style={isMobile ? { width: 34, minWidth: 34 } : undefined}
         onClick={goPreviousMonth}
         aria-label="前の月へ"
       >
@@ -82,7 +85,10 @@ export const MonthNav = () => {
       <ActionIcon
         variant="subtle"
         color="gray"
-        size={isMobile ? 'md' : 'lg'}
+        // スマホは指で押すので高さ 44px を確保する（#111）。幅は、履歴タブで表示の切り替えと
+        // 1行に並べても年月が欠けず、375px 幅でも折り返さない 34px にとどめる
+        size={isMobile ? 44 : 40}
+        style={isMobile ? { width: 34, minWidth: 34 } : undefined}
         onClick={goNextMonth}
         aria-label="次の月へ"
       >

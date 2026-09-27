@@ -83,7 +83,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <ActionIcon
               variant="subtle"
               color="gray"
-              size="lg"
+              size={44}
               onClick={() => setColorScheme(isDark ? 'light' : 'dark')}
               aria-label="テーマ切り替え"
             >
@@ -93,7 +93,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             {/* 使用頻度の低い操作はまとめる */}
             <Menu shadow="md" width={220} position="bottom-end" radius={12}>
               <Menu.Target>
-                <ActionIcon variant="subtle" color="gray" size="lg" aria-label="メニュー">
+                <ActionIcon variant="subtle" color="gray" size={44} aria-label="メニュー">
                   <IconDotsVertical size={18} />
                 </ActionIcon>
               </Menu.Target>

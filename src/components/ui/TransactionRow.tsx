@@ -15,6 +15,7 @@ import { notifications } from '@mantine/notifications';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
+import { pressable } from '@/components/ui/pressable';
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -57,11 +58,25 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onE
       className="ledger-row"
       justify="space-between"
       wrap="nowrap"
-      py={10}
-      px={8}
-      style={{ borderBottom: '1px solid var(--hairline)', cursor: 'pointer' }}
-      onClick={() => onEdit(transaction)}
+      gap={0}
+      style={{ borderBottom: '1px solid var(--hairline)' }}
     >
+      {/* 編集する部分（カテゴリ・メモ・金額）と削除ボタンを兄弟に分ける。
+          行全体を押せるようにしたまま中に削除ボタンを入れると、ボタンが入れ子になり
+          読み上げ・キーボードで区別できず、誤って押しやすかった（#111） */}
+      <Group
+        gap={10}
+        wrap="nowrap"
+        justify="space-between"
+        py={10}
+        pl={8}
+        pr={4}
+        style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}
+        {...pressable(
+          () => onEdit(transaction),
+          `${categoryLabel} ${transaction.type === 'income' ? '+' : '-'}${transaction.amount.toLocaleString()}円を編集`
+        )}
+      >
       {/* 左: カテゴリ・メモ */}
       <Group gap={10} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
         <Box w={8} h={8} style={{ borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
@@ -92,28 +107,28 @@ export const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onE
         </Box>
       </Group>
 
-      {/* 右: 金額・削除 */}
-      <Group gap={6} wrap="nowrap" style={{ flexShrink: 0 }}>
-        <Text
-          size="sm"
-          fw={700}
-          className={`tabular-nums ${transaction.type === 'income' ? 'amount-income' : ''}`}
-        >
-          {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
-        </Text>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="sm"
-          aria-label="削除"
-          onClick={(event) => {
-            event.stopPropagation();
-            handleDelete();
-          }}
-        >
-          <IconTrash size={14} />
-        </ActionIcon>
+      {/* 右: 金額 */}
+      <Text
+        size="sm"
+        fw={700}
+        className={`tabular-nums ${transaction.type === 'income' ? 'amount-income' : ''}`}
+        style={{ flexShrink: 0 }}
+      >
+        {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
+      </Text>
       </Group>
+
+      {/* 削除。編集部分とは別のボタンにし、タップ領域も広げる */}
+      <ActionIcon
+        variant="subtle"
+        color="gray"
+        size={40}
+        aria-label={`${categoryLabel} ${transaction.amount.toLocaleString()}円を削除`}
+        onClick={handleDelete}
+        style={{ flexShrink: 0 }}
+      >
+        <IconTrash size={16} />
+      </ActionIcon>
     </Group>
   );
 };
