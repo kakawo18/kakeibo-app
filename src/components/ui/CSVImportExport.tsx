@@ -12,6 +12,7 @@ import {
   MAX_IMPORT_ROWS,
 } from '@/utils/csvUtils';
 import { notifications } from '@mantine/notifications';
+import { ImportWriteError, importIdFromText } from '@/data/transactionImport';
 
 interface CSVImportExportProps {
   opened: boolean;
@@ -69,6 +70,8 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
     try {
       const text = await importFile.text();
       const result = parseCSV(text, rules, { knownCategories });
+      // 同じファイルは同じ ID で書くので、取り込み直しても重複しない（#103）
+      const importId = await importIdFromText(text);
 
       if (result.transactions.length === 0) {
         notifications.show({
@@ -79,7 +82,7 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
         return;
       }
 
-      const importedCount = await addTransactions(result.transactions);
+      const importedCount = await addTransactions(result.transactions, { importId });
 
       // 結果の内訳（スキップ・打ち切り・未登録カテゴリ）を伝える
       const notes: string[] = [];
@@ -111,11 +114,21 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
       onClose();
     } catch (error) {
       console.error('Error importing CSV:', error);
-      notifications.show({
-        title: 'インポートエラー',
-        message: 'ファイルの読み込みに失敗しました',
-        color: 'red',
-      });
+      // 保存の途中で失敗した場合は、どこまで保存できたかと、取り込み直してよいことを伝える
+      notifications.show(
+        error instanceof ImportWriteError
+          ? {
+              title: 'インポートが途中で止まりました',
+              message: `${error.total}件のうち${error.written}件を保存したところで失敗しました。同じファイルをもう一度インポートすると、保存済みの分は重複せずに残りを保存します。`,
+              color: 'red',
+              autoClose: false,
+            }
+          : {
+              title: 'インポートエラー',
+              message: 'ファイルの読み込みに失敗しました',
+              color: 'red',
+            }
+      );
     } finally {
       setImporting(false);
     }
@@ -149,7 +162,8 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
               CSVファイルは以下の形式である必要があります：<br />
               日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ, 支払方法<br />
               （このアプリで書き出した CSV には、支出の集計フラグの2列が続きます）<br />
-              （上限: {Math.floor(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB / {MAX_IMPORT_ROWS}行）
+              （上限: {Math.floor(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB / {MAX_IMPORT_ROWS}行）<br />
+              同じファイルをもう一度インポートしても、取引は重複しません
             </Text>
           </Alert>
 
