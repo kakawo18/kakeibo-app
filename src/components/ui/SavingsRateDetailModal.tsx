@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Modal, Stack, Card, Text, Group, Box, Grid, Divider } from '@mantine/core';
+import { Modal, Stack, Card, Text, Group, Box, Divider, SimpleGrid } from '@mantine/core';
 import { IconTrendingUp } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -13,6 +13,24 @@ interface SavingsRateDetailModalProps {
   transactions: Transaction[];
   year: number;
 }
+
+/** 年間サマリーのタイル（振り返りタブのタイルと同じ見た目） */
+const SummaryTile = ({ label, value, color }: { label: string; value: string; color: string }) => (
+  <Box
+    p="md"
+    style={{
+      background: 'var(--app-surface-2)',
+      borderRadius: 'var(--radius-tile)',
+      border: '1px solid var(--hairline)',
+      minWidth: 0,
+    }}
+  >
+    <Text className="overline-label" mb={4}>{label}</Text>
+    <Text size="lg" fw={700} className="tabular-nums" style={{ color, overflowWrap: 'anywhere' }}>
+      {value}
+    </Text>
+  </Box>
+);
 
 /** モーダルの中身。開いているときだけマウントされ、集計もそのときだけ行う（#108） */
 const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; year: number }> = ({ transactions, year }) => {
@@ -92,54 +110,12 @@ const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; yea
   return (
     <>
       <Stack gap="md">
-        {/* 年間サマリー */}
-        <Grid>
-          <Grid.Col span={4}>
-            <Box
-              p="md"
-              style={{
-                backgroundColor: 'light-dark(var(--mantine-color-blue-0), var(--mantine-color-dark-6))',
-                borderRadius: '8px',
-                border: '1px solid light-dark(var(--mantine-color-blue-2), var(--mantine-color-dark-4))',
-              }}
-            >
-              <Text size="xs" c="dimmed" mb="xs">年間収入</Text>
-              <Text size="lg" fw={700} c="blue">
-                ¥{savingsData.totalIncome.toLocaleString()}
-              </Text>
-            </Box>
-          </Grid.Col>
-          <Grid.Col span={4}>
-            <Box
-              p="md"
-              style={{
-                backgroundColor: 'light-dark(var(--mantine-color-orange-0), var(--mantine-color-dark-6))',
-                borderRadius: '8px',
-                border: '1px solid light-dark(var(--mantine-color-orange-2), var(--mantine-color-dark-4))',
-              }}
-            >
-              <Text size="xs" c="dimmed" mb="xs">年間投資額</Text>
-              <Text size="lg" fw={700} c="orange">
-                ¥{savingsData.totalInvestment.toLocaleString()}
-              </Text>
-            </Box>
-          </Grid.Col>
-          <Grid.Col span={4}>
-            <Box
-              p="md"
-              style={{
-                backgroundColor: 'light-dark(var(--mantine-color-violet-0), var(--mantine-color-dark-6))',
-                borderRadius: '8px',
-                border: '1px solid light-dark(var(--mantine-color-violet-2), var(--mantine-color-dark-4))',
-              }}
-            >
-              <Text size="xs" c="dimmed" mb="xs">年間貯蓄率</Text>
-              <Text size="lg" fw={700} c="violet">
-                {savingsData.savingsRate.toFixed(1)}%
-              </Text>
-            </Box>
-          </Grid.Col>
-        </Grid>
+        {/* 年間サマリー。スマホでは1列にして7〜8桁の金額がタイルからはみ出さないようにする（#112） */}
+        <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
+          <SummaryTile label="年間収入" value={`¥${savingsData.totalIncome.toLocaleString()}`} color="var(--income)" />
+          <SummaryTile label="年間投資額" value={`¥${savingsData.totalInvestment.toLocaleString()}`} color="var(--series-investment)" />
+          <SummaryTile label="年間貯蓄率" value={`${savingsData.savingsRate.toFixed(1)}%`} color="var(--accent)" />
+        </SimpleGrid>
 
         {/* 収入内訳 */}
         <Card withBorder p="md">
@@ -157,7 +133,7 @@ const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; yea
             <Divider />
             <Group justify="space-between">
               <Text size="sm" fw={600}>合計</Text>
-              <Text size="sm" fw={700} c="blue">¥{savingsData.totalIncome.toLocaleString()}</Text>
+              <Text size="sm" fw={700} className="tabular-nums" style={{ color: 'var(--income)' }}>¥{savingsData.totalIncome.toLocaleString()}</Text>
             </Group>
           </Stack>
         </Card>
@@ -176,8 +152,8 @@ const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; yea
                   <Text size="sm" fw={500} style={{ minWidth: '60px' }}>
                     {getMonthName(month).replace('年', '/').replace('月', '')}
                   </Text>
-                  <Text size="xs" c="dimmed" style={{ flex: 1 }}>
-                    ¥{investment.toLocaleString()} / ¥{income.toLocaleString()}
+                  <Text size="xs" c="dimmed" className="tabular-nums" style={{ flex: 1, minWidth: 0 }}>
+                    投資 ¥{investment.toLocaleString()} / 給与 ¥{income.toLocaleString()}
                   </Text>
                   <Text
                     size="sm"
@@ -203,7 +179,7 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({ 
     onClose={onClose}
     title={
       <Group gap="sm">
-        <IconTrendingUp size={24} color="var(--mantine-color-violet-6)" />
+        <IconTrendingUp size={24} color="var(--accent)" />
         <Text size="lg" fw={600}>{year}年 年間貯蓄率詳細</Text>
       </Group>
     }

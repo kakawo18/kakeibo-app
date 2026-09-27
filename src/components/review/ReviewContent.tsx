@@ -6,9 +6,10 @@
  * 上段が複数年の比較、下段が選択した1年の詳細。
  * 選択中の年は URL クエリ `?year=YYYY` に持つ（ダッシュボードの `?month=` と同じ方針）。
  */
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Box, Container, Grid, Group, Paper, Select, SimpleGrid, Stack, Text } from '@mantine/core';
+import { Box, Button, Container, Grid, Group, Paper, Select, SimpleGrid, Spoiler, Stack, Text } from '@mantine/core';
+import { IconArrowDown } from '@tabler/icons-react';
 import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -108,6 +109,14 @@ export const ReviewContent = () => {
     router.push(`?${params.toString()}`, { scroll: false });
   };
 
+  // 「1年を詳しく見る」は比較グラフの下にあり、スマホでは2画面以上スクロールが要った（#113）。
+  // ページの先頭から年を選んで、そのまま詳細へ移れるようにする
+  const detailRef = useRef<HTMLDivElement>(null);
+  const scrollToDetail = () =>
+    detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const yearOptions = availableYears.map((year) => ({ value: String(year), label: `${year}年` }));
+
   if (transactions.length === 0) {
     return (
       <Container size="lg">
@@ -126,18 +135,49 @@ export const ReviewContent = () => {
   return (
     <Container size="lg">
       <Stack gap="md">
-        {/* 複数年の比較 */}
+        {/* ページの先頭から、詳しく見たい年を選んで下の詳細へ移れる */}
+        <Paper className="ledger-card" px="md" py="sm">
+          <Group wrap="nowrap" gap="xs">
+            <Select
+              data={yearOptions}
+              value={String(selectedYear)}
+              onChange={(value) => {
+                handleYearChange(value);
+                scrollToDetail();
+              }}
+              size="sm"
+              w={112}
+              allowDeselect={false}
+              aria-label="詳しく見る年"
+            />
+            <Button
+              size="sm"
+              variant="light"
+              onClick={scrollToDetail}
+              rightSection={<IconArrowDown size={14} />}
+              style={{ flex: 1 }}
+            >
+              この年を詳しく見る
+            </Button>
+          </Group>
+        </Paper>
+
+        {/* ここから複数年の比較 */}
+        <Text className="section-title" mt="xs">年ごとの比較</Text>
         <AnnualIncomeChart summaries={summaries} />
 
         <Paper className="ledger-card" p="lg">
           <Text className="section-title" mb={6}>額面の推定について</Text>
-          <Text size="xs" c="dimmed">
-            このアプリが記録しているのは口座に入った金額（手取り）だけなので、額面は税と社会保険料から
-            逆算した概算です。協会けんぽ・一般の事業・40歳未満・扶養なしを前提に、健康保険・厚生年金・
-            雇用保険・所得税・住民税を年分ごとの料率で計算しています。介護保険料、扶養控除、生命保険料控除、
-            住宅ローン控除、iDeCo、ふるさと納税、財形貯蓄や社宅費などの天引きは含みません。
-            対象は「給与収入」の役割を付けたカテゴリの収入だけです。
-          </Text>
+          {/* 長い説明は畳んでおく（振り返りの本題はグラフなので） */}
+          <Spoiler maxHeight={40} showLabel="続きを読む" hideLabel="閉じる">
+            <Text size="xs" c="dimmed">
+              このアプリが記録しているのは口座に入った金額（手取り）だけなので、額面は税と社会保険料から
+              逆算した概算です。協会けんぽ・一般の事業・40歳未満・扶養なしを前提に、健康保険・厚生年金・
+              雇用保険・所得税・住民税を年分ごとの料率で計算しています。介護保険料、扶養控除、生命保険料控除、
+              住宅ローン控除、iDeCo、ふるさと納税、財形貯蓄や社宅費などの天引きは含みません。
+              対象は「給与収入」の役割を付けたカテゴリの収入だけです。
+            </Text>
+          </Spoiler>
         </Paper>
 
         <AnnualFlowChart summaries={summaries} />
@@ -151,11 +191,17 @@ export const ReviewContent = () => {
           </Grid.Col>
         </Grid>
 
-        {/* ここから選択した1年の詳細 */}
-        <Group justify="space-between" align="center" mt="xs">
-          <Text className="section-title">1年を詳しく見る</Text>
+        {/* ここから選択した1年の詳細。固定ヘッダーの下に隠れないよう余白を取って止める */}
+        <Group
+          ref={detailRef}
+          justify="space-between"
+          align="center"
+          mt="xs"
+          style={{ scrollMarginTop: 72 }}
+        >
+          <Text className="section-title">{selectedYear}年を詳しく見る</Text>
           <Select
-            data={availableYears.map((year) => ({ value: String(year), label: `${year}年` }))}
+            data={yearOptions}
             value={String(selectedYear)}
             onChange={handleYearChange}
             size="sm"

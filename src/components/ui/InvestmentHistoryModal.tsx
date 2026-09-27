@@ -62,13 +62,13 @@ const InvestmentHistoryModalContent: React.FC<{ transactions: Transaction[]; yea
         <Box
           p="md"
           style={{
-            backgroundColor: 'light-dark(var(--mantine-color-orange-0), var(--mantine-color-dark-6))',
-            borderRadius: '8px',
-            border: '1px solid light-dark(var(--mantine-color-orange-2), var(--mantine-color-dark-4))',
+            background: 'var(--app-surface-2)',
+            borderRadius: 'var(--radius-tile)',
+            border: '1px solid var(--hairline)',
           }}
         >
-          <Text size="sm" c="dimmed" mb="xs">年間投資額合計</Text>
-          <Text size="xl" fw={700} c="orange">
+          <Text className="overline-label" mb={4}>年間投資額合計</Text>
+          <Text size="xl" fw={700} className="tabular-nums" style={{ color: 'var(--series-investment)' }}>
             ¥{investmentData.yearlyTotal.toLocaleString()}
           </Text>
         </Box>
@@ -92,7 +92,7 @@ const InvestmentHistoryModalContent: React.FC<{ transactions: Transaction[]; yea
                       {txs.length}件
                     </Text>
                   </Group>
-                  <Text size="lg" fw={700} c="orange">
+                  <Text size="lg" fw={700} className="tabular-nums" style={{ color: 'var(--series-investment)' }}>
                     ¥{total.toLocaleString()}
                   </Text>
                 </Group>
@@ -116,7 +116,7 @@ const InvestmentHistoryModalContent: React.FC<{ transactions: Transaction[]; yea
                           </Text>
                         )}
                       </Box>
-                      <Text size="sm" fw={600} c="orange" style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="sm" fw={600} className="tabular-nums" style={{ whiteSpace: 'nowrap', color: 'var(--series-investment)' }}>
                         ¥{tx.amount.toLocaleString()}
                       </Text>
                     </Group>
@@ -137,7 +137,7 @@ export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({ 
     onClose={onClose}
     title={
       <Group gap="sm">
-        <IconCoins size={24} color="var(--mantine-color-orange-6)" />
+        <IconCoins size={24} color="var(--series-investment)" />
         <Text size="lg" fw={600}>{year}年 年間投資履歴</Text>
       </Group>
     }

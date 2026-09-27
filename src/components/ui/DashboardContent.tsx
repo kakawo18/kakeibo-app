@@ -104,7 +104,7 @@ const KpiTile = ({
       <Text
         className="overline-label"
         truncate
-        style={compact ? { fontSize: 10, letterSpacing: '0.01em' } : undefined}
+        style={compact ? { fontSize: 11, letterSpacing: '0.01em' } : undefined}
       >
         {label}
       </Text>
