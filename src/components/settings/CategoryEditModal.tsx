@@ -33,6 +33,7 @@ import {
   CATEGORY_ROLE_DESCRIPTIONS,
 } from '@/types';
 import { SWATCH_COLORS, pickLeastUsedColor } from '@/config/colorPalette';
+import { validateName } from '@/utils/validation';
 
 const ROLE_OPTIONS = (Object.entries(CATEGORY_ROLE_LABELS) as [CategoryRole, string][])
   .map(([value, label]) => ({ value, label }));
@@ -113,8 +114,10 @@ const CategoryEditor: React.FC<
 
   const handleSave = () => {
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError('カテゴリ名を入力してください');
+    // 名前の上限は取引の Firestore ルールと同じ50文字（#117）
+    const nameError = validateName(name, 'カテゴリ名');
+    if (nameError) {
+      setError(nameError);
       return;
     }
     if (existingNames.includes(trimmedName)) {
@@ -124,6 +127,11 @@ const CategoryEditor: React.FC<
     const subNames = subcategories.map((sub) => sub.name.trim());
     if (subNames.some((subName) => !subName)) {
       setError('名前が空のサブカテゴリがあります');
+      return;
+    }
+    const subNameError = subNames.map((subName) => validateName(subName, 'サブカテゴリ名')).find(Boolean);
+    if (subNameError) {
+      setError(subNameError);
       return;
     }
     if (new Set(subNames).size !== subNames.length) {

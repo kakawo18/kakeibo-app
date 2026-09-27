@@ -16,6 +16,7 @@ import { RecurringTransaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles } from '@/components/forms/formStyles';
+import { validateAmount } from '@/utils/validation';
 
 interface RecurringTransactionFormProps {
   opened: boolean;
@@ -47,11 +48,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
     },
     validate: {
       name: (value) => (!value || value.trim() === '' ? '名前を入力してください' : null),
-      amount: (value) => {
-        const num = Number(value);
-        if (!value || num <= 0) return '金額は1円以上を入力してください';
-        return null;
-      },
+      amount: (value) => validateAmount(value),
       category: (value) => (!value || value.trim() === '' ? 'カテゴリを選択してください' : null),
       dayOfMonth: (value) => {
         const num = Number(value);

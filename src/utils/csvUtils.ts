@@ -1,6 +1,7 @@
 import { Transaction, TransactionInput, TransactionType } from '@/types';
 import { formatDate } from './dateUtils';
 import { TransactionFlags, TransactionRules } from './transactionRules';
+import { MAX_AMOUNT, MAX_NAME_LENGTH } from './validation';
 
 // Excel/スプレッドシートが数式として解釈してしまう先頭文字
 // （クォートしても評価されるため、別途無害化が必要）
@@ -160,10 +161,6 @@ export const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
 export const MAX_IMPORT_ROWS = 5000;
 /** メモの最大文字数（超過分は切り詰める） */
 const MAX_DESCRIPTION_LENGTH = 200;
-/** カテゴリ・サブカテゴリ・支払方法の最大文字数 */
-const MAX_NAME_LENGTH = 50;
-/** 1件あたりの金額の上限（桁の打ち間違い・不正値の検出用） */
-const MAX_AMOUNT = 1_000_000_000;
 /** 受け付ける日付の範囲 */
 const MIN_DATE = new Date('1970-01-01').getTime();
 const MAX_DATE = new Date('2100-12-31').getTime();
@@ -232,7 +229,7 @@ export const parseCSV = (
     // エクスポート時に付けた数式インジェクション対策の ' を戻す
     const fields = record.fields.map(unescapeFormulaGuard);
 
-    const category = fields[2]?.trim().slice(0, MAX_NAME_LENGTH);
+    const category = fields[2]?.trim();
     if (!category) {
       skippedRows.push({ row, reason: 'カテゴリが空' });
       return;
@@ -257,9 +254,16 @@ export const parseCSV = (
       return;
     }
 
-    const subcategory = fields[3]?.trim().slice(0, MAX_NAME_LENGTH) || undefined;
+    const subcategory = fields[3]?.trim() || undefined;
     const description = fields[5]?.trim().slice(0, MAX_DESCRIPTION_LENGTH) || undefined;
-    const paymentMethod = fields[6]?.trim().slice(0, MAX_NAME_LENGTH) || undefined;
+    const paymentMethod = fields[6]?.trim() || undefined;
+
+    // 名前は切り詰めずにスキップする。切り詰めると設定のカテゴリと別の名前になり、
+    // 役割も色も付かないまま取り込まれてしまう（#117）
+    if ([category, subcategory, paymentMethod].some((name) => (name?.length ?? 0) > MAX_NAME_LENGTH)) {
+      skippedRows.push({ row, reason: `名前が${MAX_NAME_LENGTH}文字を超えている` });
+      return;
+    }
 
     // 今の設定から導出した集計フラグ。旧形式の CSV ではこれをそのまま使う
     const derived = rules.deriveTransactionFlags(category, paymentMethod);
