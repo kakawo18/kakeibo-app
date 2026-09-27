@@ -23,6 +23,8 @@ export interface TransactionCreateData {
   subcategory?: string;
   paymentMethod?: string;
   description?: string;
+  recurringTransactionId?: string;
+  recurringMonth?: string;
 }
 
 /** 部分更新で書き込むデータ。任意項目は削除の指示（FieldValue）も取りうる */
@@ -57,6 +59,9 @@ export const toTransactionCreateData = (input: TransactionInput): TransactionCre
     ...(paymentMethod ? { paymentMethod } : {}),
     // メモは空文字でも書く（空で保存 = メモなし）
     ...(input.description !== undefined ? { description: input.description.trim() } : {}),
+    // 定期取引から記録した取引だけが持つ（#101）
+    ...(input.recurringTransactionId ? { recurringTransactionId: input.recurringTransactionId } : {}),
+    ...(input.recurringMonth ? { recurringMonth: input.recurringMonth } : {}),
   };
 };
 
@@ -112,6 +117,8 @@ export const fromTransactionDoc = (id: string, data: DocumentData): Transaction 
     affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
     date: data.date?.toDate() || new Date(),
     description: data.description || undefined,
+    recurringTransactionId: data.recurringTransactionId || undefined,
+    recurringMonth: data.recurringMonth || undefined,
     createdAt: data.createdAt?.toDate() || new Date(),
     updatedAt: data.updatedAt?.toDate() || new Date(),
   };

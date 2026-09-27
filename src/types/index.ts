@@ -52,6 +52,10 @@ export interface Transaction {
   affectsExpense?: boolean;      // 支出計算に影響するか
   date: Date;                    // 取引日
   description?: string;          // 説明・メモ
+  /** 定期取引から記録した取引のみ: 元の定期取引の ID（記録済みの判定に使う） */
+  recurringTransactionId?: string;
+  /** 定期取引から記録した取引のみ: どの月の分として記録したか（YYYY-MM） */
+  recurringMonth?: string;
   createdAt: Date;               // 作成日時
   updatedAt: Date;               // 更新日時
 }

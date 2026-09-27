@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   RulesTestEnvironment,
+  assertFails,
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
@@ -18,10 +19,15 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  query,
+  setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import { fromTransactionDoc, toTransactionCreateData, toTransactionUpdateData } from '@/data/transactionSerializer';
 import { toRecurringCreateData, toRecurringUpdateData } from '@/data/recurringTransactionSerializer';
+import { recurringRecordId } from '@/utils/recurring';
 
 const UID = 'alice';
 let env: RulesTestEnvironment;
@@ -130,5 +136,51 @@ describe('定期取引の更新（#98）', () => {
     expect(raw).not.toHaveProperty('subcategory');
     expect(raw).not.toHaveProperty('paymentMethod');
     expect(raw.name).toBe('家賃');
+  });
+});
+
+describe('定期取引の記録（#101）', () => {
+  it('2つの端末が同じ月を同時に記録しても、取引は1件になる（後の内容が残る）', async () => {
+    const deviceA = env.authenticatedContext(UID).firestore() as unknown as Firestore;
+    const deviceB = env.authenticatedContext(UID).firestore() as unknown as Firestore;
+    const id = recurringRecordId('rent', '2026-09');
+    const record = (amount: number) => ({
+      ...toTransactionCreateData({
+        type: 'expense', amount, category: '固定費', date: new Date(2026, 8, 27),
+        recurringTransactionId: 'rent', recurringMonth: '2026-09',
+      }),
+      userId: UID,
+      createdAt: now(),
+      updatedAt: now(),
+    });
+
+    await Promise.all([
+      assertSucceeds(setDoc(doc(deviceA, 'transactions', id), record(80_000))),
+      assertSucceeds(setDoc(doc(deviceB, 'transactions', id), record(81_000))),
+    ]);
+
+    const snapshot = await getDocs(query(collection(db, 'transactions'), where('userId', '==', UID)));
+    expect(snapshot.size).toBe(1);
+    const saved = fromTransactionDoc(snapshot.docs[0].id, snapshot.docs[0].data())!;
+    expect(saved.recurringTransactionId).toBe('rent');
+    expect(saved.recurringMonth).toBe('2026-09');
+    expect([80_000, 81_000]).toContain(saved.amount);
+  });
+
+  it('他のユーザーは同じ ID の取引を上書きできない', async () => {
+    const id = recurringRecordId('rent', '2026-09');
+    await assertSucceeds(
+      setDoc(doc(db, 'transactions', id), {
+        ...toTransactionCreateData({ type: 'expense', amount: 1, category: '固定費', date: new Date() }),
+        userId: UID, createdAt: now(), updatedAt: now(),
+      })
+    );
+    const mallory = env.authenticatedContext('mallory').firestore() as unknown as Firestore;
+    await assertFails(
+      setDoc(doc(mallory, 'transactions', id), {
+        ...toTransactionCreateData({ type: 'expense', amount: 999, category: '固定費', date: new Date() }),
+        userId: 'mallory', createdAt: now(), updatedAt: now(),
+      })
+    );
   });
 });
