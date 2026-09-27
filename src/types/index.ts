@@ -62,7 +62,8 @@ export type TransactionInput = Omit<Transaction, 'id' | 'userId' | 'createdAt' |
 
 /**
  * 定期取引
- * 毎月自動で記録される取引（家賃、投資など）
+ * 毎月決まった日に発生する取引（家賃、投資など）のテンプレート。
+ * 自動では記録しない。実行日を過ぎるとホームに通知が出て、利用者が確認して記録する
  */
 export interface RecurringTransaction {
   id: string;
@@ -97,7 +98,8 @@ export interface Category {
 
 /**
  * 月別データ
- * 残高推移グラフ、月別比較に使用
+ * 月次の収支表示と前月比較に使用。
+ * balance は「その月の収入 − 支出」（月間収支）であり、口座残高ではない
  */
 export interface MonthlyData {
   month: string;                      // 月（YYYY-MM形式）

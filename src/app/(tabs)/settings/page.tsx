@@ -31,7 +31,7 @@ export default function SettingsPage() {
             <div>
               <Text className="section-title" mb={4}>定期取引</Text>
               <Text size="xs" c="dimmed">
-                家賃やサブスクなど毎月自動で記録する取引を管理します
+                家賃やサブスクなど毎月決まった取引を登録します。実行日になるとホームに表示され、確認して記録します
               </Text>
             </div>
             <Button

@@ -4,13 +4,14 @@
  * このファイルは家計簿アプリの各種計算ロジックを提供します。
  * 
  * 【主要な関数】
- * - calculateMonthlyData: 月別の収支・残高を計算
+ * - calculateMonthlyData: 月別の収入・支出・収支を計算
  * - calculateCategoryChartData: 円グラフ用のカテゴリ別データを計算
  * - calculateMonthlyComparison: 前月比較データを計算
  * 
  * 【重要な計算ルール】
  * - 投資・立替金などの除外判定は rules（transactionRules.ts）に従う
- * - 残高 = 収入 - 支出（発生主義）
+ * - 収支(balance) = その月の収入 - 支出。口座残高ではない（アプリは口座残高を扱わない）
+ * - カード払いは購入月の支出として計上する（引き落とし月には計上しない）
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
 import { formatMonthLocal, getNextMonth } from './dateUtils';
@@ -24,7 +25,7 @@ export type CategoryColorResolver = (name: string, isDark: boolean) => string;
  *
  * @param transactions - 全取引データ
  * @param rules - 役割ベースの集計ルール(useSettings().rules)
- * @returns MonthlyData[] - 月別の収支・残高データ
+ * @returns MonthlyData[] - 月別の収入・支出・収支データ
  *
  * 【計算内容】
  * - 各月の収入合計
@@ -88,7 +89,7 @@ export const calculateMonthlyData = (
   const sortedData = Array.from(monthlyMap.values()).sort((a, b) => a.month.localeCompare(b.month));
 
   sortedData.forEach((monthData) => {
-    // 残高 = 収入 - 支出（発生主義）
+    // 収支 = 収入 - 支出（口座残高ではない）
     // ※立替分はすでに income/expense 集計段階で除外済み
     monthData.balance = monthData.income - monthData.expense;
   });
