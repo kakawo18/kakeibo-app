@@ -8,7 +8,23 @@ interface MonthlyBreakdownProps {
   details: MonthlyDetail[];
 }
 
-/** 指定年の月別内訳（収入 / 支出 / 投資 / 収支） */
+const yen = (amount: number): string => `¥${Math.abs(amount).toLocaleString()}`;
+const signedYen = (amount: number): string => `${amount >= 0 ? '+' : '−'}${yen(amount)}`;
+
+/** 収入・支出（・投資）の内訳。スマホでは収支の下の行に出す */
+const Breakdown = ({ income, expense, investment }: Pick<MonthlyDetail, 'income' | 'expense' | 'investment'>) => (
+  <>
+    収入 {yen(income)} / 支出 {yen(expense)}
+    {investment > 0 && ` / 投資 ${yen(investment)}`}
+  </>
+);
+
+/**
+ * 指定年の月別内訳（収入 / 支出 / 投資 / 収支）
+ *
+ * 以前はスマホで内訳を丸ごと隠しており、月と収支しか見られなかった（#113）。
+ * パソコンでは1行、スマホでは収支の下にもう1行で内訳を出す。
+ */
 export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, details }) => {
   const recorded = details.filter(
     (detail) => detail.income > 0 || detail.expense > 0 || detail.investment > 0
@@ -24,12 +40,18 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
     { income: 0, expense: 0, investment: 0, balance: 0 }
   );
   const monthCount = recorded.length || 1;
+  const average = {
+    income: Math.round(totals.income / monthCount),
+    expense: Math.round(totals.expense / monthCount),
+    investment: Math.round(totals.investment / monthCount),
+    balance: Math.round(totals.balance / monthCount),
+  };
 
   return (
     <Paper className="ledger-card" p="lg">
       <Stack gap={2} mb="md">
         <Text className="section-title">{year}年 月別内訳</Text>
-        <Text size="xs" c="dimmed">記録のある月のみ表示</Text>
+        <Text size="xs" c="dimmed">記録のある月のみ表示。収支 = 収入 − 支出 − 投資</Text>
       </Stack>
 
       {recorded.length === 0 ? (
@@ -49,8 +71,7 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
                 </Text>
                 <Group gap="md" wrap="nowrap">
                   <Text size="xs" c="dimmed" className="tabular-nums" visibleFrom="sm">
-                    収入 ¥{detail.income.toLocaleString()} / 支出 ¥{detail.expense.toLocaleString()}
-                    {detail.investment > 0 && ` / 投資 ¥${detail.investment.toLocaleString()}`}
+                    <Breakdown {...detail} />
                   </Text>
                   <Text
                     size="sm"
@@ -58,32 +79,32 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
                     className="tabular-nums"
                     style={{ color: detail.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
                   >
-                    {detail.balance >= 0 ? '+' : ''}¥{detail.balance.toLocaleString()}
+                    {signedYen(detail.balance)}
                   </Text>
                 </Group>
               </Group>
+              <Text size="xs" c="dimmed" className="tabular-nums" hiddenFrom="sm" mt={2}>
+                <Breakdown {...detail} />
+              </Text>
             </Card>
           ))}
 
           <Divider my={4} />
-          <Group justify="space-between" px={4}>
-            <Text size="xs" c="dimmed" fw={600}>月平均</Text>
-            <Group gap="md">
-              <Text size="xs" c="dimmed" className="tabular-nums">
-                収入 ¥{Math.round(totals.income / monthCount).toLocaleString()}
-              </Text>
-              <Text size="xs" c="dimmed" className="tabular-nums">
-                支出 ¥{Math.round(totals.expense / monthCount).toLocaleString()}
-              </Text>
+          <Group justify="space-between" align="flex-start" px={4} wrap="nowrap">
+            <Text size="xs" c="dimmed" fw={600} style={{ flexShrink: 0 }}>月平均</Text>
+            <Stack gap={0} align="flex-end">
               <Text
                 size="xs"
                 fw={700}
                 className="tabular-nums"
-                style={{ color: totals.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
+                style={{ color: average.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
               >
-                {totals.balance >= 0 ? '+' : ''}¥{Math.round(totals.balance / monthCount).toLocaleString()}
+                {signedYen(average.balance)}
               </Text>
-            </Group>
+              <Text size="xs" c="dimmed" className="tabular-nums" ta="right">
+                <Breakdown {...average} />
+              </Text>
+            </Stack>
           </Group>
         </Stack>
       )}

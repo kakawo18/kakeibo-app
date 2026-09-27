@@ -87,8 +87,9 @@ const renderLeaderLabel = (props: PieLabelProps) => {
   // 画面端でのラベル見切れ防止:
   // ラベル2行（カテゴリ名・金額）の広い方が収まるよう x をコンテナ内に押し戻す。
   // margin は左右 0 のため cx * 2 ≒ チャート幅
-  const nameSize = isMobile ? 10 : 12;
-  const amountSize = isMobile ? 9 : 11;
+  // スマホで9pxの金額は読めなかったので上げる（#112）。金額はタップでツールチップにも出る
+  const nameSize = isMobile ? 11 : 12;
+  const amountSize = isMobile ? 10 : 11;
   const amountText = `¥${(value || 0).toLocaleString()} (${Number(payload.percentage ?? 0).toFixed(1)}%)`;
   const labelWidth = Math.max(
     estimateTextWidth(payload.name, nameSize),
