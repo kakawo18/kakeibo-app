@@ -14,12 +14,8 @@ interface SavingsRateDetailModalProps {
   year: number;
 }
 
-export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
-  opened,
-  onClose,
-  transactions,
-  year,
-}) => {
+/** モーダルの中身。開いているときだけマウントされ、集計もそのときだけ行う（#108） */
+const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; year: number }> = ({ transactions, year }) => {
   const { rules, incomeCategories } = useSettings();
 
   // 年間データの計算
@@ -94,18 +90,7 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
   }, [transactions, year, rules, incomeCategories]);
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={
-        <Group gap="sm">
-          <IconTrendingUp size={24} color="var(--mantine-color-violet-6)" />
-          <Text size="lg" fw={600}>{year}年 年間貯蓄率詳細</Text>
-        </Group>
-      }
-      size="lg"
-      centered
-    >
+    <>
       <Stack gap="md">
         {/* 年間サマリー */}
         <Grid>
@@ -208,6 +193,24 @@ export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({
           )}
         </Card>
       </Stack>
-    </Modal>
+    </>
   );
 };
+
+export const SavingsRateDetailModal: React.FC<SavingsRateDetailModalProps> = ({ opened, onClose, transactions, year }) => (
+  <Modal
+    opened={opened}
+    onClose={onClose}
+    title={
+      <Group gap="sm">
+        <IconTrendingUp size={24} color="var(--mantine-color-violet-6)" />
+        <Text size="lg" fw={600}>{year}年 年間貯蓄率詳細</Text>
+      </Group>
+    }
+    size="lg"
+    centered
+  >
+    {/* Mantine の Modal は閉じると中身をアンマウントする。閉じているあいだは全取引の集計を走らせない */}
+    <SavingsRateDetailModalContent transactions={transactions} year={year} />
+  </Modal>
+);

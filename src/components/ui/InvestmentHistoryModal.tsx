@@ -14,12 +14,8 @@ interface InvestmentHistoryModalProps {
   year: number;
 }
 
-export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({
-  opened,
-  onClose,
-  transactions,
-  year,
-}) => {
+/** モーダルの中身。開いているときだけマウントされ、集計もそのときだけ行う（#108） */
+const InvestmentHistoryModalContent: React.FC<{ transactions: Transaction[]; year: number }> = ({ transactions, year }) => {
   const { rules } = useSettings();
 
   // 年間投資データの計算
@@ -60,18 +56,7 @@ export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({
   }, [transactions, year, rules]);
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={
-        <Group gap="sm">
-          <IconCoins size={24} color="var(--mantine-color-orange-6)" />
-          <Text size="lg" fw={600}>{year}年 年間投資履歴</Text>
-        </Group>
-      }
-      size="lg"
-      centered
-    >
+    <>
       <Stack gap="md">
         {/* 年間合計 */}
         <Box
@@ -142,6 +127,24 @@ export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({
           </Stack>
         )}
       </Stack>
-    </Modal>
+    </>
   );
 };
+
+export const InvestmentHistoryModal: React.FC<InvestmentHistoryModalProps> = ({ opened, onClose, transactions, year }) => (
+  <Modal
+    opened={opened}
+    onClose={onClose}
+    title={
+      <Group gap="sm">
+        <IconCoins size={24} color="var(--mantine-color-orange-6)" />
+        <Text size="lg" fw={600}>{year}年 年間投資履歴</Text>
+      </Group>
+    }
+    size="lg"
+    centered
+  >
+    {/* Mantine の Modal は閉じると中身をアンマウントする。閉じているあいだは全取引の集計を走らせない */}
+    <InvestmentHistoryModalContent transactions={transactions} year={year} />
+  </Modal>
+);

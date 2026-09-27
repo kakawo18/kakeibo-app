@@ -13,12 +13,8 @@ interface CardRewardsDisplayProps {
   onClose: () => void;
 }
 
-export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({ 
-  transactions, 
-  selectedMonth,
-  opened,
-  onClose
-}) => {
+/** モーダルの中身。開いているときだけマウントされ、集計もそのときだけ行う（#108） */
+const CardRewardsDisplayContent: React.FC<{ transactions: Transaction[]; selectedMonth: string }> = ({ transactions, selectedMonth }) => {
 
   // 選択月の取引をフィルター（ローカルタイムゾーン対応）
   const monthlyTransactions = useMemo(() => 
@@ -38,20 +34,7 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
   );
 
   return (
-    <Modal
-      opened={opened}
-      onClose={onClose}
-      title={
-        <Group gap="sm">
-          <ThemeIcon size="lg" color="orange" variant="light">
-            <IconCoins size={20} />
-          </ThemeIcon>
-          <Text size="lg" fw={600}>カード還元ポイント詳細</Text>
-        </Group>
-      }
-      size="lg"
-      centered
-    >
+    <>
       {rewardsData.totalPoints === 0 ? (
         <Text ta="center" c="dimmed" py="xl">
           今月はカード還元ポイントがありません
@@ -195,6 +178,26 @@ export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({
           </Box>
         </Stack>
       )}
-    </Modal>
+    </>
   );
 };
+
+export const CardRewardsDisplay: React.FC<CardRewardsDisplayProps> = ({ opened, onClose, transactions, selectedMonth }) => (
+  <Modal
+    opened={opened}
+    onClose={onClose}
+    title={
+      <Group gap="sm">
+        <ThemeIcon size="lg" color="orange" variant="light">
+          <IconCoins size={20} />
+        </ThemeIcon>
+        <Text size="lg" fw={600}>カード還元ポイント詳細</Text>
+      </Group>
+    }
+    size="lg"
+    centered
+  >
+    {/* Mantine の Modal は閉じると中身をアンマウントする。閉じているあいだは全取引の集計を走らせない */}
+    <CardRewardsDisplayContent transactions={transactions} selectedMonth={selectedMonth} />
+  </Modal>
+);

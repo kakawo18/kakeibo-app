@@ -1,6 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * 定期取引の共有コンテキスト（#107）
+ *
+ * users/{uid}/recurringTransactions の onSnapshot 購読をアプリ全体で1本にする。
+ * 以前は useRecurringTransactions を呼ぶコンポーネントごとに購読していたため、
+ * ホームの通知と、閉じたままの管理モーダル（共通レイアウトと設定ページに1つずつ）が
+ * 同じコレクションを重ねて購読していた。
+ */
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  ReactNode,
+} from 'react';
 import {
   collection,
   addDoc,
@@ -23,7 +39,22 @@ import {
   toRecurringUpdateData,
 } from '@/data/recurringTransactionSerializer';
 
-export const useRecurringTransactions = () => {
+type RecurringTransactionsContextType = {
+  recurringTransactions: RecurringTransaction[];
+  loading: boolean;
+  addRecurringTransaction: (data: RecurringTransactionInput) => Promise<void>;
+  updateRecurringTransaction: (id: string, data: Partial<RecurringTransactionInput>) => Promise<void>;
+  deleteRecurringTransaction: (id: string) => Promise<void>;
+  getActiveRecurringTransactions: () => RecurringTransaction[];
+  shouldShowRecurringTransaction: (
+    recurring: RecurringTransaction,
+    existingTransactions?: Transaction[]
+  ) => boolean;
+};
+
+const RecurringTransactionsContext = createContext<RecurringTransactionsContextType | null>(null);
+
+export const RecurringTransactionsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,13 +133,28 @@ export const useRecurringTransactions = () => {
     []
   );
 
-  return {
-    recurringTransactions,
-    loading,
-    addRecurringTransaction,
-    updateRecurringTransaction,
-    deleteRecurringTransaction,
-    getActiveRecurringTransactions,
-    shouldShowRecurringTransaction,
-  };
+  const value = useMemo(
+    () => ({
+      recurringTransactions,
+      loading,
+      addRecurringTransaction,
+      updateRecurringTransaction,
+      deleteRecurringTransaction,
+      getActiveRecurringTransactions,
+      shouldShowRecurringTransaction,
+    }),
+    [recurringTransactions, loading, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction, getActiveRecurringTransactions, shouldShowRecurringTransaction]
+  );
+
+  return (
+    <RecurringTransactionsContext.Provider value={value}>{children}</RecurringTransactionsContext.Provider>
+  );
+};
+
+export const useRecurringTransactions = () => {
+  const context = useContext(RecurringTransactionsContext);
+  if (!context) {
+    throw new Error('useRecurringTransactions must be used within RecurringTransactionsProvider');
+  }
+  return context;
 };

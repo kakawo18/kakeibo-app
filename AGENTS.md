@@ -44,7 +44,7 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 ## コード規約
 
 - **関数コンポーネント + フック**のみ。クライアントコンポーネントは先頭に `'use client'`。
-- **状態管理**: グローバルは 3 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext`、`src/app/layout.tsx` でラップ）。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
+- **状態管理**: グローバルは 4 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext` / `RecurringTransactionsContext`、`src/app/layout.tsx` でラップ）。Firestore の購読（`onSnapshot`）はコレクションごとに Context の1か所だけに置き、画面やモーダルでは購読しない。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
 - **集計はカテゴリ名ではなく「役割」（`CategoryRole`）で判定する**。投資・立替金・カード引き落とし等の除外判定は `src/utils/transactionRules.ts` の `createTransactionRules` が生成する関数群を使う。カテゴリ名で `if` 分岐しないこと。
 - **色**: セマンティック色（収入=`--income` / 支出=`--expense` / アクセント=`--accent`）とデザイントークンは `src/app/globals.css` の CSS 変数。カテゴリ/カードの色はユーザー設定（`getColor`）とパレット `src/config/colorPalette.ts` から解決する。コンポーネントに 16 進数の色を直書きしない。
 - **デザインシステム "Quiet Ledger"**: フラットな面 + ヘアライン境界（グラデーション/グラスモーフィズムは使わない）。カードは `.ledger-card`。

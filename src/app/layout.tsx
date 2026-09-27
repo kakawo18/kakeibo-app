@@ -12,6 +12,7 @@ import { ModalsProvider } from '@mantine/modals';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
+import { RecurringTransactionsProvider } from '@/contexts/RecurringTransactionsContext';
 
 const theme = createTheme({
   primaryColor: 'indigo',
@@ -211,7 +212,9 @@ export default function RootLayout({
             <AuthProvider>
               <SettingsProvider>
                 <TransactionsProvider>
-                  {children}
+                  <RecurringTransactionsProvider>
+                    {children}
+                  </RecurringTransactionsProvider>
                 </TransactionsProvider>
               </SettingsProvider>
             </AuthProvider>
