@@ -16,7 +16,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { IconPlus, IconEdit, IconTrash } from '@tabler/icons-react';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
-import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
+import { useRecurringTransactions } from '@/contexts/RecurringTransactionsContext';
 import { RecurringTransactionForm } from './RecurringTransactionForm';
 import { RecurringTransaction } from '@/types';
 

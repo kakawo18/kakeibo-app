@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { monthOptionsBetween, monthRange, parseMonthParam } from '@/utils/dateUtils';
+import dayjs from 'dayjs';
+import { formatDate, formatMonthLocal, monthOptionsBetween, monthRange, parseMonthParam } from '@/utils/dateUtils';
 
 describe('monthRange', () => {
   it('開始月から終了月までを年をまたいで並べる', () => {
@@ -31,5 +32,21 @@ describe('monthOptionsBetween（#116）', () => {
       { value: '2026-01', label: '2026年01月' },
       { value: '2026-02', label: '2026年02月' },
     ]);
+  });
+});
+
+describe('formatDate / formatMonthLocal', () => {
+  it('ローカル時刻で dayjs と同じ文字列を返す（月・日の0埋め、月末、年またぎ）', () => {
+    const dates = [
+      new Date(2026, 0, 1, 0, 0), new Date(2026, 8, 30, 23, 59), new Date(2025, 11, 31, 23, 59, 59),
+      new Date(2024, 1, 29, 12), new Date(1999, 9, 5, 8),
+    ];
+    for (const d of dates) {
+      expect(formatDate(d)).toBe(dayjs(d).format('YYYY-MM-DD'));
+      expect(formatMonthLocal(d)).toBe(dayjs(d).format('YYYY-MM'));
+    }
+  });
+  it('文字列も受け付ける', () => {
+    expect(formatDate('2026-03-05')).toBe('2026-03-05');
   });
 });

@@ -1,8 +1,16 @@
 import dayjs from 'dayjs';
 
-/** YYYY-MM-DD 形式にフォーマット（CSVエクスポート等） */
+const pad2 = (value: number): string => (value < 10 ? `0${value}` : String(value));
+
+/**
+ * YYYY-MM-DD 形式にフォーマット（ローカル時刻。集計・CSVエクスポート等）
+ *
+ * 全取引をまたぐ集計で1件ごとに呼ばれるので、Date は dayjs を通さずに組み立てる
+ * （dayjs の format は1件あたり数µs かかり、5万件で100ms を超えていた。#108）
+ */
 export const formatDate = (date: Date | string): string => {
-  return dayjs(date).format('YYYY-MM-DD');
+  if (typeof date === 'string') return dayjs(date).format('YYYY-MM-DD');
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 };
 
 /** 現在の月を YYYY-MM 形式で返す */
@@ -35,10 +43,9 @@ export const getPreviousMonthFromCurrent = (month: string): string => {
   return dayjs(month).subtract(1, 'month').format('YYYY-MM');
 };
 
-/** ローカルタイムゾーンで YYYY-MM 形式にフォーマット */
-export const formatMonthLocal = (date: Date): string => {
-  return dayjs(date).format('YYYY-MM');
-};
+/** ローカルタイムゾーンで YYYY-MM 形式にフォーマット（formatDate と同じ理由で dayjs を通さない） */
+export const formatMonthLocal = (date: Date): string =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
 
 /** from〜to（YYYY-MM、両端を含む）の月を順に返す。from が to より後なら空 */
 export const monthRange = (from: string, to: string): string[] => {

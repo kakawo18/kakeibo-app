@@ -43,7 +43,7 @@ import { RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
-import { useRecurringTransactions } from '@/hooks/useRecurringTransactions';
+import { useRecurringTransactions } from '@/contexts/RecurringTransactionsContext';
 import { RecurringTransactionNotice } from '@/components/recurring/RecurringTransactionNotice';
 import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
