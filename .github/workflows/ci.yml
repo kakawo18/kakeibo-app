@@ -1,0 +1,26 @@
+name: CI
+
+# main への push と PR ごとに、lint・型チェック・テストを走らせる。
+# Firebase の認証情報は使わない（テストは架空データの純関数だけ）。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # postinstall で type-check も走る
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run type-check
+      - run: npm test

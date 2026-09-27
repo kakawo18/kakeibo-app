@@ -19,6 +19,7 @@ npm run dev                 # 開発サーバー（http://localhost:3000, Turbop
 npm run build               # 本番ビルド
 npm run lint                # ESLint
 npm run type-check          # tsc --noEmit
+npm test                    # Vitest（会計・集計の回帰テスト）
 ```
 
 - 実行には `.env.local`（Firebase 設定）が必要。`.env.example` をコピーして埋める（手順は `docs/setup.md`）。
@@ -27,7 +28,15 @@ npm run type-check          # tsc --noEmit
 
 ## 変更後に必ず通すチェック
 
-コミット前に `npm run lint` と `npm run type-check` の両方を通すこと。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する（テストスイートは無い）。
+コミット前に `npm run lint`・`npm run type-check`・`npm test` を通すこと（CI でも同じものが走る: `.github/workflows/ci.yml`）。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する。
+
+### テスト
+
+- 対象は React・Firebase に依存しない純関数（`src/utils/` の集計・ルール・CSV・税計算など）。画面のテストは無い。
+- テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/utils/calculations.test.ts`）。
+- 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
+- タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
+- 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
 
 ## コード規約
 
