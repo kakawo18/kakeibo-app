@@ -45,6 +45,10 @@ import { writeTransactionsInBatches } from '@/data/transactionImport';
 interface TransactionsContextType {
   transactions: Transaction[];
   loading: boolean;
+  /** 取得に失敗したときのエラー。0円や「取引なし」と区別するために使う（#105） */
+  error: Error | null;
+  /** 取得をやり直す */
+  retry: () => void;
   /**
    * 取引を1件追加する。options.id を渡すとその ID で書く（同じ ID なら上書きになり、
    * 複数端末から同時に記録しても1件にまとまる。定期取引の記録で使う）
@@ -64,17 +68,21 @@ interface TransactionsContextType {
 
 const TransactionsContext = createContext<TransactionsContextType | null>(null);
 
+/** 読み込み前・未ログインのときに返す空配列（毎回新しい配列を作らない） */
+const NO_TRANSACTIONS: Transaction[] = [];
+
 export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  // 受け取ったデータとエラーは「どのユーザーの、何回目の購読か」と一緒に持つ。
+  // ユーザーが切り替わった直後に前のユーザーの取引や読み込み完了の状態が
+  // 残って見えないよう、表示する値は下で現在のユーザー・購読に合うものだけにする（#105）
+  const [attempt, setAttempt] = useState(0);
+  const [received, setReceived] = useState<{ uid: string; transactions: Transaction[] } | null>(null);
+  const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
+    const uid = user.uid;
 
     const q = query(
       collection(db, 'transactions'),
@@ -97,17 +105,26 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
           }
           transactionList.push(transaction);
         });
-        setTransactions(transactionList);
-        setLoading(false);
+        setReceived({ uid, transactions: transactionList });
       },
       (error) => {
         console.error('Error listening to transactions:', error);
-        setLoading(false);
+        setFailure({ uid, attempt, error });
       }
     );
 
     return unsubscribe;
-  }, [user]);
+  }, [user, attempt]);
+
+  const current = user && received?.uid === user.uid ? received : null;
+  const error =
+    user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
+  const transactions = current?.transactions ?? NO_TRANSACTIONS;
+  // ログイン中で、データもエラーもまだ届いていないあいだが読み込み中
+  const loading = Boolean(user) && !current && !error;
+
+  /** 購読をやり直す（取得に失敗したときの再試行） */
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   const addTransaction = useCallback(
     async (transaction: TransactionInput, options?: { id?: string }) => {
@@ -179,8 +196,17 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo(
-    () => ({ transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction }),
-    [transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction]
+    () => ({
+      transactions,
+      loading,
+      error,
+      retry,
+      addTransaction,
+      addTransactions,
+      updateTransaction,
+      deleteTransaction,
+    }),
+    [transactions, loading, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

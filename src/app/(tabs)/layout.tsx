@@ -10,7 +10,7 @@
  * `/`・`/history`・`/review`・`/settings` のまま変わらない。
  */
 import { useState } from 'react';
-import { Box, Container, Loader, Stack, Text } from '@mantine/core';
+import { Box, Button, Container, Group, Loader, Paper, Stack, Text } from '@mantine/core';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
@@ -30,12 +30,62 @@ const LoadingState = ({ message }: { message: string }) => (
   </Container>
 );
 
+/** Firebase のエラーコード（permission-denied など）。取引の中身は含まないので表示してよい */
+const errorCode = (error: Error): string | null =>
+  'code' in error && typeof error.code === 'string' ? error.code : null;
+
+/**
+ * 取得に失敗したときの画面（#105）
+ *
+ * 0円や「取引がありません」と表示すると、データが消えたように見え、
+ * 設定が読めていなければ空の役割で集計して誤った金額を出してしまう。
+ * 画面の中身は出さずに、失敗したことと再試行の手段を示す。
+ */
+const LoadErrorState = ({
+  error,
+  onRetry,
+  onLogout,
+}: {
+  error: Error;
+  onRetry: () => void;
+  onLogout: () => void;
+}) => {
+  const code = errorCode(error);
+  return (
+    <Container size="xs" py={80}>
+      <Paper className="ledger-card" p="xl" role="alert">
+        <Stack gap="sm" align="center">
+          <Text fw={700}>データを読み込めませんでした</Text>
+          <Text size="sm" c="dimmed" ta="center">
+            通信状態を確認して、もう一度お試しください。記録したデータが消えたわけではありません。
+          </Text>
+          {code && (
+            <Text size="xs" c="dimmed">
+              エラー: {code}
+            </Text>
+          )}
+          <Group mt="xs">
+            <Button onClick={onRetry}>再読み込み</Button>
+            <Button variant="default" onClick={onLogout}>
+              ログアウト
+            </Button>
+          </Group>
+        </Stack>
+      </Paper>
+    </Container>
+  );
+};
+
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   // 設定のロード前は rules が空になり、投資や給与収入の判定が全て false になる。
   // 集計が静かにずれるので、取引と設定の両方が揃うまで中身を描画しない。
-  const { loading: settingsLoading } = useSettings();
-  const { loading: transactionsLoading } = useTransactions();
+  const { loading: settingsLoading, error: settingsError, retry: retrySettings } = useSettings();
+  const {
+    loading: transactionsLoading,
+    error: transactionsError,
+    retry: retryTransactions,
+  } = useTransactions();
 
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
   const [csvModalOpened, setCsvModalOpened] = useState(false);
@@ -53,6 +103,20 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
         </Container>
         <PWAInstaller />
       </>
+    );
+  }
+
+  const loadError = settingsError ?? transactionsError;
+  if (loadError) {
+    return (
+      <LoadErrorState
+        error={loadError}
+        onRetry={() => {
+          if (settingsError) retrySettings();
+          if (transactionsError) retryTransactions();
+        }}
+        onLogout={() => void logout()}
+      />
     );
   }
 

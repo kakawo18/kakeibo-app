@@ -42,6 +42,7 @@ import {
 type RecurringTransactionsContextType = {
   recurringTransactions: RecurringTransaction[];
   loading: boolean;
+  error: Error | null;
   addRecurringTransaction: (data: RecurringTransactionInput) => Promise<void>;
   updateRecurringTransaction: (id: string, data: Partial<RecurringTransactionInput>) => Promise<void>;
   deleteRecurringTransaction: (id: string) => Promise<void>;
@@ -54,17 +55,18 @@ type RecurringTransactionsContextType = {
 
 const RecurringTransactionsContext = createContext<RecurringTransactionsContextType | null>(null);
 
+const NO_RECURRING: RecurringTransaction[] = [];
+
 export const RecurringTransactionsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 受け取ったデータとエラーは「どのユーザーのものか」と一緒に持ち、
+  // ユーザーが切り替わった直後に前のユーザーの定期取引が見えないようにする
+  const [received, setReceived] = useState<{ uid: string; list: RecurringTransaction[] } | null>(null);
+  const [failure, setFailure] = useState<{ uid: string; error: Error } | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setRecurringTransactions([]);
-      setLoading(false);
-      return;
-    }
+    if (!user) return;
+    const uid = user.uid;
 
     const recurringTransactionsRef = collection(db, 'users', user.uid, 'recurringTransactions');
     const q = query(recurringTransactionsRef, orderBy('dayOfMonth', 'asc'));
@@ -75,17 +77,22 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
         const transactions = snapshot.docs.map((docSnapshot) =>
           fromRecurringDoc(docSnapshot.id, user.uid, docSnapshot.data())
         );
-        setRecurringTransactions(transactions);
-        setLoading(false);
+        setReceived({ uid, list: transactions });
       },
       (error) => {
         console.error('Error fetching recurring transactions:', error);
-        setLoading(false);
+        setFailure({ uid, error });
       }
     );
 
     return () => unsubscribe();
   }, [user]);
+
+  const current = user && received?.uid === user.uid ? received : null;
+  const recurringTransactions = current?.list ?? NO_RECURRING;
+  /** 取得に失敗したとき。管理画面に表示する（ホームの通知は出ないだけ。#105） */
+  const error = user && failure?.uid === user.uid ? failure.error : null;
+  const loading = Boolean(user) && !current && !error;
 
   const addRecurringTransaction = useCallback(async (data: RecurringTransactionInput) => {
     if (!user) throw new Error('User not authenticated');
@@ -137,13 +144,14 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
     () => ({
       recurringTransactions,
       loading,
+      error,
       addRecurringTransaction,
       updateRecurringTransaction,
       deleteRecurringTransaction,
       getActiveRecurringTransactions,
       shouldShowRecurringTransaction,
     }),
-    [recurringTransactions, loading, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction, getActiveRecurringTransactions, shouldShowRecurringTransaction]
+    [recurringTransactions, loading, error, addRecurringTransaction, updateRecurringTransaction, deleteRecurringTransaction, getActiveRecurringTransactions, shouldShowRecurringTransaction]
   );
 
   return (
