@@ -29,7 +29,6 @@ import {
   updateDoc,
   deleteDoc,
   doc,
-  writeBatch,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -41,9 +40,7 @@ import {
   toTransactionCreateData,
   toTransactionUpdateData,
 } from '@/data/transactionSerializer';
-
-/** writeBatch の上限（Firestore の制約） */
-const WRITE_BATCH_LIMIT = 500;
+import { writeTransactionsInBatches } from '@/data/transactionImport';
 
 interface TransactionsContextType {
   transactions: Transaction[];
@@ -53,8 +50,14 @@ interface TransactionsContextType {
    * 複数端末から同時に記録しても1件にまとまる。定期取引の記録で使う）
    */
   addTransaction: (transaction: TransactionInput, options?: { id?: string }) => Promise<void>;
-  /** CSVインポート用の一括追加。500件ずつバッチ書き込みする */
-  addTransactions: (transactions: TransactionInput[]) => Promise<number>;
+  /**
+   * CSVインポート用の一括追加。500件ずつバッチ書き込みする。
+   * 途中で失敗すると ImportWriteError（保存済みの件数つき）を投げる
+   */
+  addTransactions: (
+    transactions: TransactionInput[],
+    options?: { importId?: string }
+  ) => Promise<number>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
 }
@@ -133,31 +136,10 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const addTransactions = useCallback(
-    async (inputs: TransactionInput[]): Promise<number> => {
+    async (inputs: TransactionInput[], options?: { importId?: string }): Promise<number> => {
       if (!user || inputs.length === 0) return 0;
-
-      const now = Timestamp.fromDate(new Date());
-      let written = 0;
-
-      // 1件ずつ addDoc すると件数分の往復が発生するため、500件ずつまとめて書く
-      for (let start = 0; start < inputs.length; start += WRITE_BATCH_LIMIT) {
-        const chunk = inputs.slice(start, start + WRITE_BATCH_LIMIT);
-        const batch = writeBatch(db);
-
-        chunk.forEach((input) => {
-          batch.set(doc(collection(db, 'transactions')), {
-            ...toTransactionCreateData(input),
-            userId: user.uid,
-            createdAt: now,
-            updatedAt: now,
-          });
-        });
-
-        await batch.commit();
-        written += chunk.length;
-      }
-
-      return written;
+      // 500件ずつまとめて書く。importId を渡すと、同じファイルの取り込み直しで重複しない（#103）
+      return writeTransactionsInBatches(db, user.uid, inputs, { importId: options?.importId });
     },
     [user]
   );
