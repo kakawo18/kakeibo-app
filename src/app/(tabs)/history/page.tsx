@@ -86,7 +86,9 @@ function HistoryContent() {
                 value={calendarValue}
                 // 日付タップは下の欄に内訳を出すだけなので、選択の通知は不要
                 onChange={() => {}}
-                transactions={selectedMonthTransactions}
+                // 前後の月の日付も画面に出て選べるので、表示月に絞らずに渡す。
+                // カレンダー側が画面に出ている42日分だけを使う（#114）
+                transactions={transactions}
                 showHeader={false}
                 swipeable={false}
                 onMonthChange={setMonth}

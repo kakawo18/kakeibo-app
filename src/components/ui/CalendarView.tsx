@@ -98,21 +98,32 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return Array.from({ length: 42 }, (_, i) => startDate.add(i, 'day'));
   }, [currentMonth]);
 
+  // 画面に出ている42日分の取引だけを扱う。前後の月の日付も選べるので、
+  // 親からは表示月だけに絞らずに渡してもらう（#114）
+  const gridTransactions = useMemo(() => {
+    const start = calendarDays[0].startOf('day').valueOf();
+    const end = calendarDays[calendarDays.length - 1].endOf('day').valueOf();
+    return transactions.filter((t) => {
+      const time = t.date.getTime();
+      return time >= start && time <= end;
+    });
+  }, [transactions, calendarDays]);
+
   // 日付をキーに取引を事前インデックス化する（42マス分の線形探索を避ける）
   const transactionsByDate = useMemo(() => {
     const map = new Map<string, Transaction[]>();
-    transactions.forEach((t) => {
+    gridTransactions.forEach((t) => {
       const key = dayjs(t.date).format('YYYY-MM-DD');
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(t);
     });
     return map;
-  }, [transactions]);
+  }, [gridTransactions]);
 
   // 日別の収入・支出。ホームの月次集計と同じ除外ルール（投資・立替・支出除外フラグ）
   const dailyTotals = useMemo(
-    () => calculateDailyTotals(transactions, rules),
-    [transactions, rules]
+    () => calculateDailyTotals(gridTransactions, rules),
+    [gridTransactions, rules]
   );
 
   const today = dayjs();
