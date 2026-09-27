@@ -14,6 +14,7 @@ import {
   getCurrentMonth,
   getNextMonth,
   getPreviousMonthFromCurrent,
+  parseMonthParam,
 } from '@/utils/dateUtils';
 
 export interface SelectedMonth {
@@ -29,14 +30,16 @@ export const useSelectedMonth = (): SelectedMonth => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const selectedMonth = searchParams.get('month') || getCurrentMonth();
+  // 不正な値（?month=invalid / 2026-13 など）は当月として扱う（#116）
+  const selectedMonth = parseMonthParam(searchParams.get('month')) ?? getCurrentMonth();
   const selectedYear = Number(selectedMonth.split('-')[0]);
 
   const setMonth = useCallback(
     (month: string | null) => {
-      if (!month) return;
+      const valid = parseMonthParam(month);
+      if (!valid) return;
       const params = new URLSearchParams(searchParams);
-      params.set('month', month);
+      params.set('month', valid);
       router.push(`?${params.toString()}`, { scroll: false });
     },
     [router, searchParams]

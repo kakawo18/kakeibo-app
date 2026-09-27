@@ -25,19 +25,6 @@ export const formatDateJa = (date: Date): string => {
   });
 };
 
-/** 月選択セレクト用の選択肢を生成（過去 yearsBack 年〜未来 yearsForward 年） */
-export const getMonthOptions = (yearsBack: number = 2, yearsForward: number = 1): { value: string; label: string }[] => {
-  const options: { value: string; label: string }[] = [];
-  const today = dayjs();
-
-  for (let i = -yearsBack * 12; i <= yearsForward * 12; i++) {
-    const date = today.add(i, 'month');
-    options.push({ value: date.format('YYYY-MM'), label: date.format('YYYY年MM月') });
-  }
-
-  return options;
-};
-
 /** YYYY-MM 形式の翌月を返す */
 export const getNextMonth = (month: string): string => {
   return dayjs(month).add(1, 'month').format('YYYY-MM');
@@ -61,3 +48,27 @@ export const monthRange = (from: string, to: string): string[] => {
   }
   return months;
 };
+
+/** 受け付ける年の範囲（CSV の日付と同じ） */
+const MIN_YEAR = 1970;
+const MAX_YEAR = 2100;
+
+/**
+ * URL クエリの month を検証する（#116）
+ *
+ * YYYY-MM で実在する月（01〜12）のときだけ返し、それ以外は null。
+ * 不正な値をそのまま使うと、年月表示が Invalid Date / NaN になり、
+ * 前後の月への移動でも不正な値が続いてしまう。
+ */
+export const parseMonthParam = (value: string | null | undefined): string | null => {
+  if (!value || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return null;
+  const year = Number(value.slice(0, 4));
+  return year >= MIN_YEAR && year <= MAX_YEAR ? value : null;
+};
+
+/** from〜to（YYYY-MM）の月を、月選択の選択肢にする */
+export const monthOptionsBetween = (
+  from: string,
+  to: string
+): { value: string; label: string }[] =>
+  monthRange(from, to).map((month) => ({ value: month, label: getMonthName(month) }));
