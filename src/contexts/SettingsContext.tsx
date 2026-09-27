@@ -65,6 +65,10 @@ interface SettingsContextType {
   expenseCategories: CategorySetting[];
   incomeCategories: CategorySetting[];
   paymentMethods: PaymentMethodSetting[];
+  /** 取得・初期設定の作成に失敗したときのエラー（#105） */
+  error: Error | null;
+  /** 取得をやり直す */
+  retry: () => void;
   /** 渡した項目だけを保存する（他の項目は書かない） */
   updateSettings: (patch: SettingsPatch) => Promise<void>;
 }
@@ -95,6 +99,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const seedingRef = useRef(false);
+  // 取得・初期設定の作成に失敗したとき。どのユーザーの何回目の購読かと一緒に持つ（#105）
+  const [attempt, setAttempt] = useState(0);
+  const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -104,7 +111,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setLoading(true);
-    const ref = settingsDocRef(user.uid);
+    const uid = user.uid;
+    const ref = settingsDocRef(uid);
 
     const unsubscribe = onSnapshot(
       ref,
@@ -144,6 +152,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           });
         } catch (error) {
           console.error('Error seeding user settings:', error);
+          // 空の設定のまま画面を出すと、役割が無いので集計が静かにずれる。失敗として扱う
+          setFailure({ uid, attempt, error: error as Error });
           setLoading(false);
         } finally {
           seedingRef.current = false;
@@ -151,12 +161,19 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       },
       (error) => {
         console.error('Error listening to user settings:', error);
+        setFailure({ uid, attempt, error });
         setLoading(false);
       }
     );
 
     return unsubscribe;
-  }, [user]);
+  }, [user, attempt]);
+
+  const error =
+    user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
+
+  /** 購読をやり直す（取得に失敗したときの再試行） */
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   // 設定ドキュメントができる前（シード前）は書かない
   const settingsReady = settings !== null;
@@ -227,6 +244,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       settings,
       loading,
+      error,
+      retry,
       rules,
       getColor,
       expenseCategories,
@@ -234,7 +253,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       paymentMethods,
       updateSettings,
     }),
-    [settings, loading, rules, getColor, expenseCategories, incomeCategories, paymentMethods, updateSettings]
+    [settings, loading, error, retry, rules, getColor, expenseCategories, incomeCategories, paymentMethods, updateSettings]
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

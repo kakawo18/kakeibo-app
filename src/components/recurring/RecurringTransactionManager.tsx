@@ -32,6 +32,7 @@ export const RecurringTransactionManager: React.FC<RecurringTransactionManagerPr
   const {
     recurringTransactions,
     loading,
+    error,
     addRecurringTransaction,
     updateRecurringTransaction,
     deleteRecurringTransaction,
@@ -117,7 +118,12 @@ export const RecurringTransactionManager: React.FC<RecurringTransactionManagerPr
         radius={isMobile ? 0 : undefined}
       >
         <Stack>
-          {loading ? (
+          {error ? (
+            // 取得に失敗したときは「登録されていません」と区別する（#105）
+            <Text ta="center" c="red" role="alert">
+              定期取引を読み込めませんでした。通信状態を確認して、画面を開き直してください。
+            </Text>
+          ) : loading ? (
             <Text ta="center">読み込み中...</Text>
           ) : recurringTransactions.length === 0 ? (
             <Text ta="center" c="dimmed">
