@@ -25,6 +25,7 @@ import {
   orderBy,
   onSnapshot,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   doc,
@@ -47,7 +48,11 @@ const WRITE_BATCH_LIMIT = 500;
 interface TransactionsContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (transaction: TransactionInput) => Promise<void>;
+  /**
+   * 取引を1件追加する。options.id を渡すとその ID で書く（同じ ID なら上書きになり、
+   * 複数端末から同時に記録しても1件にまとまる。定期取引の記録で使う）
+   */
+  addTransaction: (transaction: TransactionInput, options?: { id?: string }) => Promise<void>;
   /** CSVインポート用の一括追加。500件ずつバッチ書き込みする */
   addTransactions: (transactions: TransactionInput[]) => Promise<number>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
@@ -102,7 +107,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const addTransaction = useCallback(
-    async (transaction: TransactionInput) => {
+    async (transaction: TransactionInput, options?: { id?: string }) => {
       if (!user) return;
 
       const now = Timestamp.fromDate(new Date());
@@ -114,7 +119,11 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       };
 
       try {
-        await addDoc(collection(db, 'transactions'), transactionData);
+        if (options?.id) {
+          await setDoc(doc(db, 'transactions', options.id), transactionData);
+        } else {
+          await addDoc(collection(db, 'transactions'), transactionData);
+        }
       } catch (error) {
         console.error('Error adding transaction:', error);
         throw error;

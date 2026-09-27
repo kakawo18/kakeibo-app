@@ -38,6 +38,7 @@ import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
 import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
 import { getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
+import { recurringRecordId } from '@/utils/recurring';
 import { RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
@@ -227,11 +228,20 @@ export function DashboardContent() {
     date: Date;
     description?: string;
   }) => {
-    await addTransaction({
-      type: 'expense',
-      ...data,
-      ...rules.deriveTransactionFlags(data.category, data.paymentMethod),
-    });
+    if (!selectedRecurringTransaction) return;
+    // どの定期取引の、どの月の分かを取引に残す。記録済みの判定はこの2つで行い、
+    // ID もこの2つから決めるので、複数端末から同じ月を記録しても1件になる（#101）
+    const recurringMonth = formatMonthLocal(data.date);
+    await addTransaction(
+      {
+        type: 'expense',
+        ...data,
+        ...rules.deriveTransactionFlags(data.category, data.paymentMethod),
+        recurringTransactionId: selectedRecurringTransaction.id,
+        recurringMonth,
+      },
+      { id: recurringRecordId(selectedRecurringTransaction.id, recurringMonth) }
+    );
   };
 
   /** 年間振り返りタブへ。表示中の年をそのまま引き継ぐ */
