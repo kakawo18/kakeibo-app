@@ -148,6 +148,7 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
             <Text size="sm">
               CSVファイルは以下の形式である必要があります：<br />
               日付, 種別, カテゴリ, サブカテゴリ, 金額, メモ, 支払方法<br />
+              （このアプリで書き出した CSV には、支出の集計フラグの2列が続きます）<br />
               （上限: {Math.floor(MAX_IMPORT_FILE_BYTES / 1024 / 1024)}MB / {MAX_IMPORT_ROWS}行）
             </Text>
           </Alert>

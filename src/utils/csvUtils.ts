@@ -1,6 +1,6 @@
-import { Transaction, TransactionInput } from '@/types';
+import { Transaction, TransactionInput, TransactionType } from '@/types';
 import { formatDate } from './dateUtils';
-import { TransactionRules } from './transactionRules';
+import { TransactionFlags, TransactionRules } from './transactionRules';
 
 // Excel/スプレッドシートが数式として解釈してしまう先頭文字
 // （クォートしても評価されるため、別途無害化が必要）
@@ -19,18 +19,40 @@ const escapeCSVField = (field: string | number): string => {
 const unescapeFormulaGuard = (value: string): string =>
   value.startsWith("'") && FORMULA_PREFIX.test(value.slice(1)) ? value.slice(1) : value;
 
-// クォート・カンマ・改行を考慮した1行分のCSVパース
-const parseCSVLine = (line: string): string[] => {
-  const fields: string[] = [];
+/** CSV の1レコード（フィールド配列）と、それがファイル上の何行目から始まるか */
+interface CSVRecord {
+  fields: string[];
+  line: number;
+}
+
+/**
+ * CSV 全体をレコード単位に分解する（RFC 4180）
+ *
+ * 引用符の中の改行はフィールドの一部として残す。先に改行で行に割ってから
+ * 1行ずつ解析すると、メモに改行があるレコードが途中で切れてしまうため（#102）。
+ * 行番号はファイル上の物理行で数える（エラー報告で利用者が行を探せるように）。
+ */
+const parseCSVRecords = (text: string): CSVRecord[] => {
+  const records: CSVRecord[] = [];
+  let fields: string[] = [];
   let current = '';
   let inQuotes = false;
+  let line = 1;
+  let recordStartLine = 1;
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  const endRecord = () => {
+    fields.push(current);
+    records.push({ fields, line: recordStartLine });
+    fields = [];
+    current = '';
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
 
     if (inQuotes) {
       if (char === '"') {
-        if (line[i + 1] === '"') {
+        if (text[i + 1] === '"') {
           // エスケープされたダブルクォート
           current += '"';
           i++;
@@ -38,21 +60,72 @@ const parseCSVLine = (line: string): string[] => {
           inQuotes = false;
         }
       } else {
+        if (char === '\n') line++;
         current += char;
       }
-    } else if (char === '"') {
+      continue;
+    }
+
+    if (char === '"') {
       inQuotes = true;
     } else if (char === ',') {
       fields.push(current);
       current = '';
+    } else if (char === '\r' || char === '\n') {
+      // CRLF は1つの改行として扱う
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      endRecord();
+      line++;
+      recordStartLine = line;
     } else {
       current += char;
     }
   }
-  fields.push(current);
 
-  return fields;
+  // 末尾に改行が無いファイルの最後のレコード
+  if (current !== '' || fields.length > 0) endRecord();
+
+  // 空行（何も書かれていない・空白だけの行）は数えない
+  return records.filter(
+    (record) => record.fields.length > 1 || record.fields[0].trim() !== ''
+  );
 };
+
+/** 旧形式（v6.4.x まで）からある7列 */
+const BASE_HEADERS = ['日付', '種別', 'カテゴリ', 'サブカテゴリ', '金額', 'メモ', '支払方法'];
+
+/**
+ * 支出集計のフラグ列（#99）
+ *
+ * 集計から外れるかどうかは役割ではなく取引ごとの affectsExpense が決める。
+ * 過去の「カード引き落とし」のように今の設定からは導出できない値があるので、
+ * バックアップから戻したときに意味が変わらないよう、そのまま書き出す。
+ */
+const FLAG_HEADERS = ['取引タイプ', '支出に含める'];
+
+const TRANSACTION_TYPES: readonly TransactionType[] = ['normal', 'card_payment', 'card_withdrawal'];
+
+/** 取引を CSV の文字列にする（BOM は付けない） */
+export const buildCSV = (transactions: Transaction[]): string =>
+  [
+    [...BASE_HEADERS, ...FLAG_HEADERS].join(','),
+    ...transactions.map((transaction) =>
+      [
+        formatDate(transaction.date),
+        transaction.type === 'income' ? '収入' : '支出',
+        transaction.category,
+        transaction.subcategory || '',
+        transaction.amount,
+        transaction.description || '',
+        transaction.paymentMethod || '',
+        transaction.transactionType ?? '',
+        // 未設定の古いデータは支出に含める扱い（isExcludedFromExpense と同じ）
+        transaction.affectsExpense === false ? '0' : '1',
+      ]
+        .map(escapeCSVField)
+        .join(',')
+    ),
+  ].join('\n');
 
 export const exportToCSV = (transactions: Transaction[]): void => {
   // サーバーサイドレンダリング時は何もしない
@@ -61,22 +134,7 @@ export const exportToCSV = (transactions: Transaction[]): void => {
     return;
   }
 
-  const headers = ['日付', '種別', 'カテゴリ', 'サブカテゴリ', '金額', 'メモ', '支払方法'];
-
-  const csvContent = [
-    headers.join(','),
-    ...transactions.map(transaction => [
-      formatDate(transaction.date),
-      transaction.type === 'income' ? '収入' : '支出',
-      transaction.category,
-      transaction.subcategory || '',
-      transaction.amount,
-      transaction.description || '',
-      transaction.paymentMethod || '',
-    ].map(escapeCSVField).join(','))
-  ].join('\n');
-
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const blob = new Blob(['\uFEFF' + buildCSV(transactions)], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   const url = URL.createObjectURL(blob);
 
@@ -131,24 +189,48 @@ export const parseCSV = (
   rules: TransactionRules,
   options: ParseOptions = {}
 ): CSVParseResult => {
-  // BOM除去 + CRLF対応
-  const lines = csvText.replace(/^\uFEFF/, '').split(/\r?\n/).filter(line => line.trim());
+  // BOM除去。改行は CRLF / LF のどちらでもよい
+  const [header, ...allRecords] = parseCSVRecords(csvText.replace(/^\uFEFF/, ''));
 
-  // Skip header row
-  const allDataLines = lines.slice(1);
-  const truncated = allDataLines.length > MAX_IMPORT_ROWS;
-  const dataLines = truncated ? allDataLines.slice(0, MAX_IMPORT_ROWS) : allDataLines;
+  // フラグ列は、見出しがこのアプリの書き出した名前のときだけ読む。
+  // 他のアプリの CSV に8列目以降があっても、それをフラグと取り違えないため
+  const headerFields = header?.fields.map((field) => field.trim()) ?? [];
+  const hasFlagColumns = FLAG_HEADERS.every(
+    (name, index) => headerFields[BASE_HEADERS.length + index] === name
+  );
+
+  const truncated = allRecords.length > MAX_IMPORT_ROWS;
+  const records = truncated ? allRecords.slice(0, MAX_IMPORT_ROWS) : allRecords;
+
+  /**
+   * 書き出したときの集計フラグを読む。フラグ列が無い旧形式の CSV や
+   * 「支出に含める」が壊れている行では null を返し、支払方法から導出し直す。
+   * 取引タイプだけが空・不正な行（取引タイプを持たない古いデータ）は、
+   * 導出した取引タイプに「支出に含める」の値を組み合わせる
+   */
+  const readFlags = (fields: string[], derived: TransactionFlags): TransactionFlags | null => {
+    if (!hasFlagColumns) return null;
+    const affects = fields[BASE_HEADERS.length + 1]?.trim();
+    if (affects !== '0' && affects !== '1') return null;
+    const transactionType = fields[BASE_HEADERS.length]?.trim() as TransactionType;
+    return {
+      transactionType: TRANSACTION_TYPES.includes(transactionType)
+        ? transactionType
+        : derived.transactionType,
+      affectsExpense: affects === '1',
+    };
+  };
 
   const transactions: TransactionInput[] = [];
   const skippedRows: { row: number; reason: string }[] = [];
   const unknownCategories = new Set<string>();
   const { knownCategories } = options;
 
-  dataLines.forEach((line, index) => {
-    // ヘッダー行 + 0始まりの index → ファイル上の行番号
-    const row = index + 2;
+  records.forEach((record) => {
+    // ファイル上の行番号（改行入りのメモがあってもレコードの先頭行を指す）
+    const row = record.line;
     // エクスポート時に付けた数式インジェクション対策の ' を戻す
-    const fields = parseCSVLine(line).map(unescapeFormulaGuard);
+    const fields = record.fields.map(unescapeFormulaGuard);
 
     const category = fields[2]?.trim().slice(0, MAX_NAME_LENGTH);
     if (!category) {
@@ -179,6 +261,9 @@ export const parseCSV = (
     const description = fields[5]?.trim().slice(0, MAX_DESCRIPTION_LENGTH) || undefined;
     const paymentMethod = fields[6]?.trim().slice(0, MAX_NAME_LENGTH) || undefined;
 
+    // 今の設定から導出した集計フラグ。旧形式の CSV ではこれをそのまま使う
+    const derived = rules.deriveTransactionFlags(category, paymentMethod);
+
     // 設定に無いカテゴリも取り込むが、役割ベースの集計から漏れるため警告として返す
     if (knownCategories?.size && !knownCategories.has(category)) {
       unknownCategories.add(category);
@@ -192,9 +277,7 @@ export const parseCSV = (
       amount,
       description,
       paymentMethod,
-      // カード支払い・引き落としの集計フラグを再導出する
-      // （エクスポート→インポートで支出の二重計上が起きないようにする）
-      ...rules.deriveTransactionFlags(category, paymentMethod),
+      ...(readFlags(fields, derived) ?? derived),
     });
   });
 
