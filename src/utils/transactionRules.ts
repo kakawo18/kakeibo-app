@@ -92,3 +92,40 @@ export const createTransactionRules = (settings: UserSettings): TransactionRules
     },
   };
 };
+
+/** 支払方法の「未設定」と空文字を同じに扱う */
+const normalizeMethod = (method: string | undefined): string => method?.trim() ?? '';
+
+/**
+ * 既存の取引を編集して保存するときの集計フラグ（#99）
+ *
+ * メモを直しただけで支出の集計が変わらないよう、会計上の意味を保つ。
+ * - 支出から外していた取引（affectsExpense = false。過去の「カード引き落とし」）は、
+ *   何を編集しても外したまま。「購入月に計上済み」という意味は編集では変わらないため
+ * - 支払方法が変わらなければ既存の取引タイプを保つ（記録後に設定で
+ *   「現金扱い」を切り替えていても、過去の取引の扱いは変えない）
+ * - 支払方法を変えたときだけ、今の設定から導出し直す
+ */
+export const resolveFlagsOnEdit = (
+  existing: Pick<Transaction, 'paymentMethod' | 'transactionType' | 'affectsExpense'>,
+  next: { category: string; paymentMethod?: string },
+  rules: TransactionRules
+): TransactionFlags => {
+  const derived = rules.deriveTransactionFlags(next.category, next.paymentMethod || undefined);
+
+  if (existing.affectsExpense === false) {
+    return {
+      transactionType: existing.transactionType ?? derived.transactionType,
+      affectsExpense: false,
+    };
+  }
+
+  if (normalizeMethod(existing.paymentMethod) === normalizeMethod(next.paymentMethod)) {
+    return {
+      transactionType: existing.transactionType ?? derived.transactionType,
+      affectsExpense: true,
+    };
+  }
+
+  return derived;
+};

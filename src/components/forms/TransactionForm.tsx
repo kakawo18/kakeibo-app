@@ -19,6 +19,7 @@ import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Transaction, TransactionKind } from '@/types';
 import { formatDateJa } from '@/utils/dateUtils';
+import { resolveFlagsOnEdit } from '@/utils/transactionRules';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from './ResponsiveSelect';
@@ -154,17 +155,25 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const handleSubmit = async (values: TransactionFormValues) => {
     setLoading(true);
     try {
+      const category = values.category;
+      const subcategory = values.subcategory.trim();
+      // 収入に支払方法は無い（種別を切り替えた時点でも空にしている）
+      const paymentMethod = values.type === 'income' ? '' : values.paymentMethod.trim();
+
+      // 編集ではメモを直しただけで集計が変わらないよう、既存の会計上の意味を保つ（#99）
+      const flags = editingTransaction
+        ? resolveFlagsOnEdit(editingTransaction, { category, paymentMethod }, rules)
+        : rules.deriveTransactionFlags(category, paymentMethod || undefined);
+
       const transactionData = {
         type: values.type,
         amount: Math.floor(Number(values.amount)), // 小数点切り捨て
-        category: values.category,
+        category,
         date: values.date,
-        // カテゴリ・支払方法から取引タイプと集計フラグを導出
-        ...rules.deriveTransactionFlags(values.category, values.paymentMethod),
-        // 空文字列でない場合のみ設定
-        subcategory: values.subcategory.trim() || undefined,
-        paymentMethod: values.paymentMethod.trim() || undefined,
-        // description は空文字列での削除に対応するため常に設定
+        ...flags,
+        // 空文字は「その項目を消す」。新規作成では書かず、編集では Firestore から削除する（#98）
+        subcategory,
+        paymentMethod,
         description: values.description.trim(),
       };
 

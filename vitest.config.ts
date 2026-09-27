@@ -14,6 +14,8 @@ export default defineConfig({
   },
   test: {
     include: ['src/**/*.test.ts'],
+    // エミュレータが必要なテストは npm run test:emulator で別に走らせる
+    exclude: ['src/**/*.emulator.test.ts', 'node_modules/**'],
     environment: 'node',
   },
 });
