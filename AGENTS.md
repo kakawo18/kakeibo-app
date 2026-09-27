@@ -20,6 +20,7 @@ npm run build               # 本番ビルド
 npm run lint                # ESLint
 npm run type-check          # tsc --noEmit
 npm test                    # Vitest（会計・集計の回帰テスト）
+npm run test:emulator       # Firestore エミュレータで保存形式とルールを検証（Java が必要）
 ```
 
 - 実行には `.env.local`（Firebase 設定）が必要。`.env.example` をコピーして埋める（手順は `docs/setup.md`）。
@@ -37,6 +38,8 @@ npm test                    # Vitest（会計・集計の回帰テスト）
 - 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
 - タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
 - 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
+- Firestore への書き込み（保存形式・`deleteField`・ルール）が絡む変更は、`*.emulator.test.ts` にエミュレータのテストを書く。`npm run test:emulator` が Firebase CLI（`npx firebase-tools`）でエミュレータを起動し、`firestore.rules` を読み込んで実行する。Java 21 が必要。CI でも別ジョブで走る。
+- Firestore との変換は `src/data/` にまとめる（`transactionSerializer.ts` など）。**作成と部分更新は別の関数**にし、更新では「undefined = 変更しない / 空文字 = 項目を消す（`deleteField`）」とする。
 
 ## コード規約
 

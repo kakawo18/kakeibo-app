@@ -33,62 +33,13 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Transaction, TransactionInput, TransactionKind, TransactionType } from '@/types';
-
-// Firestore用のクリーンなトランザクションデータの型定義
-interface CleanTransactionData {
-  type?: TransactionKind;
-  amount?: number;
-  category?: string;
-  date?: Timestamp;
-  transactionType?: TransactionType;
-  affectsExpense?: boolean;
-  subcategory?: string;
-  paymentMethod?: string;
-  description?: string;
-}
-
-// トランザクションデータをFirestore用にクリーニングするヘルパー関数
-// （undefined のフィールドを除去し、文字列はトリムする）
-const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransactionData => {
-  const cleaned: CleanTransactionData = {};
-
-  if (transaction.type !== undefined) {
-    cleaned.type = transaction.type;
-  }
-  if (transaction.amount !== undefined) {
-    cleaned.amount = transaction.amount;
-  }
-  if (transaction.category !== undefined) {
-    cleaned.category = transaction.category;
-  }
-  if (transaction.date !== undefined) {
-    cleaned.date = Timestamp.fromDate(
-      transaction.date instanceof Date ? transaction.date : new Date(transaction.date)
-    );
-  }
-  if (transaction.transactionType !== undefined) {
-    cleaned.transactionType = transaction.transactionType;
-  }
-  if (transaction.affectsExpense !== undefined) {
-    cleaned.affectsExpense = transaction.affectsExpense;
-  }
-
-  // subcategory と paymentMethod: 値がある場合のみ追加、空文字列は除外
-  if (transaction.subcategory && transaction.subcategory.trim()) {
-    cleaned.subcategory = transaction.subcategory.trim();
-  }
-  if (transaction.paymentMethod && transaction.paymentMethod.trim()) {
-    cleaned.paymentMethod = transaction.paymentMethod.trim();
-  }
-
-  // description: 空文字列での削除に対応するため、undefinedでない場合は常に設定
-  if (transaction.description !== undefined) {
-    cleaned.description = transaction.description.trim() || '';
-  }
-
-  return cleaned;
-};
+import { Transaction, TransactionInput } from '@/types';
+import {
+  fromTransactionDoc,
+  missingRequiredFields,
+  toTransactionCreateData,
+  toTransactionUpdateData,
+} from '@/data/transactionSerializer';
 
 /** writeBatch の上限（Firestore の制約） */
 const WRITE_BATCH_LIMIT = 500;
@@ -129,32 +80,14 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
         const transactionList: Transaction[] = [];
         snapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data();
-          // データの型安全性を確保（金額0の取引は有効なので == null で判定）
-          if (!data.type || data.amount == null || !data.category || !data.date) {
+          const transaction = fromTransactionDoc(docSnapshot.id, data);
+          if (!transaction) {
             // 取引の中身はコンソールに出さない（共有端末・拡張機能経由の漏洩を避ける）。
             // 調査に必要な「どのドキュメントの、どのフィールドが欠けているか」だけを出す。
-            const missingFields = (['type', 'amount', 'category', 'date'] as const).filter(
-              (field) => (field === 'amount' ? data.amount == null : !data[field])
-            );
-            console.warn('Incomplete transaction data:', docSnapshot.id, missingFields);
+            console.warn('Incomplete transaction data:', docSnapshot.id, missingRequiredFields(data));
             return;
           }
-
-          transactionList.push({
-            id: docSnapshot.id,
-            userId: data.userId,
-            type: data.type,
-            amount: Number(data.amount),
-            category: data.category,
-            subcategory: data.subcategory || undefined,
-            paymentMethod: data.paymentMethod || undefined,
-            transactionType: data.transactionType || 'normal',
-            affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
-            date: data.date?.toDate() || new Date(),
-            description: data.description || undefined,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          });
+          transactionList.push(transaction);
         });
         setTransactions(transactionList);
         setLoading(false);
@@ -172,18 +105,12 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     async (transaction: TransactionInput) => {
       if (!user) return;
 
-      const now = new Date();
-      const cleanedData = cleanTransactionData({
-        ...transaction,
-        transactionType: transaction.transactionType || 'normal',
-        affectsExpense: transaction.affectsExpense !== undefined ? transaction.affectsExpense : true,
-      });
-
+      const now = Timestamp.fromDate(new Date());
       const transactionData = {
-        ...cleanedData,
+        ...toTransactionCreateData(transaction),
         userId: user.uid,
-        createdAt: Timestamp.fromDate(now),
-        updatedAt: Timestamp.fromDate(now),
+        createdAt: now,
+        updatedAt: now,
       };
 
       try {
@@ -209,13 +136,8 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
         const batch = writeBatch(db);
 
         chunk.forEach((input) => {
-          const cleanedData = cleanTransactionData({
-            ...input,
-            transactionType: input.transactionType || 'normal',
-            affectsExpense: input.affectsExpense !== undefined ? input.affectsExpense : true,
-          });
           batch.set(doc(collection(db, 'transactions')), {
-            ...cleanedData,
+            ...toTransactionCreateData(input),
             userId: user.uid,
             createdAt: now,
             updatedAt: now,
@@ -235,8 +157,9 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     async (id: string, updates: Partial<Transaction>) => {
       if (!user) return;
 
+      // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
       const updateData = {
-        ...cleanTransactionData(updates),
+        ...toTransactionUpdateData(updates),
         updatedAt: Timestamp.fromDate(new Date()),
       };
 

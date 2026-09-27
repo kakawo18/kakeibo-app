@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testRules as rules, tx } from '@/test/fixtures';
+import { resolveFlagsOnEdit } from '@/utils/transactionRules';
 
 describe('役割の判定', () => {
   it('カテゴリに付いた役割で判定する', () => {
@@ -73,5 +74,44 @@ describe('deriveTransactionFlags', () => {
     expect(rules.deriveTransactionFlags('食費', '昔使っていたカード').transactionType).toBe(
       'card_payment'
     );
+  });
+});
+
+describe('resolveFlagsOnEdit（#99: 編集で会計上の意味を変えない）', () => {
+  const withdrawal = {
+    paymentMethod: '楽天カード',
+    transactionType: 'card_withdrawal' as const,
+    affectsExpense: false,
+  };
+
+  it('支出から外していた取引は、メモ・カテゴリ・支払方法を変えても外れたまま', () => {
+    expect(resolveFlagsOnEdit(withdrawal, { category: '食費', paymentMethod: '楽天カード' }, rules))
+      .toEqual({ transactionType: 'card_withdrawal', affectsExpense: false });
+    expect(resolveFlagsOnEdit(withdrawal, { category: '固定費', paymentMethod: '現金' }, rules))
+      .toEqual({ transactionType: 'card_withdrawal', affectsExpense: false });
+  });
+
+  it('支払方法が変わらなければ、今の設定と食い違っても既存の取引タイプを保つ', () => {
+    // 記録後に設定で「現金扱い」を切り替えた、などのケース
+    const existing = { paymentMethod: '楽天カード', transactionType: 'normal' as const, affectsExpense: true };
+    expect(resolveFlagsOnEdit(existing, { category: '食費', paymentMethod: '楽天カード' }, rules))
+      .toEqual({ transactionType: 'normal', affectsExpense: true });
+  });
+
+  it('支払方法を変えたら導出し直す', () => {
+    const existing = { paymentMethod: '現金', transactionType: 'normal' as const, affectsExpense: true };
+    expect(resolveFlagsOnEdit(existing, { category: '食費', paymentMethod: '楽天カード' }, rules))
+      .toEqual({ transactionType: 'card_payment', affectsExpense: true });
+    expect(resolveFlagsOnEdit(
+      { paymentMethod: '楽天カード', transactionType: 'card_payment', affectsExpense: true },
+      { category: '食費', paymentMethod: '' },
+      rules
+    )).toEqual({ transactionType: 'normal', affectsExpense: true });
+  });
+
+  it('支払方法の「未設定」と空文字は同じものとして扱う', () => {
+    const existing = { paymentMethod: undefined, transactionType: 'normal' as const, affectsExpense: true };
+    expect(resolveFlagsOnEdit(existing, { category: '食費', paymentMethod: '' }, rules))
+      .toEqual({ transactionType: 'normal', affectsExpense: true });
   });
 });

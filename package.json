@@ -1,6 +1,6 @@
 {
   "name": "kakeibo-app",
-  "version": "6.4.6",
+  "version": "6.4.7",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -11,6 +11,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:emulator": "npx --yes firebase-tools@13 emulators:exec --only firestore --project demo-kakeibo \"vitest run -c vitest.emulator.config.ts\"",
     "build:analyze": "ANALYZE=true npm run build",
     "postinstall": "npm run type-check"
   },
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

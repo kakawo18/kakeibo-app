@@ -128,14 +128,10 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
         category: values.category,
         dayOfMonth: Number(values.dayOfMonth),
         isEnabled: values.isEnabled,
+        // 空文字は「その項目を消す」。新規作成では書かず、編集では削除する（#98）
+        subcategory: values.subcategory?.trim() ?? '',
+        paymentMethod: values.paymentMethod?.trim() ?? '',
       };
-
-      if (values.subcategory && values.subcategory.trim()) {
-        data.subcategory = values.subcategory.trim();
-      }
-      if (values.paymentMethod && values.paymentMethod.trim()) {
-        data.paymentMethod = values.paymentMethod.trim();
-      }
 
       await onSave(data);
       onClose();

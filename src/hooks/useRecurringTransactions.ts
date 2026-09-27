@@ -15,6 +15,12 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { RecurringTransaction, Transaction } from '@/types';
+import {
+  RecurringTransactionInput,
+  fromRecurringDoc,
+  toRecurringCreateData,
+  toRecurringUpdateData,
+} from '@/data/recurringTransactionSerializer';
 
 export const useRecurringTransactions = () => {
   const { user } = useAuth();
@@ -34,22 +40,9 @@ export const useRecurringTransactions = () => {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const transactions = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            userId: user.uid,
-            name: data.name,
-            amount: data.amount,
-            category: data.category,
-            subcategory: data.subcategory,
-            paymentMethod: data.paymentMethod,
-            dayOfMonth: data.dayOfMonth,
-            isEnabled: data.isEnabled,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          } as RecurringTransaction;
-        });
+        const transactions = snapshot.docs.map((docSnapshot) =>
+          fromRecurringDoc(docSnapshot.id, user.uid, docSnapshot.data())
+        );
         setRecurringTransactions(transactions);
         setLoading(false);
       },
@@ -62,16 +55,14 @@ export const useRecurringTransactions = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const addRecurringTransaction = useCallback(async (
-    data: Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
-  ) => {
+  const addRecurringTransaction = useCallback(async (data: RecurringTransactionInput) => {
     if (!user) throw new Error('User not authenticated');
 
     const recurringTransactionsRef = collection(db, 'users', user.uid, 'recurringTransactions');
     const now = Timestamp.now();
 
     await addDoc(recurringTransactionsRef, {
-      ...data,
+      ...toRecurringCreateData(data),
       createdAt: now,
       updatedAt: now,
     });
@@ -79,13 +70,14 @@ export const useRecurringTransactions = () => {
 
   const updateRecurringTransaction = useCallback(async (
     id: string,
-    data: Partial<Omit<RecurringTransaction, 'id' | 'userId' | 'createdAt'>>
+    data: Partial<RecurringTransactionInput>
   ) => {
     if (!user) throw new Error('User not authenticated');
 
+    // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
     const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
     await updateDoc(recurringTransactionRef, {
-      ...data,
+      ...toRecurringUpdateData(data),
       updatedAt: Timestamp.now(),
     });
   }, [user]);
