@@ -19,6 +19,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { formatDateJa } from '@/utils/dateUtils';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
+import { validateAmount } from '@/utils/validation';
 
 interface RecurringTransactionConfirmProps {
   opened: boolean;
@@ -60,6 +61,11 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
       subcategory: '',
       paymentMethod: '',
       description: '',
+    },
+    // 請求額に合わせて金額を直せるので、通常の取引と同じ基準で検証する（#117）
+    validate: {
+      amount: (value) => validateAmount(value),
+      category: (value) => (value.trim() ? null : 'カテゴリを選択してください'),
     },
   });
 
@@ -180,6 +186,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
             data={categoryOptions}
             value={form.values.category}
             onChange={handleCategoryChange}
+            error={form.errors.category}
           />
 
           {subcategoryOptions.length > 0 && (

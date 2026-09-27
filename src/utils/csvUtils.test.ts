@@ -128,3 +128,23 @@ describe('支出集計フラグの保持（#99）', () => {
     expect(restored.transactionType).toBe('normal');
   });
 });
+
+describe('名前の長さ（#117）', () => {
+  it('50文字を超える名前は切り詰めずに、理由を付けてスキップする', () => {
+    const long = 'あ'.repeat(51);
+    const csv = [
+      LEGACY_HEADER,
+      `"2026-03-01","支出","${long}","","100","",""`,
+      `"2026-03-02","支出","食費","${long}","100","",""`,
+      `"2026-03-03","支出","食費","","100","","${long}"`,
+      `"2026-03-04","支出","${'い'.repeat(50)}","","100","",""`,
+    ].join('\n');
+    const result = parseCSV(csv, rules);
+    expect(result.skippedRows).toEqual([
+      { row: 2, reason: '名前が50文字を超えている' },
+      { row: 3, reason: '名前が50文字を超えている' },
+      { row: 4, reason: '名前が50文字を超えている' },
+    ]);
+    expect(result.transactions.map((t) => t.category)).toEqual(['い'.repeat(50)]);
+  });
+});

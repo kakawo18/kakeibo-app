@@ -24,6 +24,7 @@ import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from './ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from './formStyles';
+import { validateAmount } from '@/utils/validation';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -79,7 +80,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     mode: 'uncontrolled',
     initialValues: emptyValues,
     validate: {
-      amount: (value) => (!value || Number(value) <= 0 ? '正しい金額を入力してください' : null),
+      // 数値にならない値・無限大・上限超えも弾く（取引・定期取引・CSVで共通の基準。#117）
+      amount: (value) => validateAmount(value),
       category: (value) => (!value || value.trim() === '' ? 'カテゴリを選択してください' : null),
     },
   });

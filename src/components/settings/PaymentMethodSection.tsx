@@ -30,6 +30,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { PaymentMethodSetting } from '@/types';
 import { PAYMENT_METHOD_SWATCHES } from '@/config/colorPalette';
+import { validateName } from '@/utils/validation';
 
 const newId = (): string => crypto.randomUUID();
 
@@ -90,8 +91,9 @@ const PaymentMethodEditor: React.FC<Omit<PaymentMethodEditModalProps, 'opened'>>
 
   const handleSave = () => {
     const trimmedName = name.trim();
-    if (!trimmedName) {
-      setError('名前を入力してください');
+    const nameError = validateName(name, '名前');
+    if (nameError) {
+      setError(nameError);
       return;
     }
     if (existingNames.includes(trimmedName)) {
