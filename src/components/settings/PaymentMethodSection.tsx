@@ -283,7 +283,7 @@ export const PaymentMethodSection = () => {
               <ActionIcon
                 variant="subtle"
                 color="gray"
-                size="md"
+                size={40}
                 onClick={() => handleEdit(method)}
                 aria-label="編集"
               >
@@ -292,7 +292,7 @@ export const PaymentMethodSection = () => {
               <ActionIcon
                 variant="subtle"
                 color="red"
-                size="md"
+                size={40}
                 onClick={() => handleDelete(method)}
                 aria-label="削除"
               >

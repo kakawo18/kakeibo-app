@@ -23,6 +23,7 @@ import { Transaction } from '@/types';
 import { calculateDailyTotals } from '@/utils/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionRow } from '@/components/ui/TransactionRow';
+import { pressable } from '@/components/ui/pressable';
 
 export interface CalendarViewProps {
   value: Date;
@@ -233,7 +234,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             return (
               <Box
                 key={index}
-                onClick={() => handleDateClick(date)}
+                // Tab で選べて Enter / Space で開ける。読み上げ用に日付と収支を名前にする（#111）
+                {...pressable(
+                  () => handleDateClick(date),
+                  `${date.month() + 1}月${date.date()}日${
+                    hasEntries ? `、収入${income.toLocaleString()}円、支出${expense.toLocaleString()}円` : ''
+                  }`,
+                  isSelected
+                )}
                 style={{
                   borderBottom: '1px solid var(--hairline)',
                   borderRight: '1px solid var(--hairline)',
@@ -314,6 +322,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 onClick={goToPreviousDay}
                 disabled={!canGoPreviousDay}
                 aria-label="前の日へ"
+                size={40}
               >
                 <IconChevronLeft size={18} />
               </ActionIcon>
@@ -329,6 +338,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 onClick={goToNextDay}
                 disabled={!canGoNextDay}
                 aria-label="次の日へ"
+                size={40}
               >
                 <IconChevronRight size={18} />
               </ActionIcon>
@@ -349,6 +359,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 color="gray"
                 onClick={() => setDetailVisible(false)}
                 aria-label="内訳を閉じる"
+                size={40}
               >
                 <IconX size={18} />
               </ActionIcon>

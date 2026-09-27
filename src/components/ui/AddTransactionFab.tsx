@@ -28,6 +28,8 @@ export const AddTransactionFab: React.FC<AddTransactionFabProps> = ({ onClick, h
       leftSection={<IconPlus size={18} stroke={2.2} />}
       onClick={onClick}
       size="md"
+      // 片手で押しやすいよう高さ 48px を確保する（#111）
+      h={48}
       radius="xl"
       style={{
         boxShadow: '0 2px 6px rgba(15, 23, 42, 0.12), 0 8px 22px rgba(76, 110, 245, 0.28)',

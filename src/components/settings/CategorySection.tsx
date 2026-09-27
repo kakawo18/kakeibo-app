@@ -200,7 +200,7 @@ export const CategorySection = () => {
               <ActionIcon
                 variant="subtle"
                 color="gray"
-                size="md"
+                size={40}
                 disabled={index === 0}
                 onClick={() => move(index, -1)}
                 aria-label="上へ移動"
@@ -210,7 +210,7 @@ export const CategorySection = () => {
               <ActionIcon
                 variant="subtle"
                 color="gray"
-                size="md"
+                size={40}
                 disabled={index === list.length - 1}
                 onClick={() => move(index, 1)}
                 aria-label="下へ移動"
@@ -220,7 +220,7 @@ export const CategorySection = () => {
               <ActionIcon
                 variant="subtle"
                 color="gray"
-                size="md"
+                size={40}
                 onClick={() => handleEdit(category)}
                 aria-label="編集"
               >
@@ -229,7 +229,7 @@ export const CategorySection = () => {
               <ActionIcon
                 variant="subtle"
                 color="red"
-                size="md"
+                size={40}
                 onClick={() => handleDelete(category)}
                 aria-label="削除"
               >

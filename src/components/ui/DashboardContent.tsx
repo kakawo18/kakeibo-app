@@ -39,6 +39,7 @@ import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyCompa
 import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
 import { getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
 import { recurringRecordId } from '@/utils/recurring';
+import { pressable } from '@/components/ui/pressable';
 import { RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
@@ -93,7 +94,8 @@ const KpiTile = ({
   <Paper
     className={`ledger-card ${onClick ? 'ledger-card-clickable' : ''}`}
     p={compact ? 12 : 'md'}
-    onClick={onClick}
+    // 押すと詳細が開くタイルは、キーボード・読み上げからも押せるようにする（#111）
+    {...(onClick ? pressable(onClick, `${label}の詳細を開く`) : {})}
     // 3列グリッドで金額が長いときにタイルがグリッドを押し広げないようにする
     style={{ minWidth: 0 }}
   >
@@ -272,9 +274,14 @@ export function DashboardContent() {
           <Paper className="ledger-card" p={isMobile ? 'lg' : 'xl'}>
             {/* 月の切り替えはこの行に同居させる。専用の行を作ると高さだけを食うため。
                 カード自体はクリック対象にしない（中に月移動のボタンがあるため） */}
-            <Group justify="space-between" align="center" wrap="nowrap" mb={isMobile ? 'sm' : 'md'}>
+            <Group justify="space-between" align="center" wrap="wrap" gap={8} style={{ rowGap: 0 }} mb={isMobile ? 'sm' : 'md'}>
               <MonthNav />
-              <UnstyledButton onClick={openAnnualReview} aria-label="年間振り返りを開く">
+              <UnstyledButton
+                onClick={openAnnualReview}
+                aria-label="年間振り返りを開く"
+                // 文字だけだと高さ17pxしかなく押しにくかった（#111）
+                style={{ minHeight: 44, display: 'flex', alignItems: 'center' }}
+              >
                 <Group gap={2} style={{ color: 'var(--ink-3)' }} wrap="nowrap">
                   <Text size="xs" fw={600} style={{ color: 'inherit', whiteSpace: 'nowrap' }}>年間振り返り</Text>
                   <IconChevronRight size={13} />
