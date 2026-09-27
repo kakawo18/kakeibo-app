@@ -30,19 +30,17 @@ import {
   onSnapshot,
   doc,
   runTransaction,
-  setDoc,
-  Timestamp,
-  DocumentData,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { UserSettings, CategoryColor, CategorySetting, PaymentMethodSetting } from '@/types';
 import {
-  UserSettings,
-  CategorySetting,
-  SubcategorySetting,
-  PaymentMethodSetting,
-  CategoryColor,
-} from '@/types';
+  SettingsPatch,
+  deserializeSettings,
+  serializeSettings,
+  toSettingsPatchData,
+} from '@/data/settingsSerializer';
 import {
   buildGenericDefaultSettings,
   buildLegacySettings,
@@ -51,94 +49,6 @@ import { NEUTRAL_COLOR } from '@/config/colorPalette';
 import { createTransactionRules, TransactionRules } from '@/utils/transactionRules';
 
 const settingsDocRef = (uid: string) => doc(db, 'users', uid, 'settings', 'app');
-
-// ============================================================
-// Firestore シリアライズ / デシリアライズ
-// ============================================================
-
-/** undefined フィールドを除去しつつ Firestore 保存用に変換する */
-const serializeSettings = (settings: UserSettings): DocumentData => ({
-  schemaVersion: settings.schemaVersion,
-  monthlyBudget: settings.monthlyBudget,
-  categories: settings.categories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    type: category.type,
-    roles: category.roles,
-    color: category.color,
-    subcategories: category.subcategories.map((sub) => ({
-      id: sub.id,
-      name: sub.name,
-      roles: sub.roles,
-      ...(sub.color ? { color: sub.color } : {}),
-    })),
-  })),
-  paymentMethods: settings.paymentMethods.map((method) => ({
-    id: method.id,
-    name: method.name,
-    isCash: method.isCash,
-    rewardRate: method.rewardRate,
-    color: method.color,
-  })),
-  // 未設定のときはキー自体を書かない。merge:true なので既存値はそのまま残る
-  ...(settings.chartPreferences?.categoryTrendCategories
-    ? {
-        chartPreferences: {
-          categoryTrendCategories: settings.chartPreferences.categoryTrendCategories,
-        },
-      }
-    : {}),
-  createdAt: Timestamp.fromDate(settings.createdAt),
-  updatedAt: Timestamp.fromDate(settings.updatedAt),
-});
-
-const deserializeSettings = (data: DocumentData): UserSettings => ({
-  schemaVersion: 1,
-  monthlyBudget: Number(data.monthlyBudget) || 0,
-  categories: Array.isArray(data.categories)
-    ? data.categories.map(
-        (category: DocumentData): CategorySetting => ({
-          id: category.id,
-          name: category.name,
-          type: category.type === 'income' ? 'income' : 'expense',
-          roles: Array.isArray(category.roles) ? category.roles : [],
-          color: category.color ?? NEUTRAL_COLOR,
-          subcategories: Array.isArray(category.subcategories)
-            ? category.subcategories.map(
-                (sub: DocumentData): SubcategorySetting => ({
-                  id: sub.id,
-                  name: sub.name,
-                  roles: Array.isArray(sub.roles) ? sub.roles : [],
-                  ...(sub.color ? { color: sub.color } : {}),
-                })
-              )
-            : [],
-        })
-      )
-    : [],
-  paymentMethods: Array.isArray(data.paymentMethods)
-    ? data.paymentMethods.map(
-        (method: DocumentData): PaymentMethodSetting => ({
-          id: method.id,
-          name: method.name,
-          isCash: Boolean(method.isCash),
-          rewardRate: Number(method.rewardRate) || 0,
-          color: method.color ?? '#8b919e',
-        })
-      )
-    : [],
-  ...(Array.isArray(data.chartPreferences?.categoryTrendCategories)
-    ? {
-        chartPreferences: {
-          categoryTrendCategories: data.chartPreferences.categoryTrendCategories.filter(
-            (name: unknown): name is string => typeof name === 'string'
-          ),
-        },
-      }
-    : {}),
-  createdAt: data.createdAt?.toDate() ?? new Date(),
-  updatedAt: data.updatedAt?.toDate() ?? new Date(),
-});
 
 // ============================================================
 // Context
@@ -155,10 +65,20 @@ interface SettingsContextType {
   expenseCategories: CategorySetting[];
   incomeCategories: CategorySetting[];
   paymentMethods: PaymentMethodSetting[];
-  updateSettings: (patch: Partial<Omit<UserSettings, 'createdAt' | 'updatedAt'>>) => Promise<void>;
+  /** 渡した項目だけを保存する（他の項目は書かない） */
+  updateSettings: (patch: SettingsPatch) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
+
+/**
+ * 中身が同じなら前の参照を使い回す
+ *
+ * スナップショットのたびに配列を作り直すと、グラフの表示設定だけが変わっても
+ * カテゴリ由来の rules・色・一覧が作り直され、全期間の集計がやり直しになる（#104）。
+ */
+const keepIfSame = <T,>(previous: T | undefined, next: T): T =>
+  previous !== undefined && JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
 
 /** 設定ロード前でも安全に呼べるフォールバックルール(空設定由来) */
 const EMPTY_SETTINGS: UserSettings = {
@@ -190,7 +110,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       ref,
       async (snapshot) => {
         if (snapshot.exists()) {
-          setSettings(deserializeSettings(snapshot.data()));
+          const next = deserializeSettings(snapshot.data());
+          setSettings((previous) => ({
+            ...next,
+            categories: keepIfSame(previous?.categories, next.categories),
+            paymentMethods: keepIfSame(previous?.paymentMethods, next.paymentMethods),
+          }));
           setLoading(false);
           return;
         }
@@ -233,36 +158,44 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     return unsubscribe;
   }, [user]);
 
+  // 設定ドキュメントができる前（シード前）は書かない
+  const settingsReady = settings !== null;
+
   const updateSettings = useCallback(
-    async (patch: Partial<Omit<UserSettings, 'createdAt' | 'updatedAt'>>) => {
-      if (!user || !settings) return;
+    async (patch: SettingsPatch) => {
+      if (!user || !settingsReady) return;
 
-      // 現在値にパッチを重ねて全体をシリアライズ(単一docの部分配列更新は不可のため)
-      const next: UserSettings = {
-        ...settings,
-        ...patch,
-        updatedAt: new Date(),
-      };
-
+      // 渡された項目だけを書く。手元の設定全体を書き戻すと、まだ届いていない
+      // 他端末の変更（カテゴリ・予算など）を古い値で上書きしてしまう（#104）
       try {
-        await setDoc(settingsDocRef(user.uid), serializeSettings(next), { merge: true });
+        await updateDoc(settingsDocRef(user.uid), toSettingsPatchData(patch, new Date()));
       } catch (error) {
         console.error('Error updating user settings:', error);
         throw error;
       }
     },
-    [user, settings]
+    [user, settingsReady]
   );
 
+  const categories = settings?.categories;
+  const paymentMethodList = settings?.paymentMethods;
+
+  // 集計ルールはカテゴリと支払方法だけから作る。予算やグラフの表示設定が
+  // 変わっても作り直さない（作り直すと全画面の集計がやり直しになる）
   const rules = useMemo(
-    () => createTransactionRules(settings ?? EMPTY_SETTINGS),
-    [settings]
+    () =>
+      createTransactionRules({
+        ...EMPTY_SETTINGS,
+        categories: categories ?? [],
+        paymentMethods: paymentMethodList ?? [],
+      }),
+    [categories, paymentMethodList]
   );
 
   // カテゴリ/サブカテゴリ名 → 色のマップ(サブカテゴリ優先で解決)
   const colorMap = useMemo(() => {
     const map = new Map<string, CategoryColor>();
-    for (const category of (settings ?? EMPTY_SETTINGS).categories) {
+    for (const category of categories ?? []) {
       // サブカテゴリで上書きされないよう、カテゴリ名は未登録時のみ設定
       if (!map.has(category.name)) map.set(category.name, category.color);
       for (const sub of category.subcategories) {
@@ -270,7 +203,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     return map;
-  }, [settings]);
+  }, [categories]);
 
   const getColor = useCallback(
     (name: string, isDark: boolean): string => {
@@ -281,14 +214,14 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const expenseCategories = useMemo(
-    () => (settings?.categories ?? []).filter((c) => c.type === 'expense'),
-    [settings]
+    () => (categories ?? []).filter((c) => c.type === 'expense'),
+    [categories]
   );
   const incomeCategories = useMemo(
-    () => (settings?.categories ?? []).filter((c) => c.type === 'income'),
-    [settings]
+    () => (categories ?? []).filter((c) => c.type === 'income'),
+    [categories]
   );
-  const paymentMethods = useMemo(() => settings?.paymentMethods ?? [], [settings]);
+  const paymentMethods = useMemo(() => paymentMethodList ?? [], [paymentMethodList]);
 
   const value = useMemo(
     () => ({
