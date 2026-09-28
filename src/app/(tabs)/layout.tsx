@@ -14,11 +14,11 @@ import { Box, Button, Container, Group, Loader, Paper, Stack, Text } from '@mant
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { LoginForm } from '@/components/ui/LoginForm';
+import { LoginForm } from '@/features/auth';
 import { AppHeader } from '@/components/nav/AppHeader';
 import { AppTabBar } from '@/components/nav/AppTabBar';
-import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
-import { CSVImportExport } from '@/components/ui/CSVImportExport';
+import { RecurringTransactionManager } from '@/features/recurring';
+import { CSVImportExport } from '@/features/import-export';
 import { PWAInstaller } from '@/components/PWAInstaller';
 import { SyncStatusBanner } from '@/components/ui/SyncStatusBanner';
 

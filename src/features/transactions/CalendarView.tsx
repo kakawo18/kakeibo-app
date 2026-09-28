@@ -22,7 +22,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import { Transaction } from '@/types';
 import { calculateDailyTotals } from '@/domain/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
-import { TransactionRow } from '@/components/ui/TransactionRow';
+import { TransactionRow } from './TransactionRow';
 import { pressable } from '@/components/ui/pressable';
 
 export interface CalendarViewProps {

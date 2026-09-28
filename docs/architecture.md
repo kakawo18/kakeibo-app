@@ -16,14 +16,20 @@ src/
 │   │   ├── review/     # 年間振り返り（/review）
 │   │   └── settings/   # 設定（/settings）
 │   └── globals.css     # デザイントークン（CSS 変数）と "Quiet Ledger" スタイル
-├── components/
-│   ├── charts/         # Recharts ベース（PieChart, LineChart, SpendingPaceChart, CategoryBreakdown）
-│   ├── forms/          # TransactionForm ほか。ResponsiveSelect でモバイルはネイティブ select
-│   ├── nav/            # タブ定義・タブバー・共通ヘッダー
-│   ├── recurring/      # 定期取引の管理・確認・通知
-│   ├── review/         # 年間振り返りの各セクション（使い道/月別内訳）
+├── features/           # 機能ごとの画面（#124）。外からは各機能の index.ts だけを import する
+│   ├── auth/           # LoginForm
+│   ├── dashboard/      # ホーム: DashboardContent・useDashboardData（表示する数値の組み立て）・MonthSummaryCard・KpiTiles・内訳/ペース/推移グラフ・KPI の詳細モーダル
+│   ├── transactions/   # 取引の入力フォーム・一覧・行・カレンダー・追加ボタン（ホームと履歴で使う）
+│   ├── recurring/      # 定期取引の管理・登録・記録の確認・通知
+│   ├── review/         # 年間振り返りの各セクションとグラフ
 │   ├── settings/       # 設定ページの各セクション（カテゴリ/支払方法/予算）
-│   └── ui/             # DashboardContent（メイン画面）, TransactionList, 各種モーダル ほか
+│   └── import-export/  # CSV の書き出し・取り込み
+├── components/         # 共通 UI（特定の機能に依存しない）
+│   ├── charts/         # PieChart（ホームと振り返りで使う）
+│   ├── forms/          # ResponsiveSelect（モバイルはネイティブ select）・formStyles
+│   ├── nav/            # タブ定義・タブバー・共通ヘッダー
+│   ├── ui/             # MonthNav, SwipeArea, SyncStatusBanner, VersionDisplay, pressable
+│   └── PWAInstaller.tsx
 ├── config/             # defaultSettings.ts（新規/既存ユーザーの初期設定）, colorPalette.ts
 ├── contexts/           # Auth / Settings / Transactions / RecurringTransactions の 4 Context、書き込み結果（writeResult）・未送信の変更（pendingWrites）
 ├── data/               # Firestore の読み書き（*Repository）・保存形式の変換（*Serializer）・CSV（csvUtils・一括保存）
@@ -48,14 +54,20 @@ src/
 
 ## データフロー
 
-### 依存の向き（#123）
+### 依存の向き（#123 / #124）
 
 ```
-app / components ─→ contexts ─→ data ─→ domain ─→ utils / types
-      │                              ↑
-      └──────────────────────────────┘（画面は集計関数を直接呼ぶ）
+app ─→ features ─→ components（共通 UI）
+ │        │
+ │        ├──→ contexts ─→ data ─→ domain ─→ utils / types
+ │        └──────────────────────────↑（画面は集計関数を直接呼ぶ）
+ └─→ contexts（Provider の配置）
 ```
 
+- `src/app/`: ルーティング・レイアウト・Provider の配置・機能の組み立てだけ。画面の中身は features から import する
+- `src/features/<機能>/`: 機能ごとの画面と表示用フック。機能の外からは `@/features/<機能>`（index.ts）だけを参照し、中のファイルを直接参照しない。機能の中では相対パスで参照する。機能どうしの参照は dashboard → transactions / recurring のみ（循環なし。`npx madge --circular` で確認）
+- `src/components/`: 共通 UI（ナビ・月送り・スワイプ・円グラフ・フォーム部品など）。特定の機能に依存しない
+- 上の3つの規則（features の公開窓口・components の独立・domain の独立）は ESLint の `no-restricted-imports` で検査している
 - `src/domain/`: 会計の計算（役割による判定・月次/年次の集計・カード還元・額面の推定・カテゴリの改名とアーカイブ）。React・Next・Firebase・Mantine にも、画面・Context・データアクセスにも依存しない。取引・設定・対象期間・基準日はすべて引数で受け取る。ESLint の `no-restricted-imports` で検査している
 - `src/data/`: Firestore の読み書きと保存形式・CSV の変換。domain を使ってよい（CSV の取り込みで取引タイプを導出するなど）
 - `src/contexts/`: ユーザーごとの状態と購読の開始・解除。data と domain を使う

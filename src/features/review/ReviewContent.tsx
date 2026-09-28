@@ -21,14 +21,14 @@ import {
   getAvailableYears,
 } from '@/domain/annualSummary';
 import { calculateCategoryChartData } from '@/domain/calculations';
-import { AnnualIncomeChart } from '@/components/charts/AnnualIncomeChart';
-import { AnnualFlowChart } from '@/components/charts/AnnualFlowChart';
-import { SavingsRateTrendChart } from '@/components/charts/SavingsRateTrendChart';
-import { CumulativeInvestmentChart } from '@/components/charts/CumulativeInvestmentChart';
+import { AnnualIncomeChart } from './AnnualIncomeChart';
+import { AnnualFlowChart } from './AnnualFlowChart';
+import { SavingsRateTrendChart } from './SavingsRateTrendChart';
+import { CumulativeInvestmentChart } from './CumulativeInvestmentChart';
 import { PieChartBody } from '@/components/charts/PieChart';
-import { NetIncomeAllocation } from '@/components/review/NetIncomeAllocation';
-import { CategoryYoYChart } from '@/components/charts/CategoryYoYChart';
-import { MonthlyBreakdown } from '@/components/review/MonthlyBreakdown';
+import { NetIncomeAllocation } from './NetIncomeAllocation';
+import { CategoryYoYChart } from './CategoryYoYChart';
+import { MonthlyBreakdown } from './MonthlyBreakdown';
 
 interface ReviewTileProps {
   label: string;

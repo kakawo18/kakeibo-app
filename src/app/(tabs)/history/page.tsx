@@ -13,10 +13,10 @@ import { Box, Container, Group, Loader, Paper, SegmentedControl, Stack, Text } f
 import { useMediaQuery } from '@mantine/hooks';
 import { MonthNav } from '@/components/ui/MonthNav';
 import { SwipeArea } from '@/components/ui/SwipeArea';
-import { TransactionList } from '@/components/ui/TransactionList';
-import { CalendarView } from '@/components/ui/CalendarView';
-import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
-import { TransactionForm } from '@/components/forms/TransactionForm';
+import { TransactionList } from '@/features/transactions';
+import { CalendarView } from '@/features/transactions';
+import { AddTransactionFab } from '@/features/transactions';
+import { TransactionForm } from '@/features/transactions';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
 import { formatMonthLocal } from '@/utils/dateUtils';

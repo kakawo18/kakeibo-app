@@ -9,7 +9,7 @@
  */
 import { Suspense } from 'react';
 import { Container, Loader, Stack, Text } from '@mantine/core';
-import { DashboardContent } from '@/components/ui/DashboardContent';
+import { DashboardContent } from '@/features/dashboard';
 
 export default function HomePage() {
   return (
