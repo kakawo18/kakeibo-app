@@ -18,6 +18,7 @@ import { Transaction } from '@/types';
 import { getCurrentMonth, getMonthName } from '@/utils/dateUtils';
 import { calculateCategoryTrend } from '@/domain/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useTransactions } from '@/contexts/TransactionsContext';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数
 
@@ -68,8 +69,12 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   };
 
   // ユーザーがページングするまでは常に最新期間を表示する
-  // （固定値で初期化すると、データ月数が変わったとき初期表示がずれる）
-  const [userStartIndex, setUserStartIndex] = useState<number | null>(null);
+  // （固定値で初期化すると、データ月数が変わったとき初期表示がずれる）。
+  // 位置は月（YYYY-MM）で持つ。過去の取引を読み込むと先頭に月が増えるので、
+  // 添字で持つと表示中の期間がずれてしまう（#125）
+  const [userStartMonth, setUserStartMonth] = useState<string | null>(null);
+  // 直近13か月より前は、いちばん前まで送ったときに読み込む（#125）
+  const { historyStatus, ensureHistory } = useTransactions();
 
   // 支出Top 3カテゴリ（デフォルト選択用）
   const defaultTopCategories = useMemo(
@@ -103,26 +108,40 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   );
 
   // 表示開始位置（未操作時は最新の6ヶ月）と表示データ
-  const displayStartIndex = userStartIndex ?? Math.max(0, allCategoryData.length - DISPLAY_MONTHS);
+  const userStartIndex = userStartMonth
+    ? trend.months.findIndex(({ month }) => month === userStartMonth)
+    : -1;
+  const displayStartIndex =
+    userStartIndex >= 0 ? userStartIndex : Math.max(0, allCategoryData.length - DISPLAY_MONTHS);
 
   const categoryData = useMemo(
     () => allCategoryData.slice(displayStartIndex, displayStartIndex + DISPLAY_MONTHS),
     [allCategoryData, displayStartIndex]
   );
 
-  // ページング制御
-  const canGoPrev = displayStartIndex > 0;
+  // ページング制御。いちばん前でも、過去の取引をまだ読んでいなければさらに前へ送れる
+  const canLoadOlder = historyStatus === 'idle';
+  const canGoPrev = displayStartIndex > 0 || canLoadOlder;
   const canGoNext = displayStartIndex + DISPLAY_MONTHS < allCategoryData.length;
+  const monthAt = (index: number) => trend.months[index]?.month ?? null;
 
   const handlePrev = () => {
-    if (canGoPrev) {
-      setUserStartIndex(Math.max(0, displayStartIndex - DISPLAY_MONTHS));
+    if (displayStartIndex > 0) {
+      setUserStartMonth(monthAt(Math.max(0, displayStartIndex - DISPLAY_MONTHS)));
+      return;
+    }
+    if (canLoadOlder) {
+      // 今の表示位置を固定してから読む。読み終わったらもう一度押すとさらに前へ進める
+      setUserStartMonth(monthAt(displayStartIndex));
+      ensureHistory();
     }
   };
 
   const handleNext = () => {
     if (canGoNext) {
-      setUserStartIndex(Math.min(allCategoryData.length - DISPLAY_MONTHS, displayStartIndex + DISPLAY_MONTHS));
+      setUserStartMonth(
+        monthAt(Math.min(allCategoryData.length - DISPLAY_MONTHS, displayStartIndex + DISPLAY_MONTHS))
+      );
     }
   };
 
@@ -152,7 +171,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
       </Group>
 
       {/* ページングコントロール */}
-      {allCategoryData.length > DISPLAY_MONTHS && (
+      {(allCategoryData.length > DISPLAY_MONTHS || canLoadOlder) && (
         <Group justify="center" mb="sm" gap="xs">
           <ActionIcon
             variant="default"
@@ -160,6 +179,7 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
             radius={8}
             onClick={handlePrev}
             disabled={!canGoPrev}
+            loading={historyStatus === 'loading' && displayStartIndex === 0}
             aria-label="前の期間へ"
           >
             <IconChevronLeft size={15} stroke={1.8} />

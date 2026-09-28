@@ -30,3 +30,20 @@ export const mergeTransactionRanges = (
   recent: Transaction[],
   older: Transaction[]
 ): Transaction[] => (older.length === 0 ? recent : recent.length === 0 ? older : [...recent, ...older]);
+
+/** 'YYYY-MM' */
+const monthKey = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+/**
+ * その月を表示するのに過去の取引が要るか
+ *
+ * 直近のいちばん古い月も「要る」とする。前月比の前月と、カレンダーに並ぶ前月の日付が
+ * 直近の外になるため。
+ */
+export const monthNeedsHistory = (month: string, recentFrom: Date): boolean =>
+  month <= monthKey(recentFrom);
+
+/** その年（1〜12月）を集計するのに過去の取引が要るか */
+export const yearNeedsHistory = (year: number, recentFrom: Date): boolean =>
+  new Date(year, 0, 1).getTime() < recentFrom.getTime();

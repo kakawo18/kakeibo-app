@@ -31,6 +31,7 @@ import { useTransactions } from '@/contexts/TransactionsContext';
 import { PaymentMethodSetting } from '@/types';
 import { PAYMENT_METHOD_SWATCHES } from '@/config/colorPalette';
 import { validateName } from '@/utils/validation';
+import { useHistoryFor } from '@/components/ui/HistoryGate';
 
 const newId = (): string => crypto.randomUUID();
 
@@ -181,6 +182,8 @@ const PaymentMethodEditor: React.FC<Omit<PaymentMethodEditModalProps, 'opened'>>
 export const PaymentMethodSection = () => {
   const { paymentMethods, updateSettings } = useSettings();
   const { transactions } = useTransactions();
+  // 削除の確認で使用件数を出すため、設定を開いたら過去の取引も読む（#125）
+  const history = useHistoryFor(true);
 
   const [editorOpened, setEditorOpened] = useState(false);
   const [editingMethod, setEditingMethod] = useState<PaymentMethodSetting | null>(null);
@@ -217,8 +220,10 @@ export const PaymentMethodSection = () => {
       children: (
         <Text size="sm">
           「{method.name}」を削除しますか？
-          {count > 0 &&
-            ` この支払方法を使う取引が${count}件あります。取引は削除されず、支払方法名のまま残ります。`}
+          {history.complete
+            ? count > 0 &&
+              ` この支払方法を使う取引が${count}件あります。取引は削除されず、支払方法名のまま残ります。`
+            : ' この支払方法を使う取引があっても、取引は削除されず、支払方法名のまま残ります。'}
         </Text>
       ),
       labels: { confirm: '削除', cancel: 'キャンセル' },

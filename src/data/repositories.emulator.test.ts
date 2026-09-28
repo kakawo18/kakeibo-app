@@ -210,6 +210,38 @@ describe('期間を指定した購読（#125: 直近と過去に分けて読む�
     expect(recent2.map((t) => t.id)).toEqual(['old', 'edge']);
   });
 
+  it('onSyncState を渡すと、サーバーで確認できたこと（fromCache = false）が後から分かる', async () => {
+    // 手元の書き込みがあると最初はキャッシュから（fromCache = true）届き、
+    // サーバーの確認はメタデータだけの変化として後から届く。一覧は作り直さない
+    let lists = 0;
+    let latest: Transaction[] = [];
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout')), 10_000);
+      const unsubscribe = subscribeTransactions(
+        db,
+        UID,
+        {
+          onChange: (list) => {
+            lists += 1;
+            latest = list;
+          },
+          onError: reject,
+        },
+        {
+          before: boundary,
+          onSyncState: (fromCache) => {
+            if (fromCache) return;
+            clearTimeout(timer);
+            unsubscribe();
+            resolve();
+          },
+        }
+      );
+    });
+    expect(latest.map((t) => t.id)).toEqual(['justBefore', 'old']);
+    expect(lists).toBe(1);
+  });
+
   it('期間を指定しても他人の取引は含まれない', async () => {
     const recent = await recentOf((l) => l.length >= 2);
     expect(recent.every((t) => t.userId === UID)).toBe(true);

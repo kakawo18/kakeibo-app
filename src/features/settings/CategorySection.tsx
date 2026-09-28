@@ -44,10 +44,13 @@ import {
   removeCategory,
   restoreCategory,
 } from '@/domain/categorySettings';
+import { useHistoryFor } from '@/components/ui/HistoryGate';
 
 export const CategorySection = () => {
   const { updateSettings, expenseCategories, incomeCategories } = useSettings();
   const { transactions } = useTransactions();
+  // 使われているかの判定は全期間の取引が要るので、設定を開いたら過去の取引も読む（#125）
+  const history = useHistoryFor(true);
   // 'auto' を実際の light/dark に解決する。useMantineColorScheme().colorScheme は
   // ユーザーが明示的に選ぶまで 'auto' のままなので、そのまま比較すると
   // OS がダークでも isDark が false になる
@@ -87,8 +90,14 @@ export const CategorySection = () => {
     void saveList([...newList, ...archivedList]);
   };
 
-  /** 取引で使われているか（今の名前・以前の名前のどちらで記録されていても数える） */
+  /**
+   * 取引で使われているか（今の名前・以前の名前のどちらで記録されていても数える）
+   *
+   * 過去の取引をサーバーで確認できていない（読み込み中・オフライン）ときは「使われている」とみなす。
+   * そうすると削除ではなくアーカイブになる。アーカイブは戻せるが、削除すると過去の集計が変わるため
+   */
   const isUsed: UsageCheck = (categoryNames, subcategoryNames) =>
+    !history.complete ||
     transactions.some(
       (t) =>
         categoryNames.includes(t.category) &&
@@ -122,18 +131,18 @@ export const CategorySection = () => {
 
   const handleDelete = (category: CategorySetting) => {
     const count = countUsage(category);
+    const archive = isUsed(namesOf(category));
     // 使われているカテゴリは消さずにアーカイブする。消すと過去の取引の役割（投資・給与など）が
     // 外れ、過去の収支や投資額が変わってしまうため（#97）
+    const message = !archive
+      ? `「${category.name}」を削除しますか？`
+      : count > 0
+        ? `「${category.name}」を使う取引が${count}件あるため、削除ではなくアーカイブします。入力の選択肢からは消えますが、過去の取引の集計・役割・色はそのまま残り、あとで戻せます。`
+        : `過去の取引をまだ確認できていない（読み込み中、またはオフライン）ため、削除ではなくアーカイブします。入力の選択肢からは消え、あとで戻せます。`;
     modals.openConfirmModal({
-      title: count > 0 ? 'カテゴリをアーカイブ' : 'カテゴリを削除',
-      children: (
-        <Text size="sm">
-          {count > 0
-            ? `「${category.name}」を使う取引が${count}件あるため、削除ではなくアーカイブします。入力の選択肢からは消えますが、過去の取引の集計・役割・色はそのまま残り、あとで戻せます。`
-            : `「${category.name}」を削除しますか？`}
-        </Text>
-      ),
-      labels: { confirm: count > 0 ? 'アーカイブ' : '削除', cancel: 'キャンセル' },
+      title: archive ? 'カテゴリをアーカイブ' : 'カテゴリを削除',
+      children: <Text size="sm">{message}</Text>,
+      labels: { confirm: archive ? 'アーカイブ' : '削除', cancel: 'キャンセル' },
       confirmProps: { color: 'red' },
       onConfirm: () => void saveList(removeCategory(list, category, isUsed)),
     });
@@ -153,10 +162,13 @@ export const CategorySection = () => {
     // 改名しても過去の取引は同じカテゴリとして集計されることを知らせる
     if (previous && previous.name !== category.name) {
       const count = countUsage(previous);
-      if (count > 0) {
+      if (count > 0 || !history.complete) {
         notifications.show({
           title: 'カテゴリ名を変更しました',
-          message: `「${previous.name}」で記録した${count}件の取引も「${category.name}」として集計します`,
+          // 過去の取引を確認できていないときは件数が少なく出るので、件数は出さない
+          message: history.complete
+            ? `「${previous.name}」で記録した${count}件の取引も「${category.name}」として集計します`
+            : `「${previous.name}」で記録した取引も「${category.name}」として集計します`,
           color: 'blue',
         });
       }

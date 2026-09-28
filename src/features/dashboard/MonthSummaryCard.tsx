@@ -6,6 +6,7 @@
 import { Stack, Grid, Text, Group, Box, Paper, UnstyledButton } from '@mantine/core';
 import { IconArrowUpRight, IconArrowDownRight, IconMinus, IconChevronRight } from '@tabler/icons-react';
 import { MonthNav } from '@/components/ui/MonthNav';
+import { HistoryLoading } from '@/components/ui/HistoryGate';
 import { MonthlyData, Trend } from '@/types';
 import { calculateMonthlyComparison } from '@/domain/calculations';
 
@@ -38,6 +39,8 @@ interface MonthSummaryCardProps {
   monthlyComparison: ReturnType<typeof calculateMonthlyComparison> | null;
   onOpenAnnualReview: () => void;
   isMobile: boolean;
+  /** 過去の取引を読み込み中。金額の代わりに「読み込み中」を出す（#125） */
+  loading?: boolean;
 }
 
 export const MonthSummaryCard = ({
@@ -45,6 +48,7 @@ export const MonthSummaryCard = ({
   monthlyComparison,
   onOpenAnnualReview: openAnnualReview,
   isMobile,
+  loading = false,
 }: MonthSummaryCardProps) => {
   const monthBalance = selectedMonthData?.net ?? 0;
 
@@ -67,6 +71,9 @@ export const MonthSummaryCard = ({
           </UnstyledButton>
         </Group>
 
+        {loading ? (
+          <HistoryLoading py="lg" />
+        ) : (
         <Grid gutter={isMobile ? 'lg' : 'xl'} align="center">
           {/* ヒーロー: 今月の収支 */}
           <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -140,6 +147,7 @@ export const MonthSummaryCard = ({
           </Stack>
         </Grid.Col>
       </Grid>
+        )}
     </Paper>
   );
 };

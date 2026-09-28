@@ -11,7 +11,8 @@
  *
  * 購読は「直近」と「過去」の2本に分けている（#125）。
  * - 直近: 今月を含む13か月（data/transactionWindow.ts の recentWindowStart 以降）。常に購読する
- * - 過去: それより前。ensureHistory() が呼ばれてから購読し、そのセッション中は続ける
+ * - 過去: それより前。過去の月・年を表示する画面や CSV の書き出しなどが ensureHistory() を
+ *   呼んでから購読し、そのセッション中は続ける。起動時には読まない（起動を速くするため）
  * 期間が重ならないので、2本をつなげても重複しない。
  */
 import {
@@ -52,6 +53,14 @@ interface TransactionsContextType {
   /** 直近の購読の開始日時。これより前の取引は historyStatus が loaded のときだけ含まれる */
   recentFrom: Date;
   historyStatus: HistoryStatus;
+  /**
+   * 過去の取引がサーバーで確認済みか
+   *
+   * loaded でも、オフラインで端末キャッシュから出しているだけのときは false
+   * （キャッシュに無い分は欠けている可能性がある）。欠けていると困る判断
+   * （カテゴリを削除してよいか・CSV を全件書き出せたか）はこちらを見る
+   */
+  historyComplete: boolean;
   /** 過去の取引の購読を始める（すでに始めていれば何もしない） */
   ensureHistory: () => void;
   /** 取得に失敗したときのエラー。0円や「取引なし」と区別するために使う（#105） */
@@ -80,14 +89,6 @@ const TransactionsContext = createContext<TransactionsContextType | null>(null);
 /** 読み込み前・未ログインのときに返す空配列（毎回新しい配列を作らない） */
 const NO_TRANSACTIONS: Transaction[] = [];
 
-/**
- * 起動時に過去の取引も読むか
- *
- * 過去の分を必要な画面だけで読むように切り替えるまでは true にして、
- * これまでどおり全期間を起動時に読む（#125 の PR を分けるため）
- */
-const LOAD_HISTORY_AT_START = true;
-
 type Received = { uid: string; transactions: Transaction[] };
 
 export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
@@ -98,13 +99,13 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   const [attempt, setAttempt] = useState(0);
   const [recentReceived, setRecentReceived] = useState<Received | null>(null);
   const [olderReceived, setOlderReceived] = useState<Received | null>(null);
+  const [olderSync, setOlderSync] = useState<{ uid: string; fromCache: boolean } | null>(null);
   const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
   // 直近と過去の境界。起動中は固定する（月が変わっても直近が1か月広がるだけで、欠けはしない）
   const [recentFrom] = useState(() => recentWindowStart(new Date()));
-  // 過去の取引を読むよう頼まれたユーザー
+  // 過去の取引を読むよう頼まれたユーザー。起動時には読まず、必要な画面が ensureHistory() で頼む
   const [historyRequestedBy, setHistoryRequestedBy] = useState<string | null>(null);
-  const historyRequested =
-    Boolean(user) && (LOAD_HISTORY_AT_START || historyRequestedBy === user?.uid);
+  const historyRequested = Boolean(user) && historyRequestedBy === user?.uid;
 
   // 購読と保存形式の変換は data/transactionRepository.ts。ここは状態の配布と購読の開始・解除だけ（#122）
   useEffect(() => {
@@ -137,7 +138,13 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
           setFailure({ uid, attempt, error });
         },
       },
-      { before: recentFrom }
+      {
+        before: recentFrom,
+        onSyncState: (fromCache) =>
+          setOlderSync((prev) =>
+            prev?.uid === uid && prev.fromCache === fromCache ? prev : { uid, fromCache }
+          ),
+      }
     );
   }, [user, attempt, recentFrom, historyRequested]);
 
@@ -151,10 +158,10 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     [recent, older]
   );
   const historyStatus: HistoryStatus = !historyRequested ? 'idle' : older ? 'loaded' : 'loading';
-  // ログイン中で、データもエラーもまだ届いていないあいだが読み込み中。
-  // 起動時に過去も読む設定のあいだは、過去の分がそろうまで待つ（全期間がそろってから表示する）
-  const loading =
-    Boolean(user) && !error && (!recent || (LOAD_HISTORY_AT_START && historyStatus !== 'loaded'));
+  const historyComplete =
+    historyStatus === 'loaded' && olderSync?.uid === user?.uid && olderSync?.fromCache === false;
+  // ログイン中で、直近の取引もエラーもまだ届いていないあいだが読み込み中（過去の分は待たない）
+  const loading = Boolean(user) && !error && !recent;
 
   const ensureHistory = useCallback(() => {
     if (user) setHistoryRequestedBy(user.uid);
@@ -222,6 +229,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       loading,
       recentFrom,
       historyStatus,
+      historyComplete,
       ensureHistory,
       error,
       retry,
@@ -230,7 +238,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       updateTransaction,
       deleteTransaction,
     }),
-    [transactions, loading, recentFrom, historyStatus, ensureHistory, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
+    [transactions, loading, recentFrom, historyStatus, historyComplete, ensureHistory, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

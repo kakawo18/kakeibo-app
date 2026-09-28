@@ -14,6 +14,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { ImportWriteError, importIdFromText } from '@/data/transactionImport';
 import { namesOf } from '@/domain/categorySettings';
+import { useHistoryFor } from '@/components/ui/HistoryGate';
 
 interface CSVImportExportProps {
   opened: boolean;
@@ -25,6 +26,8 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
   const { rules, settings } = useSettings();
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  // 書き出しは全期間なので、画面を開いたら過去の取引も読む。そろうまでボタンを押せない（#125）
+  const history = useHistoryFor(opened);
 
   // 設定に登録済みのカテゴリ/サブカテゴリ名（未登録カテゴリの警告用）
   const knownCategories = useMemo(() => {
@@ -48,11 +51,16 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
     }
 
     exportToCSV(transactions);
-    notifications.show({
-      title: 'エクスポート完了',
-      message: 'CSVファイルをダウンロードしました',
-      color: 'green',
-    });
+    notifications.show(
+      history.complete
+        ? { title: 'エクスポート完了', message: 'CSVファイルをダウンロードしました', color: 'green' }
+        : {
+            // オフラインで端末に保存済みの分だけを書き出したとき。全件そろっている保証が無い
+            title: 'エクスポート完了（一部の可能性あり）',
+            message: 'オフラインのため、この端末に保存されている分だけを書き出しました。通信できる状態で書き出し直すと全件になります',
+            color: 'yellow',
+          }
+    );
   };
 
   const handleImport = async () => {
@@ -147,9 +155,10 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
           <Button
             leftSection={<IconDownload size={16} />}
             onClick={handleExport}
-            disabled={transactions.length === 0}
+            loading={!history.ready}
+            disabled={history.ready && transactions.length === 0}
           >
-            CSVでエクスポート ({transactions.length}件)
+            {history.ready ? `CSVでエクスポート (${transactions.length}件)` : 'CSVでエクスポート'}
           </Button>
         </div>
 

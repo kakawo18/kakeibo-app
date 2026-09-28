@@ -34,6 +34,8 @@ import { recurringRecordId } from '@/domain/recurring';
 import { RecurringTransaction } from '@/types';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
 import { WriteResult } from '@/data/pendingWrite';
+import { monthNeedsHistory, yearNeedsHistory } from '@/data/transactionWindow';
+import { HistoryPartialNotice, useHistoryFor } from '@/components/ui/HistoryGate';
 import { useDashboardData } from './useDashboardData';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { KpiTiles } from './KpiTiles';
@@ -48,7 +50,7 @@ import { SavingsRateDetailModal } from './SavingsRateDetailModal';
 // メインコンポーネント
 // ============================================================
 export function DashboardContent() {
-  const { addTransaction } = useTransactions();
+  const { addTransaction, recentFrom } = useTransactions();
   const { settings, rules } = useSettings();
 
   const [transactionFormOpened, setTransactionFormOpened] = useState(false);
@@ -77,6 +79,11 @@ export function DashboardContent() {
     monthlyCardPoints,
     displayRecurringTransactions,
   } = useDashboardData(selectedMonth, selectedYear);
+
+  // 直近13か月より前の月・年を見るときは過去の取引を読み、そろうまで金額を出さない（#125）
+  const history = useHistoryFor(
+    monthNeedsHistory(selectedMonth, recentFrom) || yearNeedsHistory(selectedYear, recentFrom)
+  );
 
   // ------------------------------------------------------------
   // ハンドラー
@@ -138,7 +145,12 @@ export function DashboardContent() {
             monthlyComparison={monthlyComparison}
             onOpenAnnualReview={openAnnualReview}
             isMobile={Boolean(isMobile)}
+            loading={!history.ready}
           />
+          <HistoryPartialNotice complete={history.complete} />
+
+        {history.ready && (
+          <>
 
         {/* ============================================================
             KPIタイル
@@ -168,6 +180,8 @@ export function DashboardContent() {
           selectedMonth={selectedMonth}
           budget={settings?.monthlyBudget ?? 100000}
         />
+          </>
+        )}
 
         <LineChart
           title="カテゴリ別支出推移"

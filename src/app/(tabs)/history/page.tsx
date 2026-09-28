@@ -20,6 +20,8 @@ import { TransactionForm } from '@/features/transactions';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
 import { formatMonthLocal } from '@/utils/dateUtils';
+import { monthNeedsHistory } from '@/data/transactionWindow';
+import { HistoryLoading, HistoryPartialNotice, useHistoryFor } from '@/components/ui/HistoryGate';
 import { Transaction } from '@/types';
 
 type ViewMode = 'list' | 'calendar';
@@ -31,8 +33,10 @@ const VIEW_TABS: { value: ViewMode; label: string }[] = [
 
 function HistoryContent() {
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const { transactions } = useTransactions();
+  const { transactions, recentFrom } = useTransactions();
   const { selectedMonth, setMonth, goPreviousMonth, goNextMonth } = useSelectedMonth();
+  // 直近13か月より前の月は過去の取引を読み、そろうまで一覧を出さない（#125）
+  const history = useHistoryFor(monthNeedsHistory(selectedMonth, recentFrom));
   const [view, setView] = useState<ViewMode>('list');
   const [formOpened, setFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -74,7 +78,13 @@ function HistoryContent() {
             />
           </Group>
 
-          {view === 'list' ? (
+          <HistoryPartialNotice complete={history.complete} />
+
+          {!history.ready ? (
+            <Paper className="ledger-card">
+              <HistoryLoading />
+            </Paper>
+          ) : view === 'list' ? (
             <Box key="list" className="chart-swap">
               <TransactionList
                 transactions={selectedMonthTransactions}
