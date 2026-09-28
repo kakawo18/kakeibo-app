@@ -10,6 +10,7 @@
  */
 import {
   Firestore,
+  QueryConstraint,
   Timestamp,
   Unsubscribe,
   addDoc,
@@ -36,19 +37,33 @@ export interface SubscriptionHandlers<T> {
   onError: (error: Error) => void;
 }
 
+/** 購読する期間。from は含む（date >= from）、before は含まない（date < before） */
+export interface TransactionRange {
+  from?: Date;
+  before?: Date;
+}
+
 /**
  * ユーザーの取引を日付の新しい順に購読する
  *
  * 必須項目が欠けたドキュメントは飛ばす（取引の中身はログに出さず、ID と欠けた項目名だけ出す）。
  * 取引が0件のときも onChange([]) が呼ばれる。取得の失敗は onError（0件とは区別する。#105）。
+ * range を渡すとその期間だけを購読する（直近と過去を分けて読む。#125）。
+ * 境界の日時ちょうどの取引は from 側（date >= from）に入る。
  */
 export const subscribeTransactions = (
   db: Firestore,
   uid: string,
-  { onChange, onError }: SubscriptionHandlers<Transaction[]>
-): Unsubscribe =>
-  onSnapshot(
-    query(collection(db, 'transactions'), where('userId', '==', uid), orderBy('date', 'desc')),
+  { onChange, onError }: SubscriptionHandlers<Transaction[]>,
+  range: TransactionRange = {}
+): Unsubscribe => {
+  const constraints: QueryConstraint[] = [where('userId', '==', uid)];
+  if (range.from) constraints.push(where('date', '>=', Timestamp.fromDate(range.from)));
+  if (range.before) constraints.push(where('date', '<', Timestamp.fromDate(range.before)));
+  constraints.push(orderBy('date', 'desc'));
+
+  return onSnapshot(
+    query(collection(db, 'transactions'), ...constraints),
     (snapshot) => {
       const transactions: Transaction[] = [];
       snapshot.forEach((docSnapshot) => {
@@ -64,6 +79,7 @@ export const subscribeTransactions = (
     },
     onError
   );
+};
 
 /**
  * 取引を1件作る

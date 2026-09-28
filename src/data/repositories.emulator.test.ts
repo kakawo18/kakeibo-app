@@ -165,6 +165,57 @@ describe('transactionRepository', () => {
   });
 });
 
+describe('期間を指定した購読（#125: 直近と過去に分けて読む）', () => {
+  const boundary = new Date(2025, 8, 1); // 境界（この日時ちょうどは直近に入る）
+  const recentOf = (predicate?: (list: Transaction[]) => boolean) =>
+    nextValue<Transaction[]>(
+      (handlers) => subscribeTransactions(db, UID, handlers, { from: boundary }),
+      predicate
+    );
+  const olderOf = (predicate?: (list: Transaction[]) => boolean) =>
+    nextValue<Transaction[]>(
+      (handlers) => subscribeTransactions(db, UID, handlers, { before: boundary }),
+      predicate
+    );
+
+  beforeEach(async () => {
+    await createTransaction(db, UID, input({ amount: 1, date: new Date(2026, 8, 10, 12) }), { id: 'new' });
+    await createTransaction(db, UID, input({ amount: 2, date: boundary }), { id: 'edge' });
+    await createTransaction(db, UID, input({ amount: 3, date: new Date(2025, 7, 31, 23, 59, 59) }), { id: 'justBefore' });
+    await createTransaction(db, UID, input({ amount: 4, date: new Date(2023, 0, 5, 12) }), { id: 'old' });
+    await createTransaction(otherDb, 'bob', input({ amount: 99, date: new Date(2026, 0, 1) }), { id: 'bob' });
+  });
+
+  it('境界ちょうどは直近に入り、過去には入らない。2本を合わせると全件で重複しない', async () => {
+    const recent = await recentOf((l) => l.length === 2);
+    const older = await olderOf((l) => l.length === 2);
+    expect(recent.map((t) => t.id)).toEqual(['new', 'edge']);
+    expect(older.map((t) => t.id)).toEqual(['justBefore', 'old']);
+
+    const all = await transactionsOf(db, UID, (l) => l.length === 4);
+    expect([...recent, ...older].map((t) => t.id)).toEqual(all.map((t) => t.id));
+  });
+
+  it('日付を編集して境界をまたぐと、片方から消えてもう片方に現れる', async () => {
+    await updateTransaction(db, 'old', { date: new Date(2026, 0, 20, 12) });
+    const recent = await recentOf((l) => l.some((t) => t.id === 'old'));
+    const older = await olderOf((l) => !l.some((t) => t.id === 'old'));
+    expect(recent.map((t) => t.id)).toEqual(['new', 'old', 'edge']);
+    expect(older.map((t) => t.id)).toEqual(['justBefore']);
+
+    await updateTransaction(db, 'new', { date: new Date(2020, 5, 1, 12) });
+    const older2 = await olderOf((l) => l.some((t) => t.id === 'new'));
+    const recent2 = await recentOf((l) => !l.some((t) => t.id === 'new'));
+    expect(older2.map((t) => t.id)).toEqual(['justBefore', 'new']);
+    expect(recent2.map((t) => t.id)).toEqual(['old', 'edge']);
+  });
+
+  it('期間を指定しても他人の取引は含まれない', async () => {
+    const recent = await recentOf((l) => l.length >= 2);
+    expect(recent.every((t) => t.userId === UID)).toBe(true);
+  });
+});
+
 describe('recurringTransactionRepository', () => {
   const recurringOf = (predicate?: (list: RecurringTransaction[]) => boolean) =>
     nextValue<RecurringTransaction[]>((handlers) => subscribeRecurringTransactions(db, UID, handlers), predicate);
