@@ -45,7 +45,7 @@ src/
 - **グローバル状態は 4 つの Context**（`src/app/layout.tsx` でラップ）:
   - `AuthContext` — Firebase 認証ユーザーとログイン/ログアウト。
   - `SettingsContext` — `users/{uid}/settings/app` をリアルタイム購読。設定 doc 未作成時は自動シード（既存ユーザー=レガシー設定 / 新規=汎用デフォルト）。集計ルール `rules` と色リゾルバ `getColor` を供給。
-  - `TransactionsContext` — 取引の購読をアプリ全体でまとめ、追加/更新/削除を提供。購読は「直近13か月」（常に）と「それより前」（`ensureHistory()` を呼んでから）の2本で、期間が重ならないのでつなげても重複しない（#125。境界は `src/data/transactionWindow.ts`）。読み込み状態は `historyStatus`（idle / loading / loaded）。現在は起動時に過去の分も読んでいる（`LOAD_HISTORY_AT_START`）。
+  - `TransactionsContext` — 取引の購読をアプリ全体でまとめ、追加/更新/削除を提供。購読は「直近13か月」（常に）と「それより前」（`ensureHistory()` を呼んでから）の2本で、期間が重ならないのでつなげても重複しない（#125。境界は `src/data/transactionWindow.ts`）。読み込み状態は `historyStatus`（idle / loading / loaded）と、サーバーで確認済みかの `historyComplete`。起動時は直近だけを読む。過去の月・年を出す画面は `useHistoryFor(needed)`（`src/components/ui/HistoryGate.tsx`）で読み始め、そろうまで金額を出さない。
   - `RecurringTransactionsContext` — 定期取引を 1 本の Firestore リスナーに集約する（以前はフックを呼ぶコンポーネントごとに購読しており、閉じた管理モーダルも購読していた）。
 - **詳細モーダルの集計は中身のコンポーネントに置く**。Mantine の `Modal` は閉じると中身をアンマウントするので、閉じているあいだは集計が走らない（年間投資履歴・貯蓄率詳細・カード還元）。
 - **表示中の年月はローカル state ではなく URL クエリ `?month=YYYY-MM`** に持つ。読み書きは `useSelectedMonth`（`src/hooks/`）に集約し、UI は `MonthNav` を使う。`selectedYear` は月文字列から導出。タブバーは `carriesMonth` が立ったタブ（ホーム・履歴）同士でこのクエリを引き継ぐ（`tabHref`）。URL に無ければ付けないので、起動直後は当月になる。

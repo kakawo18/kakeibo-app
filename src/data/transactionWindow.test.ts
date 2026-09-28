@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { tx } from '@/test/fixtures';
-import { mergeTransactionRanges, recentWindowStart } from '@/data/transactionWindow';
+import {
+  mergeTransactionRanges,
+  monthNeedsHistory,
+  recentWindowStart,
+  yearNeedsHistory,
+} from '@/data/transactionWindow';
 
 describe('recentWindowStart（#125）', () => {
   it('今月を含めて13か月前の月初（ローカル時刻の0:00）', () => {
@@ -34,5 +39,23 @@ describe('mergeTransactionRanges', () => {
     const recent = [tx('2026-09-10', 'expense', 1, '食費')];
     expect(mergeTransactionRanges(recent, [])).toBe(recent);
     expect(mergeTransactionRanges([], recent)).toBe(recent);
+  });
+});
+
+describe('monthNeedsHistory / yearNeedsHistory', () => {
+  const recentFrom = new Date(2025, 8, 1); // 2026年9月時点の直近の始まり
+
+  it('直近のいちばん古い月も過去が要る（前月比・カレンダーの前月の日付のため）', () => {
+    expect(monthNeedsHistory('2025-08', recentFrom)).toBe(true);
+    expect(monthNeedsHistory('2025-09', recentFrom)).toBe(true);
+    expect(monthNeedsHistory('2025-10', recentFrom)).toBe(false);
+    expect(monthNeedsHistory('2026-09', recentFrom)).toBe(false);
+  });
+
+  it('年の1月1日が直近より前なら過去が要る。今年は要らない', () => {
+    expect(yearNeedsHistory(2025, recentFrom)).toBe(true);
+    expect(yearNeedsHistory(2026, recentFrom)).toBe(false);
+    expect(yearNeedsHistory(2026, new Date(2025, 0, 1))).toBe(false);
+    expect(yearNeedsHistory(2025, new Date(2025, 0, 1))).toBe(false);
   });
 });

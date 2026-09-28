@@ -25,7 +25,7 @@ const DEFAULT_YEARS_FORWARD = 1;
 export const MonthNav = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { selectedMonth, setMonth, goPreviousMonth, goNextMonth } = useSelectedMonth();
-  const { transactions } = useTransactions();
+  const { transactions, ensureHistory } = useTransactions();
 
   // 選択肢は「今月の前後」に加えて、記録のある最古〜最新の月と表示中の月を必ず含める。
   // 固定の範囲だと、矢印で範囲外の月へ進んだときに年月が表示されなくなり、
@@ -46,6 +46,9 @@ export const MonthNav = () => {
       data={monthOptions}
       value={selectedMonth}
       onChange={setMonth}
+      // 起動時は直近13か月の取引しか読んでいない。選択肢を開いたら過去も読み、
+      // 記録のある最古の月まで選べるようにする（#125）
+      onDropdownOpen={ensureHistory}
       searchable={!isMobile}
       w={isMobile ? 132 : 160}
       size={isMobile ? 'sm' : 'md'}

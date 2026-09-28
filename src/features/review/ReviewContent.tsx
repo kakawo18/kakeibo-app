@@ -29,6 +29,7 @@ import { PieChartBody } from '@/components/charts/PieChart';
 import { NetIncomeAllocation } from './NetIncomeAllocation';
 import { CategoryYoYChart } from './CategoryYoYChart';
 import { MonthlyBreakdown } from './MonthlyBreakdown';
+import { HistoryLoading, HistoryPartialNotice, useHistoryFor } from '@/components/ui/HistoryGate';
 
 interface ReviewTileProps {
   label: string;
@@ -64,6 +65,8 @@ export const ReviewContent = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { transactions } = useTransactions();
   const { rules } = useSettings();
+  // 年ごとの比較・累計投資は全期間を使うので、開いたら過去の取引も読む（#125）
+  const history = useHistoryFor(true);
 
   const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
   const summaries = useMemo(
@@ -116,6 +119,17 @@ export const ReviewContent = () => {
 
   const yearOptions = availableYears.map((year) => ({ value: String(year), label: `${year}年` }));
 
+  // 過去の分がそろうまでは集計を出さない（読めていない年を0円や「データなし」に見せない）
+  if (!history.ready) {
+    return (
+      <Container size="lg">
+        <Paper className="ledger-card">
+          <HistoryLoading />
+        </Paper>
+      </Container>
+    );
+  }
+
   if (transactions.length === 0) {
     return (
       <Container size="lg">
@@ -134,6 +148,7 @@ export const ReviewContent = () => {
   return (
     <Container size="lg">
       <Stack gap="md">
+        <HistoryPartialNotice complete={history.complete} />
         {/* ページの先頭から、詳しく見たい年を選んで下の詳細へ移れる */}
         <Paper className="ledger-card" px="md" py="sm">
           <Group wrap="nowrap" gap="xs">

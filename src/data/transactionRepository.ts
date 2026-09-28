@@ -41,6 +41,12 @@ export interface SubscriptionHandlers<T> {
 export interface TransactionRange {
   from?: Date;
   before?: Date;
+  /**
+   * サーバーと同期済みか（fromCache でないか）を知りたいときに渡す。
+   * メタデータだけの変化も受け取るが、取引が変わっていなければ onChange は呼ばない。
+   * オフラインで端末キャッシュが空のときも「0件」が届くので、それと本当の0件を区別するのに使う
+   */
+  onSyncState?: (fromCache: boolean) => void;
 }
 
 /**
@@ -62,9 +68,17 @@ export const subscribeTransactions = (
   if (range.before) constraints.push(where('date', '<', Timestamp.fromDate(range.before)));
   constraints.push(orderBy('date', 'desc'));
 
+  const { onSyncState } = range;
+  let first = true;
   return onSnapshot(
     query(collection(db, 'transactions'), ...constraints),
+    { includeMetadataChanges: Boolean(onSyncState) },
     (snapshot) => {
+      onSyncState?.(snapshot.metadata.fromCache);
+      // メタデータだけの変化（同期の完了など）では一覧を作り直さない
+      if (onSyncState && !first && snapshot.docChanges().length === 0) return;
+      first = false;
+
       const transactions: Transaction[] = [];
       snapshot.forEach((docSnapshot) => {
         const data = docSnapshot.data();
