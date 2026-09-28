@@ -40,7 +40,8 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 - タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
 - 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
 - Firestore への書き込み（保存形式・`deleteField`・ルール）が絡む変更は、`*.emulator.test.ts` にエミュレータのテストを書く。`npm run test:emulator` が Firebase CLI（`npx firebase-tools`）でエミュレータを起動し、`firestore.rules` を読み込んで実行する。Java 21 が必要。CI でも別ジョブで走る。
-- Firestore との変換は `src/data/` にまとめる（`transactionSerializer.ts` など）。**作成と部分更新は別の関数**にし、更新では「undefined = 変更しない / 空文字 = 項目を消す（`deleteField`）」とする。
+- Firestore の操作と変換は `src/data/` にまとめる。読み書きは `*Repository.ts`（`transactionRepository` / `recurringTransactionRepository` / `settingsRepository`。`db` を引数で受け取る）、保存形式の変換は `*Serializer.ts`。Context は状態の配布と購読の開始・解除だけを持ち、`collection` / `doc` / `onSnapshot` などを直接呼ばない。**作成と部分更新は別の関数**にし、更新では「undefined = 変更しない / 空文字 = 項目を消す（`deleteField`）」とする。
+- Repository の契約（購読・作成・更新・削除・旧データ・ルール）は `src/data/repositories.emulator.test.ts` で検証している。関数を足したらここにもテストを足す。
 
 ## コード規約
 
