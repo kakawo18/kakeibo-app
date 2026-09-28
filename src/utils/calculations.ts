@@ -114,7 +114,7 @@ export const calculateCategoryChartData = (
       if (type === 'expense' && rules.isExcludedFromExpense(transaction)) return;
       if (type === 'income' && rules.isExcludedFromIncome(transaction)) return;
 
-      const category = transaction.subcategory || transaction.category;
+      const category = rules.chartKey(transaction);
       categoryMap.set(category, (categoryMap.get(category) || 0) + transaction.amount);
       total += transaction.amount;
     });
@@ -220,10 +220,12 @@ export const calculateCategoryTrend = (
   transactions.forEach((t) => {
     if (t.type !== 'expense' || rules.isExcludedFromExpense(t)) return;
     const month = formatMonthLocal(t.date);
+    // 改名前の名前で記録された取引も今の名前でまとめる（#97）
+    const category = rules.categoryName(t);
     const monthTotals = byMonth.get(month) ?? new Map<string, number>();
-    monthTotals.set(t.category, (monthTotals.get(t.category) ?? 0) + t.amount);
+    monthTotals.set(category, (monthTotals.get(category) ?? 0) + t.amount);
     byMonth.set(month, monthTotals);
-    totalByCategory.set(t.category, (totalByCategory.get(t.category) ?? 0) + t.amount);
+    totalByCategory.set(category, (totalByCategory.get(category) ?? 0) + t.amount);
   });
 
   if (byMonth.size === 0) return { months: [], categories: [], categoriesBySpending: [] };

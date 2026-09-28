@@ -17,6 +17,22 @@ import { NEUTRAL_COLOR } from '@/config/colorPalette';
 /** 更新できる設定項目（作成日時・更新日時はこちらで付ける） */
 export type SettingsPatch = Partial<Omit<UserSettings, 'createdAt' | 'updatedAt'>>;
 
+/** 以前の名前・アーカイブ（#97）。持っているときだけ書く */
+const optionalMeta = (item: { aliases?: string[]; archived?: boolean }) => ({
+  ...(item.aliases && item.aliases.length > 0 ? { aliases: item.aliases } : {}),
+  ...(item.archived ? { archived: true } : {}),
+});
+
+const readMeta = (data: DocumentData): { aliases?: string[]; archived?: boolean } => {
+  const aliases = Array.isArray(data.aliases)
+    ? data.aliases.filter((name: unknown): name is string => typeof name === 'string')
+    : [];
+  return {
+    ...(aliases.length > 0 ? { aliases } : {}),
+    ...(data.archived === true ? { archived: true } : {}),
+  };
+};
+
 const serializeCategories = (categories: CategorySetting[]) =>
   categories.map((category) => ({
     id: category.id,
@@ -29,7 +45,9 @@ const serializeCategories = (categories: CategorySetting[]) =>
       name: sub.name,
       roles: sub.roles,
       ...(sub.color ? { color: sub.color } : {}),
+      ...optionalMeta(sub),
     })),
+    ...optionalMeta(category),
   }));
 
 const serializePaymentMethods = (methods: PaymentMethodSetting[]) =>
@@ -100,9 +118,11 @@ export const deserializeSettings = (data: DocumentData): UserSettings => ({
                   name: sub.name,
                   roles: Array.isArray(sub.roles) ? sub.roles : [],
                   ...(sub.color ? { color: sub.color } : {}),
+                  ...readMeta(sub),
                 })
               )
             : [],
+          ...readMeta(category),
         })
       )
     : [],

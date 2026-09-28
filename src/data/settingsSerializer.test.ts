@@ -49,4 +49,28 @@ describe('serializeSettings / deserializeSettings', () => {
     // Firestore から読んだときと同じく Timestamp を持つ形にする
     expect(deserializeSettings(serialized)).toEqual(settings);
   });
+
+  it('以前の名前とアーカイブも往復する（#97）', () => {
+    const [first, ...rest] = testSettings.categories;
+    const settings = {
+      ...testSettings,
+      categories: [
+        {
+          ...first,
+          aliases: ['食料品'],
+          subcategories: [{ ...first.subcategories[0], aliases: ['外食費'], archived: true }],
+        },
+        { ...rest[0], archived: true },
+        ...rest.slice(1),
+      ],
+      createdAt: new Date(2026, 0, 1),
+      updatedAt: new Date(2026, 0, 2),
+    };
+    const serialized = serializeSettings(settings);
+    expect(serialized.categories[0].aliases).toEqual(['食料品']);
+    // 持っていない項目は書かない
+    expect('aliases' in serialized.categories[2]).toBe(false);
+    expect('archived' in serialized.categories[2]).toBe(false);
+    expect(deserializeSettings(serialized)).toEqual(settings);
+  });
 });

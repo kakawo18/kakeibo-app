@@ -5,8 +5,11 @@
  *
  * 支出/収入のカテゴリ一覧を表示し、追加・編集・削除・並べ替えを行う。
  * 変更は即座に Firestore(users/{uid}/settings/app)へ保存される。
+ *
+ * 改名は旧名を「以前の名前」として残し、使用中のカテゴリの削除はアーカイブにする。
+ * 過去の取引の集計（役割）が変わらないようにするため（#97。utils/categorySettings.ts）
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Paper,
   Text,
@@ -25,6 +28,7 @@ import {
   IconPencil,
   IconTrash,
   IconPlus,
+  IconArrowBackUp,
 } from '@tabler/icons-react';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
@@ -32,6 +36,14 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { CategorySetting, CATEGORY_ROLE_LABELS } from '@/types';
 import { CategoryEditModal } from './CategoryEditModal';
+import {
+  UsageCheck,
+  applyCategoryEdit,
+  editableCategory,
+  namesOf,
+  removeCategory,
+  restoreCategory,
+} from '@/utils/categorySettings';
 
 export const CategorySection = () => {
   const { updateSettings, expenseCategories, incomeCategories } = useSettings();
@@ -46,6 +58,8 @@ export const CategorySection = () => {
   const [editingCategory, setEditingCategory] = useState<CategorySetting | null>(null);
 
   const list = type === 'expense' ? expenseCategories : incomeCategories;
+  const activeList = list.filter((c) => !c.archived);
+  const archivedList = list.filter((c) => c.archived);
 
   const saveList = async (newList: CategorySetting[]) => {
     // categories は支出/収入が混在した1つの配列なので、
@@ -64,16 +78,37 @@ export const CategorySection = () => {
     }
   };
 
+  // 並べ替えは表示中（アーカイブ以外）のカテゴリの中で行う
   const move = (index: number, direction: -1 | 1) => {
     const target = index + direction;
-    if (target < 0 || target >= list.length) return;
-    const newList = [...list];
+    if (target < 0 || target >= activeList.length) return;
+    const newList = [...activeList];
     [newList[index], newList[target]] = [newList[target], newList[index]];
-    void saveList(newList);
+    void saveList([...newList, ...archivedList]);
   };
 
-  const countUsage = (categoryName: string) =>
-    transactions.filter((t) => t.category === categoryName).length;
+  /** 取引で使われているか（今の名前・以前の名前のどちらで記録されていても数える） */
+  const isUsed: UsageCheck = (categoryNames, subcategoryNames) =>
+    transactions.some(
+      (t) =>
+        categoryNames.includes(t.category) &&
+        (!subcategoryNames ||
+          (t.subcategory !== undefined && subcategoryNames.includes(t.subcategory)))
+    );
+
+  const countUsage = (category: CategorySetting) => {
+    const names = namesOf(category);
+    return transactions.filter((t) => names.includes(t.category)).length;
+  };
+
+  // 同じ名前を二重に使わないよう、他のカテゴリの以前の名前・アーカイブも含めて重複を調べる
+  const existingNames = useMemo(
+    () =>
+      list
+        .filter((c) => c.id !== editingCategory?.id)
+        .flatMap((c) => namesOf(c)),
+    [list, editingCategory]
+  );
 
   const handleAdd = () => {
     setEditingCategory(null);
@@ -86,36 +121,43 @@ export const CategorySection = () => {
   };
 
   const handleDelete = (category: CategorySetting) => {
-    const count = countUsage(category.name);
+    const count = countUsage(category);
+    // 使われているカテゴリは消さずにアーカイブする。消すと過去の取引の役割（投資・給与など）が
+    // 外れ、過去の収支や投資額が変わってしまうため（#97）
     modals.openConfirmModal({
-      title: 'カテゴリを削除',
+      title: count > 0 ? 'カテゴリをアーカイブ' : 'カテゴリを削除',
       children: (
         <Text size="sm">
-          「{category.name}」を削除しますか？
-          {count > 0 &&
-            ` このカテゴリを使う取引が${count}件あります。取引は削除されず、カテゴリ名のまま残ります（色はニュートラル表示になります）。`}
+          {count > 0
+            ? `「${category.name}」を使う取引が${count}件あるため、削除ではなくアーカイブします。入力の選択肢からは消えますが、過去の取引の集計・役割・色はそのまま残り、あとで戻せます。`
+            : `「${category.name}」を削除しますか？`}
         </Text>
       ),
-      labels: { confirm: '削除', cancel: 'キャンセル' },
+      labels: { confirm: count > 0 ? 'アーカイブ' : '削除', cancel: 'キャンセル' },
       confirmProps: { color: 'red' },
-      onConfirm: () => void saveList(list.filter((c) => c.id !== category.id)),
+      onConfirm: () => void saveList(removeCategory(list, category, isUsed)),
     });
   };
 
-  const handleSave = (category: CategorySetting) => {
-    const previous = list.find((c) => c.id === category.id);
+  const handleRestore = (category: CategorySetting) => {
+    void saveList(restoreCategory(list, category.id));
+  };
+
+  const handleSave = (edited: CategorySetting) => {
+    const previous = list.find((c) => c.id === edited.id);
+    const category = applyCategoryEdit(previous, edited, isUsed);
     const newList = previous
       ? list.map((c) => (c.id === category.id ? category : c))
       : [...list, category];
 
-    // リネーム時: 既存取引は旧名の文字列を保持し続けることを知らせる
+    // 改名しても過去の取引は同じカテゴリとして集計されることを知らせる
     if (previous && previous.name !== category.name) {
-      const count = countUsage(previous.name);
+      const count = countUsage(previous);
       if (count > 0) {
         notifications.show({
           title: 'カテゴリ名を変更しました',
-          message: `${count}件の既存取引は旧カテゴリ名「${previous.name}」のままです`,
-          color: 'yellow',
+          message: `「${previous.name}」で記録した${count}件の取引も「${category.name}」として集計します`,
+          color: 'blue',
         });
       }
     }
@@ -149,12 +191,12 @@ export const CategorySection = () => {
       />
 
       <Stack gap={0}>
-        {list.length === 0 && (
+        {activeList.length === 0 && (
           <Text size="sm" c="dimmed" ta="center" py="md">
             カテゴリがありません
           </Text>
         )}
-        {list.map((category, index) => (
+        {activeList.map((category, index) => (
           <Group
             key={category.id}
             justify="space-between"
@@ -173,9 +215,17 @@ export const CategorySection = () => {
                 <Text size="sm" fw={600} truncate>
                   {category.name}
                 </Text>
-                {category.subcategories.length > 0 && (
+                {category.subcategories.some((sub) => !sub.archived) && (
                   <Text size="xs" c="dimmed" truncate>
-                    {category.subcategories.map((sub) => sub.name).join('・')}
+                    {category.subcategories
+                      .filter((sub) => !sub.archived)
+                      .map((sub) => sub.name)
+                      .join('・')}
+                  </Text>
+                )}
+                {category.aliases && category.aliases.length > 0 && (
+                  <Text size="xs" c="dimmed" truncate>
+                    以前の名前: {category.aliases.join('・')}
                   </Text>
                 )}
                 {(() => {
@@ -211,7 +261,7 @@ export const CategorySection = () => {
                 variant="subtle"
                 color="gray"
                 size={40}
-                disabled={index === list.length - 1}
+                disabled={index === activeList.length - 1}
                 onClick={() => move(index, 1)}
                 aria-label="下へ移動"
               >
@@ -240,14 +290,52 @@ export const CategorySection = () => {
         ))}
       </Stack>
 
+      {archivedList.length > 0 && (
+        <Stack gap={0} mt="md">
+          <Text size="xs" c="dimmed" fw={600} mb={4}>
+            アーカイブ（入力の選択肢に出ません。過去の取引の集計には使います）
+          </Text>
+          {archivedList.map((category) => (
+            <Group
+              key={category.id}
+              justify="space-between"
+              wrap="nowrap"
+              py={6}
+              px={4}
+              style={{ borderBottom: '1px solid var(--hairline)' }}
+            >
+              <Group gap={10} wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+                <ColorSwatch
+                  color={isDark ? category.color.dark : category.color.light}
+                  size={14}
+                  style={{ flexShrink: 0 }}
+                />
+                <Text size="sm" c="dimmed" truncate>
+                  {category.name}
+                </Text>
+              </Group>
+              <Button
+                variant="subtle"
+                size="xs"
+                h={40}
+                color="gray"
+                leftSection={<IconArrowBackUp size={14} />}
+                onClick={() => handleRestore(category)}
+                aria-label={`${category.name}を戻す`}
+              >
+                戻す
+              </Button>
+            </Group>
+          ))}
+        </Stack>
+      )}
+
       <CategoryEditModal
         opened={editorOpened}
         onClose={() => setEditorOpened(false)}
         type={type}
-        category={editingCategory}
-        existingNames={list
-          .filter((c) => c.id !== editingCategory?.id)
-          .map((c) => c.name)}
+        category={editingCategory ? editableCategory(editingCategory) : null}
+        existingNames={existingNames}
         usedColors={[...expenseCategories, ...incomeCategories].map((c) => c.color)}
         onSave={handleSave}
       />

@@ -43,7 +43,15 @@ export const LineChart: React.FC<LineChartProps> = ({ title, transactions = [] }
   // 選択は設定ドキュメント（Firestore）に保存する。以前は localStorage に
   // 置いていたが、iOS のホーム画面アプリでは起動をまたいで消えることがあり、
   // 開くたびに既定へ戻っていた
-  const userSelectedCategories = settings?.chartPreferences?.categoryTrendCategories ?? null;
+  // 改名したカテゴリは今の名前に読み替える（#97。保存値は書き換えない）
+  const savedCategories = settings?.chartPreferences?.categoryTrendCategories;
+  const userSelectedCategories = useMemo(
+    () =>
+      savedCategories
+        ? Array.from(new Set(savedCategories.map((category) => rules.categoryName({ category }))))
+        : null,
+    [savedCategories, rules]
+  );
 
   const handleSelectedCategoriesChange = (value: string[]) => {
     // Firestore はローカル書き込みを即座に onSnapshot へ反映するため、

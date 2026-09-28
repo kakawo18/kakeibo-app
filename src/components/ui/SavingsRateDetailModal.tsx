@@ -56,7 +56,9 @@ const SavingsRateDetailModalContent: React.FC<{ transactions: Transaction[]; yea
       }));
 
     salaryTransactions.forEach(t => {
-      const key = t.subcategory && breakdownMap.has(t.subcategory) ? t.subcategory : 'その他';
+      // 改名前の名前で記録された取引も今の名前で数える（#97）
+      const sub = rules.subcategoryName(t);
+      const key = sub && breakdownMap.has(sub) ? sub : 'その他';
       breakdownMap.set(key, (breakdownMap.get(key) ?? 0) + t.amount);
     });
 
