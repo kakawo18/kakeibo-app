@@ -10,10 +10,10 @@
 import { useState } from 'react';
 import { Button, Container, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconRepeat } from '@tabler/icons-react';
-import { BudgetSection } from '@/components/settings/BudgetSection';
-import { CategorySection } from '@/components/settings/CategorySection';
-import { PaymentMethodSection } from '@/components/settings/PaymentMethodSection';
-import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
+import { BudgetSection } from '@/features/settings';
+import { CategorySection } from '@/features/settings';
+import { PaymentMethodSection } from '@/features/settings';
+import { RecurringTransactionManager } from '@/features/recurring';
 
 export default function SettingsPage() {
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);

@@ -2,11 +2,10 @@
 
 import {
   Bar,
+  BarChart,
   CartesianGrid,
-  ComposedChart,
   LabelList,
   Legend,
-  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,7 +14,7 @@ import {
 import { Box, Group, Paper, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { AnnualSummary } from '@/domain/annualSummary';
-import { AnnualValueColumn, AnnualValueTable } from '@/components/charts/AnnualValueTable';
+import { AnnualValueColumn, AnnualValueTable } from './AnnualValueTable';
 
 /**
  * ※ Recharts のアニメーションは全チャートで無効にしている。
@@ -23,7 +22,7 @@ import { AnnualValueColumn, AnnualValueTable } from '@/components/charts/AnnualV
  * 補間が破綻し、棒や面が描画されないままになるため。
  */
 
-interface AnnualFlowChartProps {
+interface AnnualIncomeChartProps {
   summaries: AnnualSummary[];
 }
 
@@ -34,16 +33,22 @@ const MAX_BAR_SIZE = 56;
 const MAX_BARS_WITH_LABEL_MOBILE = 4;
 const MAX_BARS_WITH_LABEL_DESKTOP = 10;
 
+/** 棒の上に出す合計。万円単位に丸めて桁を減らす */
 const formatTotalLabel = (value: number): string =>
   value > 0 ? `${Math.round(value / 10000).toLocaleString()}万` : '';
 
 /**
- * 支出と投資の推移
+ * 年収の推移
  *
- * 棒が「使った額 + 積んだ額」、線が「手取り収入」。
- * 線が棒より上にあれば、その差が手元に残った分。
+ * 積み上げの合計が「額面」になる:
+ *   手取り(給与) + その他収入 + 社会保険料 + 所得税 + 住民税
+ * 下2つが実際に受け取った額、上3つが引かれた額。
+ *
+ * ※ 額面ベースの「収支」は作れない。収支 = 収入 − 支出 なので、額面を収入に
+ *   すると控除を支出に数えることになり、結果は手取りベースの収支と必ず一致する。
+ *   そのため額面は収支ではなく「年収」として手取りと並べている。
  */
-export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) => {
+export const AnnualIncomeChart: React.FC<AnnualIncomeChartProps> = ({ summaries }) => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   // 棒が細いとラベルが隣と重なって読めなくなる。金額は下のテーブルで必ず読めるので、
   // 本数が多いときはラベルを出さない
@@ -53,39 +58,48 @@ export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) =
   if (summaries.length === 0) {
     return (
       <Paper className="ledger-card" p="lg">
-        <Text className="section-title" mb="md">支出と投資の推移</Text>
+        <Text className="section-title" mb="md">年収の推移</Text>
         <Text ta="center" c="dimmed" py="xl" size="sm">データがありません</Text>
       </Paper>
     );
   }
 
+  // 給与以外の収入が1円も無いなら、常にゼロの系列を凡例に出しても紛らわしいだけなので隠す
+  const hasOtherIncome = summaries.some((summary) => summary.otherIncome > 0);
+
   const chartData = summaries.map((summary) => ({
     year: summary.year,
-    支出: summary.expense,
-    投資: summary.investment,
-    手取り収入: summary.netIncome,
-    支出と投資の合計: summary.expense + summary.investment,
+    手取り: summary.salaryIncome,
+    その他収入: summary.otherIncome,
+    社会保険料: summary.deductions.socialInsurance,
+    所得税: summary.deductions.incomeTax,
+    住民税: summary.deductions.residentTax,
+    合計: summary.estimatedGross + summary.otherIncome,
   }));
 
   const columns: AnnualValueColumn[] = [
-    { key: '手取り収入', label: '手取り収入', color: 'var(--income)' },
-    { key: '支出', label: '支出', color: 'var(--expense)' },
-    { key: '投資', label: '投資', color: 'var(--series-investment)' },
-    { key: '残り', label: '手元に残った分', signed: true, emphasize: true },
+    { key: '手取り', label: '手取り', color: 'var(--income)' },
+    ...(hasOtherIncome
+      ? [{ key: 'その他収入', label: 'その他収入', color: 'var(--series-other-income)' }]
+      : []),
+    { key: '社会保険料', label: '社会保険料', color: 'var(--series-social-insurance)' },
+    { key: '所得税', label: '所得税', color: 'var(--series-income-tax)' },
+    { key: '住民税', label: '住民税', color: 'var(--series-resident-tax)' },
+    { key: '合計', label: '合計(額面)', emphasize: true },
   ];
 
   return (
     <Paper className="ledger-card" p="lg">
       <Group justify="space-between" mb="md">
         <Stack gap={2}>
-          <Text className="section-title">支出と投資の推移</Text>
-          <Text size="xs" c="dimmed">線が棒より上にあれば、その差が手元に残った分</Text>
+          <Text className="section-title">年収の推移</Text>
+          <Text size="xs" c="dimmed">棒全体の高さが額面。上3つが税・社会保険料で引かれた分</Text>
         </Stack>
       </Group>
 
       <Box h={300}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 24, right: 16, left: 0, bottom: 5 }}>
+          <BarChart data={chartData} margin={{ top: 24, right: 16, left: 0, bottom: 5 }}>
             <CartesianGrid stroke="var(--grid-line)" strokeWidth={1} vertical={false} />
             <XAxis
               dataKey="year"
@@ -117,24 +131,47 @@ export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) =
             />
             <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--ink-2)' }} iconType="square" />
             <Bar
-              dataKey="支出"
-              stackId="outflow"
-              fill="var(--expense)"
+              dataKey="手取り"
+              stackId="income"
+              fill="var(--income)"
+              maxBarSize={MAX_BAR_SIZE}
+              isAnimationActive={false}
+            />
+            {hasOtherIncome && (
+              <Bar
+                dataKey="その他収入"
+                stackId="income"
+                fill="var(--series-other-income)"
+                maxBarSize={MAX_BAR_SIZE}
+                isAnimationActive={false}
+              />
+            )}
+            <Bar
+              dataKey="社会保険料"
+              stackId="income"
+              fill="var(--series-social-insurance)"
               maxBarSize={MAX_BAR_SIZE}
               isAnimationActive={false}
             />
             <Bar
-              dataKey="投資"
-              stackId="outflow"
-              fill="var(--series-investment)"
+              dataKey="所得税"
+              stackId="income"
+              fill="var(--series-income-tax)"
+              maxBarSize={MAX_BAR_SIZE}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="住民税"
+              stackId="income"
+              fill="var(--series-resident-tax)"
               radius={[4, 4, 0, 0]}
               maxBarSize={MAX_BAR_SIZE}
               isAnimationActive={false}
             >
-              {/* 積み上げの一番上に、支出+投資の合計を出す */}
+              {/* 積み上げの一番上に、棒全体の合計（＝額面）を出す */}
               {showTotalLabels && (
                 <LabelList
-                  dataKey="支出と投資の合計"
+                  dataKey="合計"
                   position="top"
                   offset={8}
                   formatter={formatTotalLabel}
@@ -142,16 +179,7 @@ export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) =
                 />
               )}
             </Bar>
-            <Line
-              type="monotone"
-              dataKey="手取り収入"
-              isAnimationActive={false}
-              stroke="var(--income)"
-              strokeWidth={2}
-              dot={{ r: 3, strokeWidth: 0, fill: 'var(--income)' }}
-              activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--app-surface)' }}
-            />
-          </ComposedChart>
+          </BarChart>
         </ResponsiveContainer>
       </Box>
 
@@ -160,13 +188,15 @@ export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) =
         rows={summaries.map((summary) => ({
           year: summary.year,
           values: {
-            手取り収入: summary.netIncome,
-            支出: summary.expense,
-            投資: summary.investment,
-            残り: summary.remaining,
+            手取り: summary.salaryIncome,
+            その他収入: summary.otherIncome,
+            社会保険料: summary.deductions.socialInsurance,
+            所得税: summary.deductions.incomeTax,
+            住民税: summary.deductions.residentTax,
+            合計: summary.estimatedGross + summary.otherIncome,
           },
         }))}
-        minWidth={520}
+        minWidth={hasOtherIncome ? 640 : 560}
       />
     </Paper>
   );

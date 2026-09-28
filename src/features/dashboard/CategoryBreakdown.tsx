@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Paper, Grid, Box } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { ChartData } from '@/types';
-import { PieChart, PieChartBody } from './PieChart';
+import { PieChart, PieChartBody } from '@/components/charts/PieChart';
 
 interface CategoryBreakdownProps {
   expenseData: ChartData[];

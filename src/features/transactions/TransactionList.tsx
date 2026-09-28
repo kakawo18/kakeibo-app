@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
-import { TransactionRow } from '@/components/ui/TransactionRow';
+import { TransactionRow } from './TransactionRow';
 
 interface TransactionListProps {
   transactions: Transaction[];

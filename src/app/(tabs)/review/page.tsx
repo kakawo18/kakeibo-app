@@ -9,7 +9,7 @@
  */
 import { Suspense } from 'react';
 import { Container, Loader, Stack, Text } from '@mantine/core';
-import { ReviewContent } from '@/components/review/ReviewContent';
+import { ReviewContent } from '@/features/review';
 
 export default function ReviewPage() {
   return (
