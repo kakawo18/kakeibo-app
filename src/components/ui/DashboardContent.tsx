@@ -49,6 +49,7 @@ import { RecurringTransactionNotice } from '@/components/recurring/RecurringTran
 import { RecurringTransactionConfirm } from '@/components/recurring/RecurringTransactionConfirm';
 import { InvestmentHistoryModal } from '@/components/ui/InvestmentHistoryModal';
 import { SavingsRateDetailModal } from '@/components/ui/SavingsRateDetailModal';
+import { WriteResult } from '@/data/pendingWrite';
 
 // ============================================================
 // 前月比トレンド（色付きの矢印 + % のみ。バッジの面は使わない）
@@ -229,12 +230,12 @@ export function DashboardContent() {
     paymentMethod?: string;
     date: Date;
     description?: string;
-  }) => {
-    if (!selectedRecurringTransaction) return;
+  }): Promise<WriteResult> => {
+    if (!selectedRecurringTransaction) throw new Error('No recurring transaction selected');
     // どの定期取引の、どの月の分かを取引に残す。記録済みの判定はこの2つで行い、
     // ID もこの2つから決めるので、複数端末から同じ月を記録しても1件になる（#101）
     const recurringMonth = formatMonthLocal(data.date);
-    await addTransaction(
+    return addTransaction(
       {
         type: 'expense',
         ...data,

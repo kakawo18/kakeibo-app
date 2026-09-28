@@ -1,6 +1,15 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import {
+  Firestore,
+  getFirestore,
+  initializeFirestore,
+  connectFirestoreEmulator,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  terminate,
+  clearIndexedDbPersistence,
+} from 'firebase/firestore';
 
 // 環境変数の存在確認（ビルド時エラー回避）
 const requiredEnvVars = {
@@ -49,7 +58,44 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+/**
+ * Firestore を端末の永続キャッシュ（IndexedDB）付きで作る（#126）
+ *
+ * 一度読み込んだ取引・設定を端末に残し、オフラインでアプリを起動し直しても表示できるようにする。
+ * オフライン中の書き込みも端末に保存され、通信が戻ると送信される。
+ * 複数のタブで開いても1つのキャッシュを共有する（persistentMultipleTabManager）。
+ * サーバー側（ビルド時のプリレンダリング）には IndexedDB が無いので既定のメモリキャッシュ。
+ */
+const createFirestore = (): Firestore => {
+  if (typeof window === 'undefined') return getFirestore(app);
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    // HMR で2回目に評価されたときは初期化済みのものを使う
+    return getFirestore(app);
+  }
+};
+
+export const db = createFirestore();
+
+/**
+ * 端末に残した Firestore のキャッシュを消す（ログアウト時）
+ *
+ * 共有端末で前のユーザーの家計データが端末に残らないようにする。
+ * 消した後は Firestore を使えなくなるため、呼び出し側でページを読み込み直すこと。
+ * 別のタブが開いていると消せない（そのタブを閉じれば次回ログアウト時に消える）。
+ */
+export const clearLocalFirestoreCache = async (): Promise<void> => {
+  await terminate(db);
+  try {
+    await clearIndexedDbPersistence(db);
+  } catch (error) {
+    console.error('Failed to clear local Firestore cache:', error);
+  }
+};
 
 // Firebase App Check（任意）
 // Firebase の設定値はクライアントに露出する前提のため、これが無いと

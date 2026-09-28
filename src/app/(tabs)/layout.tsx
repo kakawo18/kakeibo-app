@@ -20,6 +20,7 @@ import { AppTabBar } from '@/components/nav/AppTabBar';
 import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
 import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { PWAInstaller } from '@/components/PWAInstaller';
+import { SyncStatusBanner } from '@/components/ui/SyncStatusBanner';
 
 const LoadingState = ({ message }: { message: string }) => (
   <Container size="lg" py={80}>
@@ -131,6 +132,8 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
         onOpenCsvModal={() => setCsvModalOpened(true)}
       />
       <AppTabBar />
+
+      <SyncStatusBanner />
 
       <Box className="tab-page" pt="md">
         {children}

@@ -21,6 +21,8 @@ import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
 import { validateAmount } from '@/utils/validation';
 import { activeCategories } from '@/utils/categorySettings';
+import { notifySaved } from '@/contexts/writeResult';
+import { WriteResult } from '@/data/pendingWrite';
 
 interface RecurringTransactionConfirmProps {
   opened: boolean;
@@ -33,7 +35,7 @@ interface RecurringTransactionConfirmProps {
     paymentMethod?: string;
     date: Date;
     description?: string;
-  }) => Promise<void>;
+  }) => Promise<WriteResult>;
 }
 
 /** 実行日を今月の日付に変換する（31日設定の2月など、月の日数を超える場合は月末日に丸める） */
@@ -144,14 +146,10 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
         description: values.description.trim() || undefined,
       };
 
-      await onConfirm(data);
+      const result = await onConfirm(data);
       onClose();
 
-      notifications.show({
-        title: '成功',
-        message: '取引を記録しました',
-        color: 'green',
-      });
+      notifySaved(result, '取引を記録しました');
     } catch (error) {
       console.error('Error recording transaction:', error);
       notifications.show({

@@ -26,6 +26,7 @@ import { ResponsiveSelect } from './ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from './formStyles';
 import { validateAmount } from '@/utils/validation';
 import { activeCategories } from '@/utils/categorySettings';
+import { notifySaved } from '@/contexts/writeResult';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -186,19 +187,14 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
         description: values.description.trim(),
       };
 
-      if (editingTransaction) {
-        await updateTransaction(editingTransaction.id, transactionData);
-      } else {
-        await addTransaction(transactionData);
-      }
+      // オフラインでは端末に保存した時点で返ってくる（通信が戻ると送信される。#126）
+      const result = editingTransaction
+        ? await updateTransaction(editingTransaction.id, transactionData)
+        : await addTransaction(transactionData);
 
       onClose();
 
-      notifications.show({
-        title: '成功',
-        message: editingTransaction ? '取引を更新しました' : '取引を追加しました',
-        color: 'green',
-      });
+      notifySaved(result, editingTransaction ? '取引を更新しました' : '取引を追加しました');
     } catch (error) {
       console.error('Error saving transaction:', error);
 

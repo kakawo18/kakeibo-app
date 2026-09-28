@@ -116,7 +116,7 @@ export const PWAInstaller = () => {
         <Stack gap="xs">
           <Text size="xs" c="dimmed">📱 ホーム画面からワンタップで起動</Text>
           <Text size="xs" c="dimmed">⚡ 高速な動作</Text>
-          <Text size="xs" c="dimmed">📴 オフラインでも基本機能が利用可能</Text>
+          <Text size="xs" c="dimmed">📴 オフラインでも記録・閲覧できます（一度オンラインで開いた後）</Text>
         </Stack>
 
         <Group justify="flex-end" gap="xs">

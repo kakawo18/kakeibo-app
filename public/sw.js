@@ -16,7 +16,8 @@ const LIMITS = {
   [ASSET_CACHE]: 30,
 };
 
-const PRECACHE_PAGES = ['/', '/history'];
+// オフラインで起動したときにどのタブも開けるよう、全タブのページを先に入れておく（#126）
+const PRECACHE_PAGES = ['/', '/history', '/review', '/settings'];
 const PRECACHE_ASSETS = ['/manifest.json', '/favicon.png'];
 
 // キャッシュしないリクエストの判定
