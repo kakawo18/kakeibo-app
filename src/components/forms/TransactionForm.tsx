@@ -25,6 +25,7 @@ import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from './ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from './formStyles';
 import { validateAmount } from '@/utils/validation';
+import { activeCategories } from '@/utils/categorySettings';
 
 interface TransactionFormProps {
   opened: boolean;
@@ -95,8 +96,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       ? {
           type: editingTransaction.type,
           amount: editingTransaction.amount.toString(),
-          category: editingTransaction.category,
-          subcategory: editingTransaction.subcategory || '',
+          // 改名前の名前で記録された取引は今の名前で開く（#97）
+          category: rules.categoryName(editingTransaction),
+          subcategory: rules.subcategoryName(editingTransaction) || '',
           paymentMethod: editingTransaction.paymentMethod || '',
           date: editingTransaction.date,
           description: editingTransaction.description || '',
@@ -112,38 +114,43 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, editingTransaction]);
 
+  // アーカイブしたカテゴリは選択肢に出さない（#97）
   const categories = useMemo(() => {
-    return selectedType === 'expense' ? expenseCategories : incomeCategories;
+    return activeCategories(selectedType === 'expense' ? expenseCategories : incomeCategories);
   }, [selectedType, expenseCategories, incomeCategories]);
+
+  // 編集中の取引のカテゴリ・サブカテゴリ（今の名前）
+  const editingCategory = editingTransaction ? rules.categoryName(editingTransaction) : undefined;
+  const editingSubcategory = editingTransaction ? rules.subcategoryName(editingTransaction) : undefined;
 
   // 編集時: 設定から削除されたカテゴリ/サブカテゴリ/支払方法でも
   // 現在の値が選択肢から消えないよう、選択肢の末尾に注入する
   const categoryOptions = useMemo(() => {
     const options = categories.map(cat => ({ value: cat.name, label: cat.name }));
-    const current = editingTransaction?.category;
+    const current = editingCategory;
     if (
       current &&
-      editingTransaction.type === selectedType &&
+      editingTransaction?.type === selectedType &&
       !options.some(o => o.value === current)
     ) {
       options.push({ value: current, label: current });
     }
     return options;
-  }, [categories, editingTransaction, selectedType]);
+  }, [categories, editingTransaction, editingCategory, selectedType]);
 
   const subcategoryOptions = useMemo(() => {
     const selected = categories.find(cat => cat.name === selectedCategory);
     const options = (selected?.subcategories ?? []).map(sub => ({ value: sub.name, label: sub.name }));
-    const current = editingTransaction?.subcategory;
+    const current = editingSubcategory;
     if (
       current &&
-      editingTransaction.category === selectedCategory &&
+      editingCategory === selectedCategory &&
       !options.some(o => o.value === current)
     ) {
       options.push({ value: current, label: current });
     }
     return options;
-  }, [selectedCategory, categories, editingTransaction]);
+  }, [selectedCategory, categories, editingCategory, editingSubcategory]);
 
   const paymentMethodOptions = useMemo(() => {
     const options = paymentMethods.map(method => ({ value: method.name, label: method.name }));

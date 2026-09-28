@@ -52,6 +52,8 @@ src/
 
 「投資」「立替金」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/utils/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
 
+取引はカテゴリ名の文字列を持つため、改名した旧名は設定の `aliases`（以前の名前）に、使用中のまま削除したカテゴリは `archived` として設定に残し、`createTransactionRules` が旧名にも同じ役割を当てる（#97）。取引の分類・表示に使う名前は `t.category` ではなく `rules.categoryName(t)` / `rules.subcategoryName(t)` / `rules.chartKey(t)`（旧名を今の名前に読み替える）を使う。改名・削除の処理は `src/utils/categorySettings.ts`。
+
 役割の一覧と意味は `docs/user-guide.md` の「カテゴリ管理」を参照。
 
 ## 額面年収の推定（年間振り返り）

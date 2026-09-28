@@ -46,7 +46,7 @@ interface CategoryEditModalProps {
   type: 'expense' | 'income';
   /** null = 新規作成 */
   category: CategorySetting | null;
-  /** 同一タイプ内の既存カテゴリ名(重複チェック用。編集中の自分自身は除外済みで渡す) */
+  /** 同一タイプ内の既存カテゴリ名(以前の名前・アーカイブを含む。重複チェック用。編集中の自分自身は除外済みで渡す) */
   existingNames: string[];
   /** 使用中の色(新規作成時の自動割当に使用) */
   usedColors: CategoryColor[];
@@ -121,7 +121,7 @@ const CategoryEditor: React.FC<
       return;
     }
     if (existingNames.includes(trimmedName)) {
-      setError('同じ名前のカテゴリが既にあります');
+      setError('同じ名前のカテゴリが既にあります（アーカイブや以前の名前を含む）');
       return;
     }
     const subNames = subcategories.map((sub) => sub.name.trim());

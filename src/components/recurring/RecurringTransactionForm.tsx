@@ -17,6 +17,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles } from '@/components/forms/formStyles';
 import { validateAmount } from '@/utils/validation';
+import { activeCategories } from '@/utils/categorySettings';
 
 interface RecurringTransactionFormProps {
   opened: boolean;
@@ -31,7 +32,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
   editingTransaction,
   onSave,
 }) => {
-  const { expenseCategories, paymentMethods } = useSettings();
+  const { expenseCategories, paymentMethods, rules } = useSettings();
   const [loading, setLoading] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
   const inputStyles = getInputStyles(isMobile ?? false);
@@ -65,8 +66,9 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
       form.setValues({
         name: editingTransaction.name,
         amount: editingTransaction.amount.toString(),
-        category: editingTransaction.category,
-        subcategory: editingTransaction.subcategory || '',
+        // 改名前の名前で登録した定期取引は今の名前で開く（#97）
+        category: rules.categoryName(editingTransaction),
+        subcategory: rules.subcategoryName(editingTransaction) || '',
         paymentMethod: editingTransaction.paymentMethod || '',
         dayOfMonth: editingTransaction.dayOfMonth.toString(),
         isEnabled: editingTransaction.isEnabled,
@@ -79,28 +81,33 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
   }, [opened, editingTransaction]);
 
   // 編集時: 設定から削除されたカテゴリ/サブカテゴリ/支払方法でも現値を失わないよう注入
+  // アーカイブしたカテゴリは選択肢に出さない（#97）
+  const categories = useMemo(() => activeCategories(expenseCategories), [expenseCategories]);
+  const currentCategory = editingTransaction ? rules.categoryName(editingTransaction) : undefined;
+  const currentSubcategory = editingTransaction ? rules.subcategoryName(editingTransaction) : undefined;
+
   const categoryOptions = useMemo(() => {
-    const options = expenseCategories.map(cat => ({ value: cat.name, label: cat.name }));
-    const current = editingTransaction?.category;
+    const options = categories.map(cat => ({ value: cat.name, label: cat.name }));
+    const current = currentCategory;
     if (current && !options.some(o => o.value === current)) {
       options.push({ value: current, label: current });
     }
     return options;
-  }, [expenseCategories, editingTransaction]);
+  }, [categories, currentCategory]);
 
   const subcategoryOptions = useMemo(() => {
-    const selected = expenseCategories.find(cat => cat.name === form.values.category);
+    const selected = categories.find(cat => cat.name === form.values.category);
     const options = (selected?.subcategories ?? []).map(sub => ({ value: sub.name, label: sub.name }));
-    const current = editingTransaction?.subcategory;
+    const current = currentSubcategory;
     if (
       current &&
-      editingTransaction.category === form.values.category &&
+      currentCategory === form.values.category &&
       !options.some(o => o.value === current)
     ) {
       options.push({ value: current, label: current });
     }
     return options;
-  }, [form.values.category, expenseCategories, editingTransaction]);
+  }, [form.values.category, categories, currentCategory, currentSubcategory]);
 
   const paymentMethodOptions = useMemo(() => {
     const options = paymentMethods.map(method => ({ value: method.name, label: method.name }));

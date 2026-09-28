@@ -70,9 +70,6 @@ export const getAvailableYears = (transactions: Transaction[]): number[] => {
   return Array.from(years).sort((a, b) => b - a);
 };
 
-/** 円グラフと同じ粒度（サブカテゴリ優先）でカテゴリ名を決める */
-const categoryKey = (t: Transaction): string => t.subcategory || t.category;
-
 /**
  * 年ごとの収支サマリーを古い順に返す
  *
@@ -227,7 +224,7 @@ export const calculateCategoryYoY = (
       transactionYear === year ? current : transactionYear === year - 1 ? previous : null;
     if (!target) return;
 
-    const key = categoryKey(t);
+    const key = rules.chartKey(t);
     target.set(key, (target.get(key) ?? 0) + t.amount);
   });
 

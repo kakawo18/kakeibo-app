@@ -219,6 +219,17 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         if (!map.has(sub.name)) map.set(sub.name, sub.color ?? category.color);
       }
     }
+    // 改名前の名前（#97）。今の名前と重なるものは今の名前の色を優先する
+    for (const category of categories ?? []) {
+      for (const alias of category.aliases ?? []) {
+        if (!map.has(alias)) map.set(alias, category.color);
+      }
+      for (const sub of category.subcategories) {
+        for (const alias of sub.aliases ?? []) {
+          if (!map.has(alias)) map.set(alias, sub.color ?? category.color);
+        }
+      }
+    }
     return map;
   }, [categories]);
 

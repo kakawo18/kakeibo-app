@@ -13,6 +13,7 @@ import {
 } from '@/utils/csvUtils';
 import { notifications } from '@mantine/notifications';
 import { ImportWriteError, importIdFromText } from '@/data/transactionImport';
+import { namesOf } from '@/utils/categorySettings';
 
 interface CSVImportExportProps {
   opened: boolean;
@@ -29,8 +30,9 @@ export const CSVImportExport: React.FC<CSVImportExportProps> = ({ opened, onClos
   const knownCategories = useMemo(() => {
     const names = new Set<string>();
     for (const category of settings?.categories ?? []) {
-      names.add(category.name);
-      for (const sub of category.subcategories) names.add(sub.name);
+      // 改名前の名前も登録済みとして扱う（旧名のまま書き出した CSV を戻すときに警告しない。#97）
+      namesOf(category).forEach((name) => names.add(name));
+      for (const sub of category.subcategories) namesOf(sub).forEach((name) => names.add(name));
     }
     return names;
   }, [settings]);

@@ -23,14 +23,15 @@ interface TransactionRowProps {
 }
 
 export const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onEdit }) => {
-  const { getColor } = useSettings();
+  const { getColor, rules } = useSettings();
   const { deleteTransaction } = useTransactions();
   const isDark = useComputedColorScheme('light', { getInitialValueInEffect: true }) === 'dark';
 
-  const categoryLabel = transaction.subcategory
-    ? `${transaction.category}・${transaction.subcategory}`
-    : transaction.category;
-  const dotColor = getColor(transaction.subcategory || transaction.category, isDark);
+  // 改名前の名前で記録された取引も今の名前で表示する（#97）
+  const category = rules.categoryName(transaction);
+  const subcategory = rules.subcategoryName(transaction);
+  const categoryLabel = subcategory ? `${category}・${subcategory}` : category;
+  const dotColor = getColor(subcategory || category, isDark);
 
   const handleDelete = () => {
     modals.openConfirmModal({

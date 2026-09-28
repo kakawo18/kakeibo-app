@@ -11,6 +11,7 @@ import {
   SegmentedControl,
 } from '@mantine/core';
 import { Transaction } from '@/types';
+import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 
 interface TransactionListProps {
@@ -33,14 +34,16 @@ const formatDayHeader = (date: Date): string =>
 export const TransactionList: React.FC<TransactionListProps> = ({ transactions, onEditTransaction }) => {
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const { rules } = useSettings();
 
   // 利用可能なカテゴリ（表示中の月の取引から）
   const availableCategories = useMemo(
     () =>
       Array.from(
-        new Set(transactions.map(t => t.subcategory || t.category).filter(Boolean))
+        // 改名前の名前で記録された取引も今の名前でまとめる（#97）
+        new Set(transactions.map(t => rules.chartKey(t)).filter(Boolean))
       ).sort(),
-    [transactions]
+    [transactions, rules]
   );
 
   // フィルター処理
@@ -49,12 +52,11 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
       transactions.filter((transaction) => {
         if (filterType !== 'all' && transaction.type !== filterType) return false;
         if (filterCategory !== 'all') {
-          const transactionCategory = transaction.subcategory || transaction.category;
-          if (transactionCategory !== filterCategory) return false;
+          if (rules.chartKey(transaction) !== filterCategory) return false;
         }
         return true;
       }),
-    [transactions, filterType, filterCategory]
+    [transactions, filterType, filterCategory, rules]
   );
 
   // 日付ごとにグループ化（新しい日付順、同日内は作成順を保持）

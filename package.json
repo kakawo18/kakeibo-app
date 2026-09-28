@@ -1,6 +1,6 @@
 {
   "name": "kakeibo-app",
-  "version": "6.4.17",
+  "version": "6.4.18",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

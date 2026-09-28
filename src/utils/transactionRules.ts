@@ -29,29 +29,68 @@ export interface TransactionRules {
   isExcludedFromIncome(t: CategoryLike): boolean;
   isExcludedFromPace(t: CategoryLike): boolean;
   deriveTransactionFlags(category: string, paymentMethod?: string): TransactionFlags;
+  /** 取引のカテゴリの今の名前（改名前の名前で記録された取引も今の名前にする。#97） */
+  categoryName(t: CategoryLike): string;
+  /** 取引のサブカテゴリの今の名前。無ければ undefined */
+  subcategoryName(t: CategoryLike): string | undefined;
+  /** 円グラフ・年間集計の分類キー（サブカテゴリ優先、今の名前） */
+  chartKey(t: CategoryLike): string;
 }
 
 /** サブカテゴリ役割マップのキー(区切りにNUL文字を使いカテゴリ名との衝突を防ぐ) */
 const subKey = (category: string, subcategory: string): string =>
   `${category}\u0000${subcategory}`;
 
+const addRoles = (
+  map: Map<string, Set<CategoryRole>>,
+  key: string,
+  roles: CategoryRole[]
+): void => {
+  if (roles.length === 0) return;
+  const existing = map.get(key) ?? new Set<CategoryRole>();
+  roles.forEach((role) => existing.add(role));
+  map.set(key, existing);
+};
+
 export const createTransactionRules = (settings: UserSettings): TransactionRules => {
   // カテゴリ名 → 役割集合(O(1)ルックアップ用に事前構築)
   const categoryRoles = new Map<string, Set<CategoryRole>>();
   const subcategoryRoles = new Map<string, Set<CategoryRole>>();
+  // 以前の名前 → 今の名前（#97）
+  const currentCategoryName = new Map<string, string>();
+  const currentSubcategoryName = new Map<string, string>();
 
+  // 1) 今の名前。同じ名前が複数あれば役割を合わせる（従来どおり）
+  const currentCategoryNames = new Set<string>();
+  const currentSubKeys = new Set<string>();
   for (const category of settings.categories) {
-    if (category.roles.length > 0) {
-      const existing = categoryRoles.get(category.name) ?? new Set<CategoryRole>();
-      category.roles.forEach((role) => existing.add(role));
-      categoryRoles.set(category.name, existing);
-    }
+    currentCategoryNames.add(category.name);
+    addRoles(categoryRoles, category.name, category.roles);
     for (const sub of category.subcategories) {
-      if (sub.roles.length > 0) {
-        const key = subKey(category.name, sub.name);
-        const existing = subcategoryRoles.get(key) ?? new Set<CategoryRole>();
-        sub.roles.forEach((role) => existing.add(role));
-        subcategoryRoles.set(key, existing);
+      currentSubKeys.add(subKey(category.name, sub.name));
+      addRoles(subcategoryRoles, subKey(category.name, sub.name), sub.roles);
+    }
+  }
+
+  // 2) 以前の名前（改名前の名前）。今の名前と重なるものは今の名前を優先する。
+  //    改名した取引は旧名のまま残っているので、旧名でも同じ役割・表示名になるようにする
+  for (const category of settings.categories) {
+    const aliases = category.aliases ?? [];
+    for (const alias of aliases) {
+      if (currentCategoryNames.has(alias)) continue;
+      addRoles(categoryRoles, alias, category.roles);
+      if (!currentCategoryName.has(alias)) currentCategoryName.set(alias, category.name);
+    }
+    const categoryNames = [category.name, ...aliases];
+    for (const sub of category.subcategories) {
+      const subNames = [sub.name, ...(sub.aliases ?? [])];
+      for (const categoryName of categoryNames) {
+        for (const subName of subNames) {
+          const key = subKey(categoryName, subName);
+          if (currentSubKeys.has(key)) continue;
+          addRoles(subcategoryRoles, key, sub.roles);
+          if (!currentSubcategoryName.has(key)) currentSubcategoryName.set(key, sub.name);
+        }
       }
     }
   }
@@ -68,6 +107,13 @@ export const createTransactionRules = (settings: UserSettings): TransactionRules
     }
     return false;
   };
+
+  const categoryName = (t: CategoryLike): string =>
+    currentCategoryName.get(t.category) ?? t.category;
+  const subcategoryName = (t: CategoryLike): string | undefined =>
+    t.subcategory
+      ? currentSubcategoryName.get(subKey(t.category, t.subcategory)) ?? t.subcategory
+      : undefined;
 
   const isInvestment = (t: CategoryLike) => hasRole(t, 'investment');
   const isAdvancePayment = (t: CategoryLike) => hasRole(t, 'advance_payment');
@@ -90,6 +136,9 @@ export const createTransactionRules = (settings: UserSettings): TransactionRules
       }
       return { transactionType: 'normal', affectsExpense: true };
     },
+    categoryName,
+    subcategoryName,
+    chartKey: (t) => subcategoryName(t) || categoryName(t),
   };
 };
 
