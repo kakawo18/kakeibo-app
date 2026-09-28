@@ -27,7 +27,7 @@ import { UserSettings, CategoryColor, CategorySetting, PaymentMethodSetting } fr
 import { SettingsPatch } from '@/data/settingsSerializer';
 import { patchSettings, seedSettingsIfMissing, subscribeSettings } from '@/data/settingsRepository';
 import { NEUTRAL_COLOR } from '@/config/colorPalette';
-import { createTransactionRules, TransactionRules } from '@/utils/transactionRules';
+import { createTransactionRules, TransactionRules } from '@/domain/transactionRules';
 import { settle } from '@/contexts/writeResult';
 
 // ============================================================

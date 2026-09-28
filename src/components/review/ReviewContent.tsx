@@ -19,8 +19,8 @@ import {
   calculateCumulativeInvestment,
   calculateMonthlyDetail,
   getAvailableYears,
-} from '@/utils/annualSummary';
-import { calculateCategoryChartData } from '@/utils/calculations';
+} from '@/domain/annualSummary';
+import { calculateCategoryChartData } from '@/domain/calculations';
 import { AnnualIncomeChart } from '@/components/charts/AnnualIncomeChart';
 import { AnnualFlowChart } from '@/components/charts/AnnualFlowChart';
 import { SavingsRateTrendChart } from '@/components/charts/SavingsRateTrendChart';
@@ -63,7 +63,7 @@ export const ReviewContent = () => {
   const searchParams = useSearchParams();
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { transactions } = useTransactions();
-  const { rules, getColor } = useSettings();
+  const { rules } = useSettings();
 
   const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
   const summaries = useMemo(
@@ -96,10 +96,9 @@ export const ReviewContent = () => {
       calculateCategoryChartData(
         transactions.filter((t) => t.date.getFullYear() === selectedYear),
         'expense',
-        rules,
-        getColor
+        rules
       ),
-    [transactions, selectedYear, rules, getColor]
+    [transactions, selectedYear, rules]
   );
 
   const handleYearChange = (value: string | null) => {

@@ -10,7 +10,7 @@
  * といったことが起きていた。ID を持たない過去の記録にだけ、従来の推測を使う。
  */
 import { RecurringTransaction, Transaction } from '@/types';
-import { formatMonthLocal } from './dateUtils';
+import { formatMonthLocal } from '@/utils/dateUtils';
 
 /** その月の実効日（31日設定なら短い月は月末日） */
 const effectiveDay = (dayOfMonth: number, today: Date): number => {

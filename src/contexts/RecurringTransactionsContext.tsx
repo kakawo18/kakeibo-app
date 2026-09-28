@@ -20,7 +20,7 @@ import {
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { RecurringTransaction, Transaction } from '@/types';
-import { shouldShowRecurring } from '@/utils/recurring';
+import { shouldShowRecurring } from '@/domain/recurring';
 import { settle } from '@/contexts/writeResult';
 import { RecurringTransactionInput } from '@/data/recurringTransactionSerializer';
 import {
@@ -105,7 +105,7 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
     return recurringTransactions.filter((transaction) => transaction.isEnabled);
   }, [recurringTransactions]);
 
-  // 判定の中身は utils/recurring.ts（定期取引 ID と対象月で記録済みを判定する。#101）
+  // 判定の中身は domain/recurring.ts（定期取引 ID と対象月で記録済みを判定する。#101）
   const shouldShowRecurringTransaction = useCallback(
     (recurring: RecurringTransaction, existingTransactions: Transaction[] = []) =>
       shouldShowRecurring(recurring, existingTransactions),

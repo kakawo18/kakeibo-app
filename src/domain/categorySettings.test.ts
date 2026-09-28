@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CategorySetting, Transaction, UserSettings } from '@/types';
 import { testSettings, tx } from '@/test/fixtures';
-import { createTransactionRules } from '@/utils/transactionRules';
-import { calculateMonthlyData } from '@/utils/calculations';
-import { calculateAnnualSummaries } from '@/utils/annualSummary';
+import { createTransactionRules } from '@/domain/transactionRules';
+import { calculateMonthlyData } from '@/domain/calculations';
+import { calculateAnnualSummaries } from '@/domain/annualSummary';
 import {
   UsageCheck,
   activeCategories,
@@ -11,7 +11,7 @@ import {
   editableCategory,
   removeCategory,
   restoreCategory,
-} from '@/utils/categorySettings';
+} from '@/domain/categorySettings';
 
 const usage = (transactions: Transaction[]): UsageCheck => (categoryNames, subNames) =>
   transactions.some(

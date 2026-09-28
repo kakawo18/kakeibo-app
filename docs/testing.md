@@ -34,7 +34,7 @@ CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテス�
 
 | ケース | 期待値 | 根拠 | テスト |
 |---|---|---|---|
-| 通常の収入・支出 | 月の収支 = 収入 − 支出 | §6 ホーム画面、`MonthlyData.balance` は月間収支（口座残高ではない） | `calculations.test.ts` calculateMonthlyData |
+| 通常の収入・支出 | 月の収支 = 収入 − 支出 | §6 ホーム画面、`MonthlyData.net` は月間収支（口座残高ではない） | `calculations.test.ts` calculateMonthlyData |
 | カード払い | **購入月**の支出に入る。引き落とし月には計上しない | §2.4 クレジットカード払いの会計モデル | 同上（楽天カードの食費 40,000 が 3月の支出） |
 | `affectsExpense = false`（過去の「カード引き落とし」） | 支出に入れない（購入月に計上済みのため二重に数えない） | §2.3 / §2.4 | 同上、`calculateDailyTotals`、`calculateCategoryTrend` |
 | 投資（カテゴリ・サブカテゴリどちらの役割でも） | 支出から外し、年間投資額に入れる | §3.2 役割 | `calculations.test.ts`、`annualSummary.test.ts` |

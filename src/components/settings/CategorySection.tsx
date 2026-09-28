@@ -7,7 +7,7 @@
  * 変更は即座に Firestore(users/{uid}/settings/app)へ保存される。
  *
  * 改名は旧名を「以前の名前」として残し、使用中のカテゴリの削除はアーカイブにする。
- * 過去の取引の集計（役割）が変わらないようにするため（#97。utils/categorySettings.ts）
+ * 過去の取引の集計（役割）が変わらないようにするため（#97。domain/categorySettings.ts）
  */
 import { useMemo, useState } from 'react';
 import {
@@ -43,7 +43,7 @@ import {
   namesOf,
   removeCategory,
   restoreCategory,
-} from '@/utils/categorySettings';
+} from '@/domain/categorySettings';
 
 export const CategorySection = () => {
   const { updateSettings, expenseCategories, incomeCategories } = useSettings();

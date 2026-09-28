@@ -11,7 +11,7 @@
  * 消費ではないため。投資額は investment として常に別枠で返す。
  */
 import { Transaction } from '@/types';
-import { formatMonthLocal, getCurrentMonth, monthRange } from './dateUtils';
+import { formatMonthLocal, getCurrentMonth, monthRange } from '@/utils/dateUtils';
 import { TransactionRules } from './transactionRules';
 import { GrossEstimateOptions, estimateGrossFromNet } from './tax/estimateGross';
 
@@ -31,14 +31,14 @@ export interface AnnualSummary {
   netIncome: number;
   /** 給与の推定額面（= salaryIncome + 控除合計）。その他収入は含まない */
   estimatedGross: number;
-  /** 額面推定の内訳。すべて概算（utils/tax/estimateGross.ts 参照） */
+  /** 額面推定の内訳。すべて概算（domain/tax/estimateGross.ts 参照） */
   deductions: AnnualDeductions;
   /** 年間支出（投資・立替金などを除く） */
   expense: number;
   /** 年間投資額 */
   investment: number;
-  /** 手元に残った額 = 手取り − 支出 − 投資 */
-  balance: number;
+  /** 手元に残った額 = 手取り − 支出 − 投資（以前の名前は balance。口座残高ではない。#123） */
+  remaining: number;
   /** 貯蓄率(%) = 投資額 ÷ 給与収入。給与収入が無い年は 0 */
   savingsRate: number;
 }
@@ -49,7 +49,8 @@ export interface MonthlyDetail {
   income: number;
   expense: number;
   investment: number;
-  balance: number;
+  /** 収入 − 支出 − 投資（以前の名前は balance） */
+  remaining: number;
 }
 
 export interface CategoryYoY {
@@ -127,12 +128,47 @@ export const calculateAnnualSummaries = (
         },
         expense: bucket.expense,
         investment: bucket.investment,
-        balance: netIncome - bucket.expense - bucket.investment,
+        remaining: netIncome - bucket.expense - bucket.investment,
         savingsRate:
           bucket.salaryIncome > 0 ? (bucket.investment / bucket.salaryIncome) * 100 : 0,
       };
     })
     .sort((a, b) => a.year - b.year);
+};
+
+/** 指定年の投資額・給与収入・貯蓄率 */
+export interface YearlySavings {
+  investment: number;
+  salaryIncome: number;
+  /** 投資 ÷ 給与収入 × 100。給与収入が0なら0 */
+  savingsRate: number;
+}
+
+/**
+ * 指定年の投資額と貯蓄率（ホームのタイル用）
+ *
+ * 定義は calculateAnnualSummaries と同じ（貯蓄率 = 投資 ÷ 給与収入）。
+ * 額面の推定などをしない分、軽い。以前はホームの画面の中で計算していた（#123）
+ */
+export const calculateYearlySavings = (
+  transactions: Transaction[],
+  rules: TransactionRules,
+  year: number
+): YearlySavings => {
+  let investment = 0;
+  let salaryIncome = 0;
+  for (const t of transactions) {
+    if (t.date.getFullYear() !== year) continue;
+    if (t.type === 'expense' && rules.isInvestment(t)) investment += t.amount;
+    if (t.type === 'income' && !rules.isExcludedFromIncome(t) && rules.isSalaryIncome(t)) {
+      salaryIncome += t.amount;
+    }
+  }
+  return {
+    investment,
+    salaryIncome,
+    savingsRate: salaryIncome > 0 ? (investment / salaryIncome) * 100 : 0,
+  };
 };
 
 /** 指定年の月別内訳を1〜12月ぶん返す（データの無い月も0で埋める） */
@@ -146,7 +182,7 @@ export const calculateMonthlyDetail = (
     income: 0,
     expense: 0,
     investment: 0,
-    balance: 0,
+    remaining: 0,
   }));
 
   transactions.forEach((t) => {
@@ -165,7 +201,7 @@ export const calculateMonthlyDetail = (
   });
 
   months.forEach((detail) => {
-    detail.balance = detail.income - detail.expense - detail.investment;
+    detail.remaining = detail.income - detail.expense - detail.investment;
   });
 
   return months;

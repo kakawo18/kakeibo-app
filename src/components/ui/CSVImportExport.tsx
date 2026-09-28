@@ -10,10 +10,10 @@ import {
   parseCSV,
   MAX_IMPORT_FILE_BYTES,
   MAX_IMPORT_ROWS,
-} from '@/utils/csvUtils';
+} from '@/data/csvUtils';
 import { notifications } from '@mantine/notifications';
 import { ImportWriteError, importIdFromText } from '@/data/transactionImport';
-import { namesOf } from '@/utils/categorySettings';
+import { namesOf } from '@/domain/categorySettings';
 
 interface CSVImportExportProps {
   opened: boolean;

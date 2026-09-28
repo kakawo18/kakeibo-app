@@ -6,9 +6,8 @@ import {
   calculateDailyTotals,
   calculateMonthlyComparison,
   calculateMonthlyData,
-} from '@/utils/calculations';
+} from '@/domain/calculations';
 
-const color = () => 'x';
 
 describe('calculateMonthlyData', () => {
   const transactions = [
@@ -28,7 +27,7 @@ describe('calculateMonthlyData', () => {
     expect(march.income).toBe(300_000);
     // カード払いは購入月の支出に入る
     expect(march.expense).toBe(40_000 + 80_000);
-    expect(march.balance).toBe(300_000 - 120_000);
+    expect(march.net).toBe(300_000 - 120_000);
   });
 
   it('取引の無い月を0で埋め、最後の月の翌月まで連続させる', () => {
@@ -37,7 +36,7 @@ describe('calculateMonthlyData', () => {
       rules
     );
     expect(data.map((m) => m.month)).toEqual(['2026-01', '2026-02', '2026-03', '2026-04', '2026-05']);
-    expect(data[1]).toEqual({ month: '2026-02', income: 0, expense: 0, balance: 0 });
+    expect(data[1]).toEqual({ month: '2026-02', income: 0, expense: 0, net: 0 });
   });
 
   it('年をまたいでも月が連続する', () => {
@@ -59,7 +58,7 @@ describe('calculateCategoryChartData', () => {
       tx('2026-03-10', 'expense', 50_000, '投資'),
       tx('2026-03-11', 'expense', 1_000, '食費', { affectsExpense: false }),
     ];
-    const chart = calculateCategoryChartData(transactions, 'expense', rules, color);
+    const chart = calculateCategoryChartData(transactions, 'expense', rules);
     // サブカテゴリがあればサブカテゴリ名で集計する
     expect(chart.map((c) => [c.name, c.value, c.percentage])).toEqual([
       ['食費', 60_000, 60],
@@ -72,13 +71,13 @@ describe('calculateCategoryChartData', () => {
 
 describe('calculateMonthlyComparison', () => {
   const month = (income: number, expense: number) => ({
-    month: '2026-03', income, expense, balance: income - expense,
+    month: '2026-03', income, expense, net: income - expense,
   });
 
   it('前月の収支がマイナスでも、改善したら上向きになる', () => {
     const result = calculateMonthlyComparison(month(100, 50), month(100, 150));
-    expect(result.balance.trend).toBe('up');
-    expect(result.balance.percentage).toBeGreaterThan(0);
+    expect(result.net.trend).toBe('up');
+    expect(result.net.percentage).toBeGreaterThan(0);
   });
 
   it('前月が0なら ±100% / 変化なしは0%', () => {

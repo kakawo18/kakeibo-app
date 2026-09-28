@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, Divider, Group, Paper, Stack, Text } from '@mantine/core';
-import { MonthlyDetail } from '@/utils/annualSummary';
+import { MonthlyDetail } from '@/domain/annualSummary';
 
 interface MonthlyBreakdownProps {
   year: number;
@@ -35,16 +35,16 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
       income: sum.income + detail.income,
       expense: sum.expense + detail.expense,
       investment: sum.investment + detail.investment,
-      balance: sum.balance + detail.balance,
+      remaining: sum.remaining + detail.remaining,
     }),
-    { income: 0, expense: 0, investment: 0, balance: 0 }
+    { income: 0, expense: 0, investment: 0, remaining: 0 }
   );
   const monthCount = recorded.length || 1;
   const average = {
     income: Math.round(totals.income / monthCount),
     expense: Math.round(totals.expense / monthCount),
     investment: Math.round(totals.investment / monthCount),
-    balance: Math.round(totals.balance / monthCount),
+    remaining: Math.round(totals.remaining / monthCount),
   };
 
   return (
@@ -77,9 +77,9 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
                     size="sm"
                     fw={700}
                     className="tabular-nums"
-                    style={{ color: detail.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
+                    style={{ color: detail.remaining >= 0 ? 'var(--income)' : 'var(--expense)' }}
                   >
-                    {signedYen(detail.balance)}
+                    {signedYen(detail.remaining)}
                   </Text>
                 </Group>
               </Group>
@@ -97,9 +97,9 @@ export const MonthlyBreakdown: React.FC<MonthlyBreakdownProps> = ({ year, detail
                 size="xs"
                 fw={700}
                 className="tabular-nums"
-                style={{ color: average.balance >= 0 ? 'var(--income)' : 'var(--expense)' }}
+                style={{ color: average.remaining >= 0 ? 'var(--income)' : 'var(--expense)' }}
               >
-                {signedYen(average.balance)}
+                {signedYen(average.remaining)}
               </Text>
               <Text size="xs" c="dimmed" className="tabular-nums" ta="right">
                 <Breakdown {...average} />

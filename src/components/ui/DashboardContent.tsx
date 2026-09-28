@@ -35,10 +35,11 @@ import { SpendingPaceChart } from '@/components/charts/SpendingPaceChart';
 import { MonthNav } from '@/components/ui/MonthNav';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
-import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/utils/calculations';
-import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
+import { calculateMonthlyData, calculateCategoryChartData, calculateMonthlyComparison } from '@/domain/calculations';
+import { calculateYearlySavings } from '@/domain/annualSummary';
+import { calculateMonthlyCardRewards } from '@/domain/cardRewards';
 import { getPreviousMonthFromCurrent, formatMonthLocal } from '@/utils/dateUtils';
-import { recurringRecordId } from '@/utils/recurring';
+import { recurringRecordId } from '@/domain/recurring';
 import { pressable } from '@/components/ui/pressable';
 import { RecurringTransaction, Trend } from '@/types';
 import { CardRewardsDisplay } from '@/components/ui/CardRewardsDisplay';
@@ -129,7 +130,7 @@ const KpiTile = ({
 // ============================================================
 export function DashboardContent() {
   const { transactions, addTransaction } = useTransactions();
-  const { settings, rules, getColor, paymentMethods } = useSettings();
+  const { settings, rules, paymentMethods } = useSettings();
   const { getActiveRecurringTransactions, shouldShowRecurringTransaction } = useRecurringTransactions();
 
   const [transactionFormOpened, setTransactionFormOpened] = useState(false);
@@ -171,39 +172,20 @@ export function DashboardContent() {
   );
 
   const incomeChartData = useMemo(() =>
-    calculateCategoryChartData(selectedMonthTransactions, 'income', rules, getColor),
-    [selectedMonthTransactions, rules, getColor]
+    calculateCategoryChartData(selectedMonthTransactions, 'income', rules),
+    [selectedMonthTransactions, rules]
   );
 
   const expenseChartData = useMemo(() =>
-    calculateCategoryChartData(selectedMonthTransactions, 'expense', rules, getColor),
-    [selectedMonthTransactions, rules, getColor]
+    calculateCategoryChartData(selectedMonthTransactions, 'expense', rules),
+    [selectedMonthTransactions, rules]
   );
 
-  // 貯蓄額と貯蓄率の計算
-  const savingsData = useMemo(() => {
-    const yearlyInvestmentAmount = transactions
-      .filter(t =>
-        t.date.getFullYear() === selectedYear &&
-        t.type === 'expense' &&
-        rules.isInvestment(t)
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const yearlySalaryAmount = transactions
-      .filter(t =>
-        t.date.getFullYear() === selectedYear &&
-        t.type === 'income' &&
-        rules.isSalaryIncome(t)
-      )
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const yearlySavingsRate = yearlySalaryAmount > 0
-      ? (yearlyInvestmentAmount / yearlySalaryAmount) * 100
-      : 0;
-
-    return { yearlyInvestmentAmount, yearlySavingsRate };
-  }, [transactions, selectedYear, rules]);
+  // 年間の投資額と貯蓄率（計算は domain/annualSummary.ts）
+  const savingsData = useMemo(
+    () => calculateYearlySavings(transactions, rules, selectedYear),
+    [transactions, selectedYear, rules]
+  );
 
   const monthlyCardPoints = useMemo(
     () => calculateMonthlyCardRewards(selectedMonthTransactions, paymentMethods).totalPoints,
@@ -250,7 +232,7 @@ export function DashboardContent() {
   /** 年間振り返りタブへ。表示中の年をそのまま引き継ぐ */
   const openAnnualReview = () => router.push(`/review?year=${selectedYear}`);
 
-  const monthBalance = selectedMonthData?.balance ?? 0;
+  const monthBalance = selectedMonthData?.net ?? 0;
 
   return (
     <Container size="lg">
@@ -311,8 +293,8 @@ export function DashboardContent() {
                   </Text>
                   {monthlyComparison && (
                     <TrendIndicator
-                      trend={monthlyComparison.balance.trend}
-                      percentage={monthlyComparison.balance.percentage}
+                      trend={monthlyComparison.net.trend}
+                      percentage={monthlyComparison.net.percentage}
                     />
                   )}
               </Stack>
@@ -371,7 +353,7 @@ export function DashboardContent() {
         <SimpleGrid cols={3} spacing={isMobile ? 'xs' : 'md'}>
           <KpiTile
             label="貯蓄率"
-            value={savingsData.yearlySavingsRate.toFixed(1)}
+            value={savingsData.savingsRate.toFixed(1)}
             unit="%"
             icon={<IconTrendingUp size={14} stroke={1.8} />}
             compact={isMobile}
@@ -387,7 +369,7 @@ export function DashboardContent() {
           />
           <KpiTile
             label="年間投資額"
-            value={`¥${savingsData.yearlyInvestmentAmount.toLocaleString()}`}
+            value={`¥${savingsData.investment.toLocaleString()}`}
             icon={<IconWallet size={14} stroke={1.8} />}
             compact={isMobile}
             onClick={() => setInvestmentHistoryOpened(true)}

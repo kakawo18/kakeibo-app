@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { Box, Group, Paper, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { AnnualSummary } from '@/utils/annualSummary';
+import { AnnualSummary } from '@/domain/annualSummary';
 import { AnnualValueColumn, AnnualValueTable } from '@/components/charts/AnnualValueTable';
 
 /**
@@ -163,7 +163,7 @@ export const AnnualFlowChart: React.FC<AnnualFlowChartProps> = ({ summaries }) =
             手取り収入: summary.netIncome,
             支出: summary.expense,
             投資: summary.investment,
-            残り: summary.balance,
+            残り: summary.remaining,
           },
         }))}
         minWidth={520}

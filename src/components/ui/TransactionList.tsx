@@ -83,7 +83,7 @@ export const TransactionList: React.FC<TransactionListProps> = ({ transactions, 
     const expense = filteredTransactions
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-    return { income, expense, balance: income - expense };
+    return { income, expense, net: income - expense };
   }, [filteredTransactions]);
 
 

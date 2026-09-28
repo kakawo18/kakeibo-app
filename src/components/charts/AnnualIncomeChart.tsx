@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { Box, Group, Paper, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { AnnualSummary } from '@/utils/annualSummary';
+import { AnnualSummary } from '@/domain/annualSummary';
 import { AnnualValueColumn, AnnualValueTable } from '@/components/charts/AnnualValueTable';
 
 /**

@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { Box, Paper, Stack, Text } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { CategoryYoY } from '@/utils/annualSummary';
+import { CategoryYoY } from '@/domain/annualSummary';
 
 /**
  * ※ Recharts のアニメーションは全チャートで無効にしている。

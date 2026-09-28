@@ -19,13 +19,13 @@ import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Transaction, TransactionKind } from '@/types';
 import { formatDateJa } from '@/utils/dateUtils';
-import { resolveFlagsOnEdit } from '@/utils/transactionRules';
+import { resolveFlagsOnEdit } from '@/domain/transactionRules';
 import { MobileCalendar } from '@/components/ui/MobileCalendar';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from './ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from './formStyles';
 import { validateAmount } from '@/utils/validation';
-import { activeCategories } from '@/utils/categorySettings';
+import { activeCategories } from '@/domain/categorySettings';
 import { notifySaved } from '@/contexts/writeResult';
 
 interface TransactionFormProps {

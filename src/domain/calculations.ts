@@ -10,15 +10,13 @@
  * 
  * 【重要な計算ルール】
  * - 投資・立替金などの除外判定は rules（transactionRules.ts）に従う
- * - 収支(balance) = その月の収入 - 支出。口座残高ではない（アプリは口座残高を扱わない）
+ * - 収支(net) = その月の収入 - 支出。口座残高ではない（アプリは口座残高を扱わない）
  * - カード払いは購入月の支出として計上する（引き落とし月には計上しない）
  */
 import { Transaction, MonthlyData, ChartData, Trend } from '@/types';
-import { formatDate, formatMonthLocal, getNextMonth, monthRange } from './dateUtils';
+import { formatDate, formatMonthLocal, getNextMonth, monthRange } from '@/utils/dateUtils';
 import { TransactionRules } from './transactionRules';
 
-/** カテゴリ/サブカテゴリ名 → 表示色のリゾルバ(useSettings().getColor と同形) */
-export type CategoryColorResolver = (name: string, isDark: boolean) => string;
 
 /**
  * 月別データを計算する
@@ -47,7 +45,7 @@ export const calculateMonthlyData = (
         month,
         income: 0,
         expense: 0,
-        balance: 0,
+        net: 0,
       });
     }
 
@@ -79,7 +77,7 @@ export const calculateMonthlyData = (
           month: currentMonth,
           income: 0,
           expense: 0,
-          balance: 0,
+          net: 0,
         });
       }
       currentMonth = getNextMonth(currentMonth);
@@ -91,17 +89,21 @@ export const calculateMonthlyData = (
   sortedData.forEach((monthData) => {
     // 収支 = 収入 - 支出（口座残高ではない）
     // ※立替分はすでに income/expense 集計段階で除外済み
-    monthData.balance = monthData.income - monthData.expense;
+    monthData.net = monthData.income - monthData.expense;
   });
 
   return sortedData;
 };
 
+/**
+ * 円グラフ用のカテゴリ別の金額と割合
+ *
+ * 色は付けない（表示の都合なので画面側 PieChart がテーマに合わせて付ける。#123）
+ */
 export const calculateCategoryChartData = (
   transactions: Transaction[],
   type: 'income' | 'expense',
-  rules: TransactionRules,
-  getColor: CategoryColorResolver
+  rules: TransactionRules
 ): ChartData[] => {
   const categoryMap = new Map<string, number>();
   let total = 0;
@@ -124,7 +126,6 @@ export const calculateCategoryChartData = (
       name,
       value,
       percentage: total > 0 ? Math.round((value / total) * 100) : 0,
-      color: getColor(name, false),
     }))
     .sort((a, b) => b.value - a.value);
 };
@@ -135,7 +136,7 @@ export const calculateMonthlyComparison = (
 ): {
   income: { value: number; percentage: number; trend: Trend };
   expense: { value: number; percentage: number; trend: Trend };
-  balance: { value: number; percentage: number; trend: Trend };
+  net: { value: number; percentage: number; trend: Trend };
 } => {
   // トレンド（矢印の向き）は増減の差分で判定し、%の符号も必ず差分と一致させる。
   // 分母に previous をそのまま使うと、収支がマイナスの月を基準にしたとき
@@ -151,16 +152,16 @@ export const calculateMonthlyComparison = (
 
   const prevIncome = previousData?.income || 0;
   const prevExpense = previousData?.expense || 0;
-  const prevBalance = previousData?.balance || 0;
+  const prevNet = previousData?.net || 0;
 
   const income = calculateChange(currentData.income, prevIncome);
   const expense = calculateChange(currentData.expense, prevExpense);
-  const balance = calculateChange(currentData.balance, prevBalance);
+  const net = calculateChange(currentData.net, prevNet);
 
   return {
     income: { value: currentData.income, ...income },
     expense: { value: currentData.expense, ...expense },
-    balance: { value: currentData.balance, ...balance },
+    net: { value: currentData.net, ...net },
   };
 };
 /**

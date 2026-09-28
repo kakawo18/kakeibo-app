@@ -10,7 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import { Box, Group, Paper, Stack, Text } from '@mantine/core';
-import { AnnualSummary } from '@/utils/annualSummary';
+import { AnnualSummary } from '@/domain/annualSummary';
 
 /**
  * ※ Recharts のアニメーションは全チャートで無効にしている。
