@@ -21,35 +21,14 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import {
-  collection,
-  query,
-  where,
-  limit,
-  getDocs,
-  onSnapshot,
-  doc,
-  runTransaction,
-  updateDoc,
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserSettings, CategoryColor, CategorySetting, PaymentMethodSetting } from '@/types';
-import {
-  SettingsPatch,
-  deserializeSettings,
-  serializeSettings,
-  toSettingsPatchData,
-} from '@/data/settingsSerializer';
-import {
-  buildGenericDefaultSettings,
-  buildLegacySettings,
-} from '@/config/defaultSettings';
+import { SettingsPatch } from '@/data/settingsSerializer';
+import { patchSettings, seedSettingsIfMissing, subscribeSettings } from '@/data/settingsRepository';
 import { NEUTRAL_COLOR } from '@/config/colorPalette';
 import { createTransactionRules, TransactionRules } from '@/utils/transactionRules';
 import { settle } from '@/contexts/writeResult';
-
-const settingsDocRef = (uid: string) => doc(db, 'users', uid, 'settings', 'app');
 
 // ============================================================
 // Context
@@ -113,13 +92,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
     setLoading(true);
     const uid = user.uid;
-    const ref = settingsDocRef(uid);
 
-    const unsubscribe = onSnapshot(
-      ref,
-      async (snapshot) => {
-        if (snapshot.exists()) {
-          const next = deserializeSettings(snapshot.data());
+    // 購読・初期設定の作成・保存形式の変換は data/settingsRepository.ts（#122）
+    const unsubscribe = subscribeSettings(db, uid, {
+      onChange: async (next) => {
+        if (next) {
           setSettings((previous) => ({
             ...next,
             categories: keepIfSame(previous?.categories, next.categories),
@@ -133,24 +110,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         if (seedingRef.current) return;
         seedingRef.current = true;
         try {
-          const txSnapshot = await getDocs(
-            query(
-              collection(db, 'transactions'),
-              where('userId', '==', user.uid),
-              limit(1)
-            )
-          );
-          const seed = txSnapshot.empty
-            ? buildGenericDefaultSettings()
-            : buildLegacySettings();
-
-          // 多タブ同時オープンによる二重シードを防ぐ(未存在時のみ作成)
-          await runTransaction(db, async (tx) => {
-            const current = await tx.get(ref);
-            if (!current.exists()) {
-              tx.set(ref, serializeSettings(seed));
-            }
-          });
+          await seedSettingsIfMissing(db, uid);
         } catch (error) {
           console.error('Error seeding user settings:', error);
           // 空の設定のまま画面を出すと、役割が無いので集計が静かにずれる。失敗として扱う
@@ -160,12 +120,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
           seedingRef.current = false;
         }
       },
-      (error) => {
+      onError: (error) => {
         console.error('Error listening to user settings:', error);
         setFailure({ uid, attempt, error });
         setLoading(false);
-      }
-    );
+      },
+    });
 
     return unsubscribe;
   }, [user, attempt]);
@@ -187,7 +147,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       // 他端末の変更（カテゴリ・予算など）を古い値で上書きしてしまう（#104）
       try {
         // オフラインではサーバーの確定を待たずに返す（#126）
-        await settle(updateDoc(settingsDocRef(user.uid), toSettingsPatchData(patch, new Date())));
+        await settle(patchSettings(db, user.uid, patch));
       } catch (error) {
         console.error('Error updating user settings:', error);
         throw error;

@@ -18,28 +18,15 @@ import {
   useCallback,
   ReactNode,
 } from 'react';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  Timestamp,
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Transaction, TransactionInput } from '@/types';
 import {
-  fromTransactionDoc,
-  missingRequiredFields,
-  toTransactionCreateData,
-  toTransactionUpdateData,
-} from '@/data/transactionSerializer';
+  createTransaction,
+  deleteTransaction as deleteTransactionDoc,
+  subscribeTransactions,
+  updateTransaction as updateTransactionDoc,
+} from '@/data/transactionRepository';
 import { writeTransactionsInBatches } from '@/data/transactionImport';
 import { WriteResult } from '@/data/pendingWrite';
 import { settle } from '@/contexts/writeResult';
@@ -86,36 +73,14 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     if (!user) return;
     const uid = user.uid;
 
-    const q = query(
-      collection(db, 'transactions'),
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
-
-    // 未送信の変更の有無は includeMetadataChanges ではなく pendingWrites.ts で見る
-    // （メタデータの変化まで受け取ると初回の読み込みが重くなるため）
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const transactionList: Transaction[] = [];
-        snapshot.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-          const transaction = fromTransactionDoc(docSnapshot.id, data);
-          if (!transaction) {
-            // 取引の中身はコンソールに出さない（共有端末・拡張機能経由の漏洩を避ける）。
-            // 調査に必要な「どのドキュメントの、どのフィールドが欠けているか」だけを出す。
-            console.warn('Incomplete transaction data:', docSnapshot.id, missingRequiredFields(data));
-            return;
-          }
-          transactionList.push(transaction);
-        });
-        setReceived({ uid, transactions: transactionList });
-      },
-      (error) => {
+    // 購読と保存形式の変換は data/transactionRepository.ts。ここは状態の配布と購読の開始・解除だけ（#122）
+    const unsubscribe = subscribeTransactions(db, uid, {
+      onChange: (transactions) => setReceived({ uid, transactions }),
+      onError: (error) => {
         console.error('Error listening to transactions:', error);
         setFailure({ uid, attempt, error });
-      }
-    );
+      },
+    });
 
     return unsubscribe;
   }, [user, attempt]);
@@ -134,21 +99,9 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     async (transaction: TransactionInput, options?: { id?: string }): Promise<WriteResult> => {
       if (!user) throw new Error('User not authenticated');
 
-      const now = Timestamp.fromDate(new Date());
-      const transactionData = {
-        ...toTransactionCreateData(transaction),
-        userId: user.uid,
-        createdAt: now,
-        updatedAt: now,
-      };
-
       try {
         // オフラインではサーバーの確定を待たずに返す（端末に保存され、通信が戻ると送信される）
-        return await settle(
-          options?.id
-            ? setDoc(doc(db, 'transactions', options.id), transactionData)
-            : addDoc(collection(db, 'transactions'), transactionData)
-        );
+        return await settle(createTransaction(db, user.uid, transaction, { id: options?.id }));
       } catch (error) {
         console.error('Error adding transaction:', error);
         throw error;
@@ -170,14 +123,9 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
     async (id: string, updates: Partial<Transaction>): Promise<WriteResult> => {
       if (!user) throw new Error('User not authenticated');
 
-      // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
-      const updateData = {
-        ...toTransactionUpdateData(updates),
-        updatedAt: Timestamp.fromDate(new Date()),
-      };
-
       try {
-        return await settle(updateDoc(doc(db, 'transactions', id), updateData));
+        // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
+        return await settle(updateTransactionDoc(db, id, updates));
       } catch (error) {
         console.error('Error updating transaction:', error);
         throw error;
@@ -191,7 +139,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       if (!user) throw new Error('User not authenticated');
 
       try {
-        return await settle(deleteDoc(doc(db, 'transactions', id)));
+        return await settle(deleteTransactionDoc(db, id));
       } catch (error) {
         console.error('Error deleting transaction:', error);
         throw error;

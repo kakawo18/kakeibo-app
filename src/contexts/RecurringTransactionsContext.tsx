@@ -17,28 +17,18 @@ import {
   useMemo,
   ReactNode,
 } from 'react';
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  orderBy,
-  Timestamp,
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { RecurringTransaction, Transaction } from '@/types';
 import { shouldShowRecurring } from '@/utils/recurring';
 import { settle } from '@/contexts/writeResult';
+import { RecurringTransactionInput } from '@/data/recurringTransactionSerializer';
 import {
-  RecurringTransactionInput,
-  fromRecurringDoc,
-  toRecurringCreateData,
-  toRecurringUpdateData,
-} from '@/data/recurringTransactionSerializer';
+  createRecurringTransaction,
+  deleteRecurringTransaction as deleteRecurringTransactionDoc,
+  subscribeRecurringTransactions,
+  updateRecurringTransaction as updateRecurringTransactionDoc,
+} from '@/data/recurringTransactionRepository';
 
 type RecurringTransactionsContextType = {
   recurringTransactions: RecurringTransaction[];
@@ -69,22 +59,14 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
     if (!user) return;
     const uid = user.uid;
 
-    const recurringTransactionsRef = collection(db, 'users', user.uid, 'recurringTransactions');
-    const q = query(recurringTransactionsRef, orderBy('dayOfMonth', 'asc'));
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const transactions = snapshot.docs.map((docSnapshot) =>
-          fromRecurringDoc(docSnapshot.id, user.uid, docSnapshot.data())
-        );
-        setReceived({ uid, list: transactions });
-      },
-      (error) => {
+    // 購読と保存形式の変換は data/recurringTransactionRepository.ts（#122）
+    const unsubscribe = subscribeRecurringTransactions(db, uid, {
+      onChange: (list) => setReceived({ uid, list }),
+      onError: (error) => {
         console.error('Error fetching recurring transactions:', error);
         setFailure({ uid, error });
-      }
-    );
+      },
+    });
 
     return () => unsubscribe();
   }, [user]);
@@ -98,15 +80,8 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
   const addRecurringTransaction = useCallback(async (data: RecurringTransactionInput) => {
     if (!user) throw new Error('User not authenticated');
 
-    const recurringTransactionsRef = collection(db, 'users', user.uid, 'recurringTransactions');
-    const now = Timestamp.now();
-
     // オフラインではサーバーの確定を待たずに返す（#126）
-    await settle(addDoc(recurringTransactionsRef, {
-      ...toRecurringCreateData(data),
-      createdAt: now,
-      updatedAt: now,
-    }));
+    await settle(createRecurringTransaction(db, user.uid, data));
   }, [user]);
 
   const updateRecurringTransaction = useCallback(async (
@@ -116,18 +91,13 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
     if (!user) throw new Error('User not authenticated');
 
     // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
-    const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
-    await settle(updateDoc(recurringTransactionRef, {
-      ...toRecurringUpdateData(data),
-      updatedAt: Timestamp.now(),
-    }));
+    await settle(updateRecurringTransactionDoc(db, user.uid, id, data));
   }, [user]);
 
   const deleteRecurringTransaction = useCallback(async (id: string) => {
     if (!user) throw new Error('User not authenticated');
 
-    const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
-    await settle(deleteDoc(recurringTransactionRef));
+    await settle(deleteRecurringTransactionDoc(db, user.uid, id));
   }, [user]);
 
   // 参照が安定するよう useCallback で包む（利用側の useMemo が毎レンダー無効化されるのを防ぐ）
