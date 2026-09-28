@@ -9,7 +9,7 @@
  * ルートグループ `(tabs)` は URL に現れないので、配下のパスは
  * `/`・`/history`・`/review`・`/settings` のまま変わらない。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, Button, Container, Group, Loader, Paper, Stack, Text } from '@mantine/core';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -22,14 +22,31 @@ import { CSVImportExport } from '@/components/ui/CSVImportExport';
 import { PWAInstaller } from '@/components/PWAInstaller';
 import { SyncStatusBanner } from '@/components/ui/SyncStatusBanner';
 
-const LoadingState = ({ message }: { message: string }) => (
-  <Container size="lg" py={80}>
-    <Stack align="center" gap="sm">
-      <Loader size="sm" color="indigo" />
-      <Text size="sm" c="dimmed">{message}</Text>
-    </Stack>
-  </Container>
-);
+/** この時間を過ぎても読み込み中なら、時間がかかっている理由を添える */
+const SLOW_LOADING_MS = 4000;
+
+const LoadingState = ({ message, slowHint }: { message: string; slowHint?: string }) => {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!slowHint) return;
+    const timer = setTimeout(() => setSlow(true), SLOW_LOADING_MS);
+    return () => clearTimeout(timer);
+  }, [slowHint]);
+
+  return (
+    <Container size="lg" py={80}>
+      <Stack align="center" gap="sm">
+        <Loader size="sm" color="indigo" />
+        <Text size="sm" c="dimmed">{message}</Text>
+        {slow && slowHint && (
+          <Text size="xs" c="dimmed" ta="center" maw={320}>
+            {slowHint}
+          </Text>
+        )}
+      </Stack>
+    </Container>
+  );
+};
 
 /** Firebase のエラーコード（permission-denied など）。取引の中身は含まないので表示してよい */
 const errorCode = (error: Error): string | null =>
@@ -122,7 +139,13 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
   }
 
   if (settingsLoading || transactionsLoading) {
-    return <LoadingState message="データを読み込み中..." />;
+    return (
+      <LoadingState
+        message="データを読み込み中..."
+        // 端末にキャッシュが無い初回（ログイン直後）は、全取引を端末に保存するので時間がかかる（#125）
+        slowHint="ログイン後の初回は、オフラインでも使えるようにデータを端末に保存するため時間がかかります。次回からは速く開きます。"
+      />
+    );
   }
 
   return (

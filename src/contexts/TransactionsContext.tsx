@@ -66,10 +66,6 @@ interface TransactionsContextType {
   ) => Promise<number>;
   updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<WriteResult>;
   deleteTransaction: (id: string) => Promise<WriteResult>;
-  /** サーバーへ送っていない変更がある（オフライン中の記録など。#110） */
-  hasPendingWrites: boolean;
-  /** 表示中の取引が端末のキャッシュから来ている（サーバーと同期できていない） */
-  fromCache: boolean;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | null>(null);
@@ -85,7 +81,6 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   const [attempt, setAttempt] = useState(0);
   const [received, setReceived] = useState<{ uid: string; transactions: Transaction[] } | null>(null);
   const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
-  const [sync, setSync] = useState<{ uid: string; hasPendingWrites: boolean; fromCache: boolean } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -97,22 +92,11 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       orderBy('date', 'desc')
     );
 
-    // 送信待ち・キャッシュ由来の状態を知るため、メタデータだけの変化も受け取る。
-    // ただしメタデータだけの変化（送信完了など）では取引の一覧を作り直さない（全画面の再集計になるため）
-    let built = false;
+    // 未送信の変更の有無は includeMetadataChanges ではなく pendingWrites.ts で見る
+    // （メタデータの変化まで受け取ると初回の読み込みが重くなるため）
     const unsubscribe = onSnapshot(
       q,
-      { includeMetadataChanges: true },
       (snapshot) => {
-        const { hasPendingWrites, fromCache } = snapshot.metadata;
-        setSync((prev) =>
-          prev?.uid === uid && prev.hasPendingWrites === hasPendingWrites && prev.fromCache === fromCache
-            ? prev
-            : { uid, hasPendingWrites, fromCache }
-        );
-        if (built && snapshot.docChanges().length === 0) return;
-        built = true;
-
         const transactionList: Transaction[] = [];
         snapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data();
@@ -137,9 +121,6 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   }, [user, attempt]);
 
   const current = user && received?.uid === user.uid ? received : null;
-  const currentSync = user && sync?.uid === user.uid ? sync : null;
-  const hasPendingWrites = currentSync?.hasPendingWrites ?? false;
-  const fromCache = currentSync?.fromCache ?? false;
   const error =
     user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
   const transactions = current?.transactions ?? NO_TRANSACTIONS;
@@ -229,10 +210,8 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       addTransactions,
       updateTransaction,
       deleteTransaction,
-      hasPendingWrites,
-      fromCache,
     }),
-    [transactions, loading, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction, hasPendingWrites, fromCache]
+    [transactions, loading, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

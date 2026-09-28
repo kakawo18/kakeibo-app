@@ -7,14 +7,20 @@
  * 保存したのにサーバーへ届いていない状態を利用者が見分けられるよう、
  * オフライン中と、未送信の変更が残っているあいだだけ表示する。
  */
+import { useEffect } from 'react';
 import { Container, Group, Text } from '@mantine/core';
 import { useNetwork } from '@mantine/hooks';
 import { IconCloudOff, IconCloudUpload } from '@tabler/icons-react';
-import { useTransactions } from '@/contexts/TransactionsContext';
+import { usePendingWrites, watchPendingWrites } from '@/contexts/pendingWrites';
 
 export const SyncStatusBanner = () => {
   const { online } = useNetwork();
-  const { hasPendingWrites } = useTransactions();
+  const hasPendingWrites = usePendingWrites();
+
+  // 前回オフラインで保存したまま閉じた変更が残っていれば、起動時から表示する
+  useEffect(() => {
+    watchPendingWrites();
+  }, []);
 
   if (online && !hasPendingWrites) return null;
 

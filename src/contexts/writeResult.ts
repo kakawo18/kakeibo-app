@@ -6,6 +6,7 @@
  */
 import { notifications } from '@mantine/notifications';
 import { WriteResult, settleWrite } from '@/data/pendingWrite';
+import { watchPendingWrites } from '@/contexts/pendingWrites';
 
 const notifyLateWriteError = (error: unknown) => {
   // 取引の中身は出さない。エラー（コード・メッセージ）だけ
@@ -18,8 +19,12 @@ const notifyLateWriteError = (error: unknown) => {
   });
 };
 
-export const settle = (write: Promise<unknown>): Promise<WriteResult> =>
-  settleWrite(write, { onLateError: notifyLateWriteError });
+export const settle = async (write: Promise<unknown>): Promise<WriteResult> => {
+  const result = await settleWrite(write, { onLateError: notifyLateWriteError });
+  // 送信待ちになったら、送り終わるまで画面上部に「未送信」を出す
+  if (result === 'queued') watchPendingWrites(true);
+  return result;
+};
 
 /** 保存完了の通知。送信待ちならその旨を出す */
 export const notifySaved = (result: WriteResult, message: string) => {

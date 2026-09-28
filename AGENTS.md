@@ -34,6 +34,7 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 ### テスト
 
 - 対象は React・Firebase に依存しない純関数（`src/utils/` の集計・ルール・CSV・税計算など）。画面のテストは無い。
+- 代表的な会計ケースの期待値と根拠は `docs/testing.md` の表にまとめている。会計ルールを足したら表にも1行足す。
 - テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/utils/calculations.test.ts`）。
 - 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
 - タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
