@@ -5,8 +5,9 @@ import {
   calculateCategoryYoY,
   calculateCumulativeInvestment,
   calculateMonthlyDetail,
+  calculateYearlySavings,
   getAvailableYears,
-} from '@/utils/annualSummary';
+} from '@/domain/annualSummary';
 
 const transactions = [
   tx('2025-06-25', 'income', 250_000, '給与', { subcategory: '給料' }),
@@ -43,7 +44,7 @@ describe('calculateAnnualSummaries', () => {
   });
 
   it('手元に残った額 = 手取り − 支出 − 投資、貯蓄率 = 投資 ÷ 給与', () => {
-    expect(y2026.balance).toBe(820_000 - 70_000 - 160_000);
+    expect(y2026.remaining).toBe(820_000 - 70_000 - 160_000);
     expect(y2026.savingsRate).toBeCloseTo((160_000 / 800_000) * 100);
   });
 
@@ -65,9 +66,9 @@ describe('calculateMonthlyDetail', () => {
     const detail = calculateMonthlyDetail(transactions, 2026, rules);
     expect(detail).toHaveLength(12);
     expect(detail[1]).toEqual({
-      month: '2026-02', income: 0, expense: 70_000, investment: 160_000, balance: -230_000,
+      month: '2026-02', income: 0, expense: 70_000, investment: 160_000, remaining: -230_000,
     });
-    expect(detail[11]).toEqual({ month: '2026-12', income: 0, expense: 0, investment: 0, balance: 0 });
+    expect(detail[11]).toEqual({ month: '2026-12', income: 0, expense: 0, investment: 0, remaining: 0 });
   });
 });
 
@@ -112,5 +113,24 @@ describe('calculateCumulativeInvestment（#118）', () => {
 
   it('投資が無ければ空', () => {
     expect(calculateCumulativeInvestment([tx('2026-01-10', 'expense', 1, '食費')], rules, '2026-05')).toEqual([]);
+  });
+});
+
+describe('calculateYearlySavings（ホームのタイル。#123）', () => {
+  it('年間サマリーと同じ投資額・給与収入・貯蓄率になる', () => {
+    const summary = calculateAnnualSummaries(transactions, rules).find((s) => s.year === 2026)!;
+    expect(calculateYearlySavings(transactions, rules, 2026)).toEqual({
+      investment: summary.investment,
+      salaryIncome: summary.salaryIncome,
+      savingsRate: summary.savingsRate,
+    });
+  });
+
+  it('給与収入が無い年の貯蓄率は0', () => {
+    expect(calculateYearlySavings(transactions, rules, 2024)).toEqual({
+      investment: 0,
+      salaryIncome: 0,
+      savingsRate: 0,
+    });
   });
 });

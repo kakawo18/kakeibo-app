@@ -20,7 +20,7 @@ import { formatDateJa } from '@/utils/dateUtils';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
 import { validateAmount } from '@/utils/validation';
-import { activeCategories } from '@/utils/categorySettings';
+import { activeCategories } from '@/domain/categorySettings';
 import { notifySaved } from '@/contexts/writeResult';
 import { WriteResult } from '@/data/pendingWrite';
 

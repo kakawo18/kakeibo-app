@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testSettings, tx } from '@/test/fixtures';
-import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
+import { calculateMonthlyCardRewards } from '@/domain/cardRewards';
 
 describe('calculateMonthlyCardRewards', () => {
   it('還元率のあるカードの支出だけを対象に、1件ごとに切り捨てて合計する', () => {

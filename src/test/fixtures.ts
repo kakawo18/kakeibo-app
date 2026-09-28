@@ -5,7 +5,7 @@
  * 集計ルールの各分岐を通せるようにしている。
  */
 import { Transaction, UserSettings } from '@/types';
-import { createTransactionRules } from '@/utils/transactionRules';
+import { createTransactionRules } from '@/domain/transactionRules';
 import { NEUTRAL_COLOR } from '@/config/colorPalette';
 
 const color = NEUTRAL_COLOR;

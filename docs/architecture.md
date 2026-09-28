@@ -26,11 +26,12 @@ src/
 │   └── ui/             # DashboardContent（メイン画面）, TransactionList, 各種モーダル ほか
 ├── config/             # defaultSettings.ts（新規/既存ユーザーの初期設定）, colorPalette.ts
 ├── contexts/           # Auth / Settings / Transactions / RecurringTransactions の 4 Context、書き込み結果（writeResult）・未送信の変更（pendingWrites）
-├── data/               # Firestore の読み書き（*Repository）・保存形式の変換（*Serializer）・CSV 一括保存
+├── data/               # Firestore の読み書き（*Repository）・保存形式の変換（*Serializer）・CSV（csvUtils・一括保存）
 ├── hooks/              # useSelectedMonth
 ├── lib/                # firebase.ts（初期化・エミュレータ接続）
 ├── types/              # index.ts（取引・集計）, settings.ts（ユーザー設定・役割）
-└── utils/              # calculations, transactionRules, categorySettings, cardRewards, csvUtils, dateUtils, recurring, validation
+├── domain/             # 会計の計算: transactionRules, calculations, annualSummary, cardRewards, categorySettings, recurring, tax/
+└── utils/              # 汎用処理: dateUtils, validation
 ```
 
 ## 状態管理
@@ -47,27 +48,41 @@ src/
 
 ## データフロー
 
+### 依存の向き（#123）
+
+```
+app / components ─→ contexts ─→ data ─→ domain ─→ utils / types
+      │                              ↑
+      └──────────────────────────────┘（画面は集計関数を直接呼ぶ）
+```
+
+- `src/domain/`: 会計の計算（役割による判定・月次/年次の集計・カード還元・額面の推定・カテゴリの改名とアーカイブ）。React・Next・Firebase・Mantine にも、画面・Context・データアクセスにも依存しない。取引・設定・対象期間・基準日はすべて引数で受け取る。ESLint の `no-restricted-imports` で検査している
+- `src/data/`: Firestore の読み書きと保存形式・CSV の変換。domain を使ってよい（CSV の取り込みで取引タイプを導出するなど）
+- `src/contexts/`: ユーザーごとの状態と購読の開始・解除。data と domain を使う
+- 表示の都合（色・書式）は画面側。例えば円グラフの色は `calculateCategoryChartData` では付けず、`PieChart` がテーマに合わせて付ける
+- 月の収支は `MonthlyData.net`（収入 − 支出）、年間振り返りの「手元に残った額」は `remaining`（収入 − 支出 − 投資）。どちらも口座残高ではない（以前はどちらも `balance` という名前だった）
+
 ユーザー操作 → コンポーネント → Context（の mutation メソッド）→ Repository（`src/data/*Repository.ts`）→ Firestore → リアルタイムリスナー → Context 更新 → 再レンダリング。
 
 Firestore の操作（購読・作成・更新・削除・初期設定の作成）と保存形式の変換は `src/data/` に置き、Context はユーザーごとの状態・エラー・購読の開始と解除だけを持つ（#122）。Repository は `db` を引数で受け取るので、エミュレータのテストから同じ関数を呼んで契約を確かめている（`repositories.emulator.test.ts`）。
 
-Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化している（`src/lib/firebase.ts`）。書き込みはまず端末のキャッシュに入りリスナーへすぐ反映されるが、Promise はサーバーの確定まで解決しない。オフラインで待ち続けないよう、Context の書き込みは `settle()`（`src/contexts/writeResult.ts` → `src/data/pendingWrite.ts`）を通し、オフライン時は `'queued'` を返す。画面は `notifySaved(result, ...)` で通知を出し分ける。取引の計算（月次集計・カテゴリ別・前月比）は `src/utils/calculations.ts` で `useMemo` を通して行う。
+Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化している（`src/lib/firebase.ts`）。書き込みはまず端末のキャッシュに入りリスナーへすぐ反映されるが、Promise はサーバーの確定まで解決しない。オフラインで待ち続けないよう、Context の書き込みは `settle()`（`src/contexts/writeResult.ts` → `src/data/pendingWrite.ts`）を通し、オフライン時は `'queued'` を返す。画面は `notifySaved(result, ...)` で通知を出し分ける。取引の計算（月次集計・カテゴリ別・前月比）は `src/domain/calculations.ts` で `useMemo` を通して行う。
 
 ## 役割ベースの集計（重要な設計）
 
-「投資」「立替金」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/utils/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
+「投資」「立替金」などの特別扱いは**カテゴリ名ではなくカテゴリに付与された役割（`CategoryRole`）で判定する**。`src/domain/transactionRules.ts` の `createTransactionRules(settings)` がユーザー設定から判定関数一式（`isInvestment`, `isSalaryIncome`, `deriveTransactionFlags` など）を生成し、`SettingsContext` 経由で `rules` として配布される。カテゴリ名で直接分岐するとユーザーがリネームした瞬間に壊れるため避ける。
 
-取引はカテゴリ名の文字列を持つため、改名した旧名は設定の `aliases`（以前の名前）に、使用中のまま削除したカテゴリは `archived` として設定に残し、`createTransactionRules` が旧名にも同じ役割を当てる（#97）。取引の分類・表示に使う名前は `t.category` ではなく `rules.categoryName(t)` / `rules.subcategoryName(t)` / `rules.chartKey(t)`（旧名を今の名前に読み替える）を使う。改名・削除の処理は `src/utils/categorySettings.ts`。
+取引はカテゴリ名の文字列を持つため、改名した旧名は設定の `aliases`（以前の名前）に、使用中のまま削除したカテゴリは `archived` として設定に残し、`createTransactionRules` が旧名にも同じ役割を当てる（#97）。取引の分類・表示に使う名前は `t.category` ではなく `rules.categoryName(t)` / `rules.subcategoryName(t)` / `rules.chartKey(t)`（旧名を今の名前に読み替える）を使う。改名・削除の処理は `src/domain/categorySettings.ts`。
 
 役割の一覧と意味は `docs/user-guide.md` の「カテゴリ管理」を参照。
 
 ## 額面年収の推定（年間振り返り）
 
 アプリが記録するのは口座に入った金額（＝手取り）だけで、控除の記録は持たない。
-`/review` の「年収の推移」で使う額面は、`src/utils/tax/estimateGross.ts` が
+`/review` の「年収の推移」で使う額面は、`src/domain/tax/estimateGross.ts` が
 「額面 → 手取り」を計算する関数を二分探索で反転させて求めた**概算**である。
 
-料率と控除額はすべて `src/utils/tax/rates.ts` に集約してある。**改定があったときは
+料率と控除額はすべて `src/domain/tax/rates.ts` に集約してある。**改定があったときは
 このファイルだけを更新すればよい**（新しい年分を `TAX_YEARS` に足して `LATEST_TAX_YEAR` を上げる）。
 2025年・2026年の「年収の壁」改正で基礎控除と給与所得控除が大きく動いたため、年分ごとに
 テーブルを分けている。年を無視して一律の係数を掛けると数十万円ずれる。

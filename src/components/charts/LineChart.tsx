@@ -16,7 +16,7 @@ import { notifications } from '@mantine/notifications';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { getCurrentMonth, getMonthName } from '@/utils/dateUtils';
-import { calculateCategoryTrend } from '@/utils/calculations';
+import { calculateCategoryTrend } from '@/domain/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
 
 const DISPLAY_MONTHS = 6; // 一度に表示する月数

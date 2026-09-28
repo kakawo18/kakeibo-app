@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testRules as rules, tx } from '@/test/fixtures';
-import { buildCSV, parseCSV } from '@/utils/csvUtils';
+import { buildCSV, parseCSV } from '@/data/csvUtils';
 import { Transaction } from '@/types';
 
 /** エクスポート → インポートの往復 */

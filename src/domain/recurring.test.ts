@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { tx } from '@/test/fixtures';
 import { RecurringTransaction } from '@/types';
-import { recurringRecordId, shouldShowRecurring } from '@/utils/recurring';
+import { recurringRecordId, shouldShowRecurring } from '@/domain/recurring';
 
 const recurring = (fields: Partial<RecurringTransaction> = {}): RecurringTransaction => ({
   id: 'rent',

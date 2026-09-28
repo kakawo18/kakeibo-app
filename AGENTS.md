@@ -33,9 +33,9 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 ### テスト
 
-- 対象は React・Firebase に依存しない純関数（`src/utils/` の集計・ルール・CSV・税計算など）。画面のテストは無い。
+- 対象は React・Firebase に依存しない純関数（`src/domain/` の集計・ルール・税計算、`src/data/csvUtils.ts`、`src/utils/` の日付・入力チェックなど）。画面のテストは無い。
 - 代表的な会計ケースの期待値と根拠は `docs/testing.md` の表にまとめている。会計ルールを足したら表にも1行足す。
-- テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/utils/calculations.test.ts`）。
+- テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/domain/calculations.test.ts`）。
 - 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
 - タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
 - 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
@@ -45,9 +45,10 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 ## コード規約
 
+- **依存の向き**: `app` / `components` → `contexts` → `data` → `domain` → `utils` / `types`。会計の計算（集計・役割・カード還元・税の推定・カテゴリの改名）は `src/domain/` に置き、React・Next・Firebase・Mantine と画面・Context・データアクセスを import しない（ESLint の `no-restricted-imports` で検査している）。表示用の色付けなどは画面側で行う。
 - **関数コンポーネント + フック**のみ。クライアントコンポーネントは先頭に `'use client'`。
 - **状態管理**: グローバルは 4 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext` / `RecurringTransactionsContext`、`src/app/layout.tsx` でラップ）。Firestore の購読（`onSnapshot`）はコレクションごとに Context の1か所だけに置き、画面やモーダルでは購読しない。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
-- **集計はカテゴリ名ではなく「役割」（`CategoryRole`）で判定する**。投資・立替金・カード引き落とし等の除外判定は `src/utils/transactionRules.ts` の `createTransactionRules` が生成する関数群を使う。カテゴリ名で `if` 分岐しないこと。取引をカテゴリで分類・表示するときは `t.category` ではなく `rules.categoryName(t)` / `rules.chartKey(t)` を使う（改名前の名前を今の名前に読み替える。#97）。
+- **集計はカテゴリ名ではなく「役割」（`CategoryRole`）で判定する**。投資・立替金・カード引き落とし等の除外判定は `src/domain/transactionRules.ts` の `createTransactionRules` が生成する関数群を使う。カテゴリ名で `if` 分岐しないこと。取引をカテゴリで分類・表示するときは `t.category` ではなく `rules.categoryName(t)` / `rules.chartKey(t)` を使う（改名前の名前を今の名前に読み替える。#97）。
 - **色**: セマンティック色（収入=`--income` / 支出=`--expense` / アクセント=`--accent`）とデザイントークンは `src/app/globals.css` の CSS 変数。カテゴリ/カードの色はユーザー設定（`getColor`）とパレット `src/config/colorPalette.ts` から解決する。コンポーネントに 16 進数の色を直書きしない。
 - **デザインシステム "Quiet Ledger"**: フラットな面 + ヘアライン境界（グラデーション/グラスモーフィズムは使わない）。カードは `.ledger-card`。
 - **レスポンシブ**: モバイル判定は `useMediaQuery('(max-width: 768px)')` の `isMobile`。この 768px ブレークポイントが全体で共通。

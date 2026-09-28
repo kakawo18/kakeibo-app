@@ -103,13 +103,13 @@ export interface Category {
 /**
  * 月別データ
  * 月次の収支表示と前月比較に使用。
- * balance は「その月の収入 − 支出」（月間収支）であり、口座残高ではない
+ * net は「その月の収入 − 支出」（月間収支）であり、口座残高ではない（以前の名前は balance。#123）
  */
 export interface MonthlyData {
   month: string;                      // 月（YYYY-MM形式）
   income: number;                     // 収入合計
   expense: number;                    // 支出合計（投資除外）
-  balance: number;                    // 収支（収入 - 支出）
+  net: number;                        // 収支（収入 - 支出）
 }
 
 /**

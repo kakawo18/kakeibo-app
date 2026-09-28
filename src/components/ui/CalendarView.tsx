@@ -20,7 +20,7 @@ import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import dayjs, { Dayjs } from 'dayjs';
 import { Transaction } from '@/types';
-import { calculateDailyTotals } from '@/utils/calculations';
+import { calculateDailyTotals } from '@/domain/calculations';
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 import { pressable } from '@/components/ui/pressable';
@@ -131,7 +131,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const getDailyBalance = (date: Dayjs) => {
     const { income, expense } = dailyTotals.get(date.format('YYYY-MM-DD')) ?? { income: 0, expense: 0 };
-    return { income, expense, balance: income - expense };
+    return { income, expense, net: income - expense };
   };
 
   // 収支はカレンダーのセルに出ているので、内訳の見出しでは収入と支出だけ出す
@@ -228,7 +228,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const isToday = date.isSame(today, 'day');
             const isSelected = date.isSame(selectedDate, 'day');
             const inCurrentMonth = date.month() === currentMonth.month();
-            const { income, expense, balance } = getDailyBalance(date);
+            const { income, expense, net } = getDailyBalance(date);
             const hasEntries = income > 0 || expense > 0;
 
             return (
@@ -290,13 +290,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       className="tabular-nums"
                       style={{
                         lineHeight: 1,
-                        color: balance >= 0 ? 'var(--income)' : 'var(--expense)',
+                        color: net >= 0 ? 'var(--income)' : 'var(--expense)',
                       }}
                     >
-                      {balance >= 0 ? '+' : '−'}
-                      {Math.abs(balance) >= 10000
-                        ? `${Math.round(Math.abs(balance) / 1000)}k`
-                        : Math.abs(balance).toLocaleString()}
+                      {net >= 0 ? '+' : '−'}
+                      {Math.abs(net) >= 10000
+                        ? `${Math.round(Math.abs(net) / 1000)}k`
+                        : Math.abs(net).toLocaleString()}
                     </Text>
                   </Stack>
                 )}

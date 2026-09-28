@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { testRules as rules, tx } from '@/test/fixtures';
-import { resolveFlagsOnEdit } from '@/utils/transactionRules';
+import { resolveFlagsOnEdit } from '@/domain/transactionRules';
 
 describe('役割の判定', () => {
   it('カテゴリに付いた役割で判定する', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateNetFromGross, estimateGrossFromNet } from '@/utils/tax/estimateGross';
+import { calculateNetFromGross, estimateGrossFromNet } from '@/domain/tax/estimateGross';
 
 const YEARS = [2024, 2025, 2026];
 const NETS = [1_500_000, 3_000_000, 3_900_000, 6_000_000, 9_000_000];

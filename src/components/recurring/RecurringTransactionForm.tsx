@@ -17,7 +17,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles } from '@/components/forms/formStyles';
 import { validateAmount } from '@/utils/validation';
-import { activeCategories } from '@/utils/categorySettings';
+import { activeCategories } from '@/domain/categorySettings';
 
 interface RecurringTransactionFormProps {
   opened: boolean;

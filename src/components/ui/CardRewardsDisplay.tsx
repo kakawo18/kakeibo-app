@@ -5,7 +5,7 @@ import { Modal, Card, Text, Group, Stack, Progress, Badge, Grid, Box, ThemeIcon 
 import { IconCreditCard, IconCoins, IconTrendingUp } from '@tabler/icons-react';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
-import { calculateMonthlyCardRewards } from '@/utils/cardRewards';
+import { calculateMonthlyCardRewards } from '@/domain/cardRewards';
 interface CardRewardsDisplayProps {
   transactions: Transaction[];
   selectedMonth: string;

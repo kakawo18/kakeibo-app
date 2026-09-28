@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Group, Paper, Stack, Text } from '@mantine/core';
-import { AnnualSummary } from '@/utils/annualSummary';
+import { AnnualSummary } from '@/domain/annualSummary';
 
 interface NetIncomeAllocationProps {
   summary: AnnualSummary;
@@ -21,14 +21,14 @@ interface Segment {
  * 帯は支出と投資の比率だけで描き、超過額を別に示す。
  */
 export const NetIncomeAllocation: React.FC<NetIncomeAllocationProps> = ({ summary }) => {
-  const isOverspent = summary.balance < 0;
+  const isOverspent = summary.remaining < 0;
 
   const segments: Segment[] = [
     { label: '支出', amount: summary.expense, color: 'var(--expense)' },
     { label: '投資', amount: summary.investment, color: 'var(--series-investment)' },
     ...(isOverspent
       ? []
-      : [{ label: '手元に残った分', amount: summary.balance, color: 'var(--income)' }]),
+      : [{ label: '手元に残った分', amount: summary.remaining, color: 'var(--income)' }]),
   ];
 
   const total = segments.reduce((sum, segment) => sum + segment.amount, 0);
@@ -98,7 +98,7 @@ export const NetIncomeAllocation: React.FC<NetIncomeAllocationProps> = ({ summar
               手取りを超過
             </Text>
             <Text size="sm" fw={700} className="tabular-nums" style={{ color: 'var(--expense)' }}>
-              ¥{Math.abs(summary.balance).toLocaleString()}
+              ¥{Math.abs(summary.remaining).toLocaleString()}
             </Text>
           </Group>
         )}

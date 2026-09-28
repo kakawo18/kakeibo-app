@@ -27,7 +27,7 @@ import {
 } from 'firebase/firestore';
 import { fromTransactionDoc, toTransactionCreateData, toTransactionUpdateData } from '@/data/transactionSerializer';
 import { toRecurringCreateData, toRecurringUpdateData } from '@/data/recurringTransactionSerializer';
-import { recurringRecordId } from '@/utils/recurring';
+import { recurringRecordId } from '@/domain/recurring';
 
 const UID = 'alice';
 let env: RulesTestEnvironment;
