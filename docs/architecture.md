@@ -46,7 +46,9 @@ src/
 
 ## データフロー
 
-ユーザー操作 → コンポーネント → Context（の mutation メソッド）→ Firestore → リアルタイムリスナー → Context 更新 → 再レンダリング。取引の計算（月次集計・カテゴリ別・前月比）は `src/utils/calculations.ts` で `useMemo` を通して行う。
+ユーザー操作 → コンポーネント → Context（の mutation メソッド）→ Firestore → リアルタイムリスナー → Context 更新 → 再レンダリング。
+
+Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化している（`src/lib/firebase.ts`）。書き込みはまず端末のキャッシュに入りリスナーへすぐ反映されるが、Promise はサーバーの確定まで解決しない。オフラインで待ち続けないよう、Context の書き込みは `settle()`（`src/contexts/writeResult.ts` → `src/data/pendingWrite.ts`）を通し、オフライン時は `'queued'` を返す。画面は `notifySaved(result, ...)` で通知を出し分ける。取引の計算（月次集計・カテゴリ別・前月比）は `src/utils/calculations.ts` で `useMemo` を通して行う。
 
 ## 役割ベースの集計（重要な設計）
 

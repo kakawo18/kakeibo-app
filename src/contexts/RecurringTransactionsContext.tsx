@@ -32,6 +32,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { RecurringTransaction, Transaction } from '@/types';
 import { shouldShowRecurring } from '@/utils/recurring';
+import { settle } from '@/contexts/writeResult';
 import {
   RecurringTransactionInput,
   fromRecurringDoc,
@@ -100,11 +101,12 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
     const recurringTransactionsRef = collection(db, 'users', user.uid, 'recurringTransactions');
     const now = Timestamp.now();
 
-    await addDoc(recurringTransactionsRef, {
+    // オフラインではサーバーの確定を待たずに返す（#126）
+    await settle(addDoc(recurringTransactionsRef, {
       ...toRecurringCreateData(data),
       createdAt: now,
       updatedAt: now,
-    });
+    }));
   }, [user]);
 
   const updateRecurringTransaction = useCallback(async (
@@ -115,17 +117,17 @@ export const RecurringTransactionsProvider = ({ children }: { children: ReactNod
 
     // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
     const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
-    await updateDoc(recurringTransactionRef, {
+    await settle(updateDoc(recurringTransactionRef, {
       ...toRecurringUpdateData(data),
       updatedAt: Timestamp.now(),
-    });
+    }));
   }, [user]);
 
   const deleteRecurringTransaction = useCallback(async (id: string) => {
     if (!user) throw new Error('User not authenticated');
 
     const recurringTransactionRef = doc(db, 'users', user.uid, 'recurringTransactions', id);
-    await deleteDoc(recurringTransactionRef);
+    await settle(deleteDoc(recurringTransactionRef));
   }, [user]);
 
   // 参照が安定するよう useCallback で包む（利用側の useMemo が毎レンダー無効化されるのを防ぐ）

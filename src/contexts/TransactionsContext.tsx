@@ -41,6 +41,8 @@ import {
   toTransactionUpdateData,
 } from '@/data/transactionSerializer';
 import { writeTransactionsInBatches } from '@/data/transactionImport';
+import { WriteResult } from '@/data/pendingWrite';
+import { settle } from '@/contexts/writeResult';
 
 interface TransactionsContextType {
   transactions: Transaction[];
@@ -53,7 +55,7 @@ interface TransactionsContextType {
    * 取引を1件追加する。options.id を渡すとその ID で書く（同じ ID なら上書きになり、
    * 複数端末から同時に記録しても1件にまとまる。定期取引の記録で使う）
    */
-  addTransaction: (transaction: TransactionInput, options?: { id?: string }) => Promise<void>;
+  addTransaction: (transaction: TransactionInput, options?: { id?: string }) => Promise<WriteResult>;
   /**
    * CSVインポート用の一括追加。500件ずつバッチ書き込みする。
    * 途中で失敗すると ImportWriteError（保存済みの件数つき）を投げる
@@ -62,8 +64,12 @@ interface TransactionsContextType {
     transactions: TransactionInput[],
     options?: { importId?: string }
   ) => Promise<number>;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
-  deleteTransaction: (id: string) => Promise<void>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<WriteResult>;
+  deleteTransaction: (id: string) => Promise<WriteResult>;
+  /** サーバーへ送っていない変更がある（オフライン中の記録など。#110） */
+  hasPendingWrites: boolean;
+  /** 表示中の取引が端末のキャッシュから来ている（サーバーと同期できていない） */
+  fromCache: boolean;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | null>(null);
@@ -79,6 +85,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   const [attempt, setAttempt] = useState(0);
   const [received, setReceived] = useState<{ uid: string; transactions: Transaction[] } | null>(null);
   const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
+  const [sync, setSync] = useState<{ uid: string; hasPendingWrites: boolean; fromCache: boolean } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -90,9 +97,22 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       orderBy('date', 'desc')
     );
 
+    // 送信待ち・キャッシュ由来の状態を知るため、メタデータだけの変化も受け取る。
+    // ただしメタデータだけの変化（送信完了など）では取引の一覧を作り直さない（全画面の再集計になるため）
+    let built = false;
     const unsubscribe = onSnapshot(
       q,
+      { includeMetadataChanges: true },
       (snapshot) => {
+        const { hasPendingWrites, fromCache } = snapshot.metadata;
+        setSync((prev) =>
+          prev?.uid === uid && prev.hasPendingWrites === hasPendingWrites && prev.fromCache === fromCache
+            ? prev
+            : { uid, hasPendingWrites, fromCache }
+        );
+        if (built && snapshot.docChanges().length === 0) return;
+        built = true;
+
         const transactionList: Transaction[] = [];
         snapshot.forEach((docSnapshot) => {
           const data = docSnapshot.data();
@@ -117,6 +137,9 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   }, [user, attempt]);
 
   const current = user && received?.uid === user.uid ? received : null;
+  const currentSync = user && sync?.uid === user.uid ? sync : null;
+  const hasPendingWrites = currentSync?.hasPendingWrites ?? false;
+  const fromCache = currentSync?.fromCache ?? false;
   const error =
     user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
   const transactions = current?.transactions ?? NO_TRANSACTIONS;
@@ -127,8 +150,8 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   const retry = useCallback(() => setAttempt((value) => value + 1), []);
 
   const addTransaction = useCallback(
-    async (transaction: TransactionInput, options?: { id?: string }) => {
-      if (!user) return;
+    async (transaction: TransactionInput, options?: { id?: string }): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       const now = Timestamp.fromDate(new Date());
       const transactionData = {
@@ -139,11 +162,12 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       };
 
       try {
-        if (options?.id) {
-          await setDoc(doc(db, 'transactions', options.id), transactionData);
-        } else {
-          await addDoc(collection(db, 'transactions'), transactionData);
-        }
+        // オフラインではサーバーの確定を待たずに返す（端末に保存され、通信が戻ると送信される）
+        return await settle(
+          options?.id
+            ? setDoc(doc(db, 'transactions', options.id), transactionData)
+            : addDoc(collection(db, 'transactions'), transactionData)
+        );
       } catch (error) {
         console.error('Error adding transaction:', error);
         throw error;
@@ -162,8 +186,8 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const updateTransaction = useCallback(
-    async (id: string, updates: Partial<Transaction>) => {
-      if (!user) return;
+    async (id: string, updates: Partial<Transaction>): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
       const updateData = {
@@ -172,7 +196,7 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       };
 
       try {
-        await updateDoc(doc(db, 'transactions', id), updateData);
+        return await settle(updateDoc(doc(db, 'transactions', id), updateData));
       } catch (error) {
         console.error('Error updating transaction:', error);
         throw error;
@@ -182,11 +206,11 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const deleteTransaction = useCallback(
-    async (id: string) => {
-      if (!user) return;
+    async (id: string): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       try {
-        await deleteDoc(doc(db, 'transactions', id));
+        return await settle(deleteDoc(doc(db, 'transactions', id)));
       } catch (error) {
         console.error('Error deleting transaction:', error);
         throw error;
@@ -205,8 +229,10 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
       addTransactions,
       updateTransaction,
       deleteTransaction,
+      hasPendingWrites,
+      fromCache,
     }),
-    [transactions, loading, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
+    [transactions, loading, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction, hasPendingWrites, fromCache]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

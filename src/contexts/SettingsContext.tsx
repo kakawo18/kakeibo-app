@@ -47,6 +47,7 @@ import {
 } from '@/config/defaultSettings';
 import { NEUTRAL_COLOR } from '@/config/colorPalette';
 import { createTransactionRules, TransactionRules } from '@/utils/transactionRules';
+import { settle } from '@/contexts/writeResult';
 
 const settingsDocRef = (uid: string) => doc(db, 'users', uid, 'settings', 'app');
 
@@ -185,7 +186,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       // 渡された項目だけを書く。手元の設定全体を書き戻すと、まだ届いていない
       // 他端末の変更（カテゴリ・予算など）を古い値で上書きしてしまう（#104）
       try {
-        await updateDoc(settingsDocRef(user.uid), toSettingsPatchData(patch, new Date()));
+        // オフラインではサーバーの確定を待たずに返す（#126）
+        await settle(updateDoc(settingsDocRef(user.uid), toSettingsPatchData(patch, new Date())));
       } catch (error) {
         console.error('Error updating user settings:', error);
         throw error;
