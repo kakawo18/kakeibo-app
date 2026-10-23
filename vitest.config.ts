@@ -10,6 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // 'server-only' は React Server Components の外では例外を投げるので、テストでは空にする
+      'server-only': fileURLToPath(new URL('./src/test/serverOnlyStub.ts', import.meta.url)),
     },
   },
   test: {

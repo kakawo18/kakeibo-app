@@ -15,6 +15,7 @@ import {
 import { Paper, Text, Group, Badge, Box, Stack, Progress } from '@mantine/core';
 import { Transaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
+import { calculateBudgetUsage, isCountedInBudget } from '@/domain/budget';
 
 // ============================================================
 // ヘルパー関数
@@ -121,11 +122,9 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
     const dailyPerDay = new Map<number, number>();
 
     transactions.forEach((t) => {
-      if (t.type !== 'expense') return;
       // 投資・立替金などの共通除外に加え、
       // 「支出ペース除外」役割のカテゴリ（家賃など毎月固定額の支出）も除外する
-      if (rules.isExcludedFromExpense(t)) return;
-      if (rules.isExcludedFromPace(t)) return;
+      if (!isCountedInBudget(t, rules)) return;
 
       const tYear = t.date.getFullYear();
       const tMonth = t.date.getMonth() + 1;
@@ -156,16 +155,11 @@ export const SpendingPaceChart: React.FC<SpendingPaceChartProps> = ({
     return result;
   }, [transactions, selectedMonth, daysInMonth, budget, rules]);
 
-  // 実績の最終値（現時点の累計支出）
-  const totalExpense = useMemo(() => {
-    for (let i = chartData.length - 1; i >= 0; i--) {
-      const v = chartData[i].cumulative;
-      if (v != null) return v;
-    }
-    return 0;
-  }, [chartData]);
-
-  const usageRate = budget > 0 ? (totalExpense / budget) * 100 : 0;
+  // 実績の最終値（現時点の累計支出）。数え方は domain/budget.ts（Claude 連携と共通）
+  const { paceExpense: totalExpense, usageRate } = useMemo(
+    () => calculateBudgetUsage(transactions, selectedMonth, budget, rules),
+    [transactions, selectedMonth, budget, rules]
+  );
   const isOverBudget = totalExpense > budget;
   const isWarning = !isOverBudget && totalExpense > budget * 0.8;
 
