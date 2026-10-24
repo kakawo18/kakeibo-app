@@ -9,6 +9,9 @@
 /** カテゴリ・サブカテゴリ・支払方法の名前の上限（firestore.rules の category.size() <= 50） */
 export const MAX_NAME_LENGTH = 50;
 
+/** メモの上限（firestore.rules の description.size() <= 200） */
+export const MAX_DESCRIPTION_LENGTH = 200;
+
 /** 1件あたりの金額の上限（桁の打ち間違いの検出用） */
 export const MAX_AMOUNT = 1_000_000_000;
 
@@ -19,6 +22,12 @@ export const validateName = (name: string, label: string): string | null => {
   if (trimmed.length > MAX_NAME_LENGTH) return `${label}は${MAX_NAME_LENGTH}文字以内にしてください`;
   return null;
 };
+
+/** メモの検証。空は可 */
+export const validateDescription = (description: string): string | null =>
+  description.trim().length > MAX_DESCRIPTION_LENGTH
+    ? `メモは${MAX_DESCRIPTION_LENGTH}文字以内にしてください`
+    : null;
 
 /**
  * 金額の検証。保存時は小数点以下を切り捨てるので、切り捨てた値で判定する。

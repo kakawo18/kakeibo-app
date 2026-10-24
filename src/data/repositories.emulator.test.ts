@@ -6,12 +6,14 @@
  * - 更新: undefined は変更しない / 空文字は項目を消す
  * - 旧データ: 必須項目が欠けたドキュメントは飛ばす
  * - 設定: 無ければ初期設定を作る（取引の有無で既定を切り替え、既にあれば上書きしない）
+ * - 書き込みの形: アプリが書かないフィールド・長すぎる文字列・未知のパスは拒否する（#163）
  */
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   RulesTestEnvironment,
   assertFails,
+  assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
@@ -23,6 +25,7 @@ import {
   getDocs,
   query,
   setDoc,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 import { RecurringTransaction, Transaction, TransactionInput, UserSettings } from '@/types';
@@ -39,6 +42,8 @@ import {
   updateRecurringTransaction,
 } from '@/data/recurringTransactionRepository';
 import { patchSettings, seedSettingsIfMissing, subscribeSettings } from '@/data/settingsRepository';
+import { serializeSettings } from '@/data/settingsSerializer';
+import { testSettings } from '@/test/fixtures';
 
 const UID = 'alice';
 let env: RulesTestEnvironment;
@@ -320,6 +325,101 @@ describe('settingsRepository', () => {
     await expect(
       nextValue<UserSettings | null>((handlers) => subscribeSettings(otherDb, UID, handlers))
     ).rejects.toThrow();
+  });
+});
+
+describe('書き込みの形と大きさ（firestore.rules。#163）', () => {
+  /** ルールを通さずに書く（上限を入れる前に保存された既存データの再現） */
+  const writeWithoutRules = (path: string, id: string, data: Record<string, unknown>) =>
+    env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore() as unknown as Firestore, path, id), data);
+    });
+
+  const transactionData = (overrides: Record<string, unknown> = {}) => ({
+    userId: UID,
+    type: 'expense',
+    amount: 1000,
+    category: '食費',
+    date: Timestamp.fromDate(new Date(2026, 2, 10, 12)),
+    transactionType: 'normal',
+    affectsExpense: true,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+    ...overrides,
+  });
+
+  it('取引: アプリが書くフィールドは全部通り、それ以外のフィールドは作成・更新とも拒否する', async () => {
+    await assertSucceeds(
+      createTransaction(
+        db,
+        UID,
+        input({ subcategory: '外食', paymentMethod: '現金', description: 'あ'.repeat(200), recurringTransactionId: 'r1', recurringMonth: '2026-03' }),
+        { id: 't1' }
+      )
+    );
+    await assertFails(setDoc(doc(db, 'transactions', 'junk'), transactionData({ junk: 'x' })));
+    await assertFails(updateDoc(doc(db, 'transactions', 't1'), { junk: 'x' }));
+  });
+
+  it('取引: 長すぎる文字列・未知の取引タイプ・形式の違う対象月は拒否する', async () => {
+    const ref = (id: string) => doc(db, 'transactions', id);
+    await assertFails(setDoc(ref('a'), transactionData({ description: 'あ'.repeat(201) })));
+    await assertFails(setDoc(ref('b'), transactionData({ subcategory: 'あ'.repeat(51) })));
+    await assertFails(setDoc(ref('c'), transactionData({ paymentMethod: 'あ'.repeat(51) })));
+    await assertFails(setDoc(ref('d'), transactionData({ transactionType: 'other' })));
+    await assertFails(setDoc(ref('e'), transactionData({ affectsExpense: 'yes' })));
+    await assertFails(setDoc(ref('f'), transactionData({ recurringMonth: 'x'.repeat(1000) })));
+    // 廃止済みのレガシー値は CSV の復元で書き戻すので通す
+    await assertSucceeds(setDoc(ref('g'), transactionData({ transactionType: 'card_withdrawal' })));
+  });
+
+  it('取引: 上限を入れる前の長いメモを持つ取引も、メモ以外は編集できる。メモを長いまま書き換えるのは拒否する', async () => {
+    await writeWithoutRules('transactions', 'legacy', transactionData({ description: 'あ'.repeat(500) }));
+    await assertSucceeds(updateTransaction(db, 'legacy', { amount: 2000, description: 'あ'.repeat(500) }));
+    await assertFails(updateTransaction(db, 'legacy', { description: 'い'.repeat(500) }));
+    await assertSucceeds(updateTransaction(db, 'legacy', { description: '短いメモ' }));
+  });
+
+  it('設定: 初期設定・部分更新は通り、知らない項目や件数の多すぎる配列は拒否する', async () => {
+    const ref = doc(db, 'users', UID, 'settings', 'app');
+    await assertFails(setDoc(ref, { ...serializeSettings(testSettings), junk: 'x' }));
+    await assertSucceeds(setDoc(ref, serializeSettings(testSettings)));
+    await assertSucceeds(patchSettings(db, UID, { monthlyBudget: 200_000 }));
+    await assertFails(updateDoc(ref, { junk: 'x' }));
+    await assertFails(updateDoc(ref, { categories: Array.from({ length: 201 }, () => ({})) }));
+    await assertFails(updateDoc(ref, { paymentMethods: 'x' }));
+    await assertFails(updateDoc(ref, { monthlyBudget: 'x' }));
+  });
+
+  it('設定: settings/app 以外のドキュメントは書けない', async () => {
+    await assertFails(setDoc(doc(db, 'users', UID, 'settings', 'other'), serializeSettings(testSettings)));
+  });
+
+  it('定期取引: 知らない項目・長すぎる名前・範囲外の実行日は拒否する', async () => {
+    const col = collection(db, 'users', UID, 'recurringTransactions');
+    const base = { name: '家賃', amount: 80000, category: '固定費', dayOfMonth: 27, isEnabled: true, createdAt: Timestamp.now(), updatedAt: Timestamp.now() };
+    await assertSucceeds(setDoc(doc(col, 'r1'), base));
+    await assertFails(setDoc(doc(col, 'r2'), { ...base, junk: 'x' }));
+    await assertFails(setDoc(doc(col, 'r3'), { ...base, name: 'あ'.repeat(51) }));
+    await assertFails(setDoc(doc(col, 'r4'), { ...base, dayOfMonth: 32 }));
+    await assertFails(setDoc(doc(col, 'r5'), { ...base, dayOfMonth: 5.5 }));
+    await assertFails(setDoc(doc(col, 'r6'), { name: '家賃' }));
+    await assertFails(updateDoc(doc(col, 'r1'), { junk: 'x' }));
+    await assertFails(updateRecurringTransaction(db, UID, 'r1', { name: 'あ'.repeat(51) }));
+  });
+
+  it('定期取引: 上限を入れる前の長い名前を持つものも、名前以外は編集できる', async () => {
+    await writeWithoutRules(`users/${UID}/recurringTransactions`, 'legacy', {
+      name: 'あ'.repeat(80), amount: 1000, category: '固定費', dayOfMonth: 1, isEnabled: true,
+    });
+    await assertSucceeds(updateRecurringTransaction(db, UID, 'legacy', { name: 'あ'.repeat(80), amount: 2000 }));
+  });
+
+  it('users/{uid} 配下のアプリが使わないパスは、本人でも読み書きできない', async () => {
+    await assertFails(setDoc(doc(db, 'users', UID, 'junk', 'x'), { data: 'x' }));
+    await assertFails(setDoc(doc(db, 'users', UID), { data: 'x' }));
+    await assertFails(setDoc(doc(db, 'users', UID, 'settings', 'app', 'nested', 'x'), { data: 'x' }));
+    await assertFails(getDoc(doc(db, 'users', UID, 'junk', 'x')));
   });
 });
 

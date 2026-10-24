@@ -19,7 +19,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { formatDateJa } from '@/utils/dateUtils';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
-import { validateAmount } from '@/utils/validation';
+import { validateAmount, validateDescription } from '@/utils/validation';
 import { activeCategories } from '@/domain/categorySettings';
 import { notifySaved } from '@/contexts/writeResult';
 import { WriteResult } from '@/data/pendingWrite';
@@ -69,6 +69,7 @@ export const RecurringTransactionConfirm: React.FC<RecurringTransactionConfirmPr
     validate: {
       amount: (value) => validateAmount(value),
       category: (value) => (value.trim() ? null : 'カテゴリを選択してください'),
+      description: (value) => validateDescription(value),
     },
   });
 
