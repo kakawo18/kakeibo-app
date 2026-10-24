@@ -29,11 +29,11 @@ const eslintConfig = [
         {
           patterns: [
             {
-              group: ["react", "react-dom", "next", "next/*", "firebase", "firebase/*", "@firebase/*", "@mantine/*"],
+              group: ["react", "react-dom", "next", "next/*", "firebase", "firebase/*", "@firebase/*", "firebase-admin", "firebase-admin/*", "@mantine/*"],
               message: "src/domain は React・Next・Firebase・Mantine に依存しない（docs/architecture.md の依存方向）",
             },
             {
-              group: ["@/components/*", "@/contexts/*", "@/data/*", "@/lib/*", "@/app/*", "@/hooks/*", "@/features", "@/features/*"],
+              group: ["@/components/*", "@/contexts/*", "@/data/*", "@/lib/*", "@/app/*", "@/hooks/*", "@/features", "@/features/*", "@/server", "@/server/*"],
               message: "src/domain から画面・Context・データアクセスを参照しない（docs/architecture.md の依存方向）",
             },
           ],
@@ -61,6 +61,29 @@ const eslintConfig = [
     },
   },
   {
+    // サーバー専用のコード（src/server）と Admin SDK は、画面・Context・データアクセスから使わない。
+    // Admin SDK は firestore.rules を通らないので、使う場所を src/server に限る
+    // （docs/claude-connector/仕様書.md 7.1）。上の機能の公開窓口の規則もここで重ねてかける
+    files: ["src/features/**/*.{ts,tsx}", "src/contexts/**/*.{ts,tsx}", "src/data/**/*.ts", "src/hooks/**/*.ts", "src/lib/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*/*"],
+              message: "機能の中のファイルを直接参照しない。@/features/<機能名>（index.ts）から import する",
+            },
+            {
+              group: ["@/server", "@/server/*", "firebase-admin", "firebase-admin/*"],
+              message: "src/server と Admin SDK はサーバー専用。画面・Context・データアクセスから使わない（docs/claude-connector/仕様書.md 7.1）",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // 共通 UI（src/components）は特定の機能に依存しない（#124）
     files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
     rules: {
@@ -71,6 +94,10 @@ const eslintConfig = [
             {
               group: ["@/features", "@/features/*"],
               message: "src/components は共通 UI。特定の機能（src/features）に依存しない",
+            },
+            {
+              group: ["@/server", "@/server/*", "firebase-admin", "firebase-admin/*"],
+              message: "src/server と Admin SDK はサーバー専用。共通 UI から使わない（docs/claude-connector/仕様書.md 7.1）",
             },
           ],
         },

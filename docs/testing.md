@@ -45,6 +45,8 @@ CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテス�
 | 年末年始 | 12/31 と 1/1 は別の月・別の年に入る（端末のローカル時刻で判定） | §13 月次ナビゲーション | `calculations.test.ts` 年をまたいでも月が連続する |
 | 取引の無い月 | 0 で埋めて月を連続させる（グラフが飛ばない） | #118 | `calculations.test.ts`、`annualSummary.test.ts` |
 | 画面ごとの一致 | ホームの支出・円グラフの合計・カレンダーの日別合計・推移グラフは同じ除外ルール | #100 | `calculations.test.ts` |
+| 月間予算との比較 | 共通の除外に加えて「支出ペース除外」の取引も外す。今月は今日までの取引だけ数える。ホームの支出ペースと Claude 連携で同じ関数を使う | `docs/claude-connector/仕様書.md` 6.4 | `budget.test.ts` |
+| Admin SDK の読み出し | 指定した uid の取引・設定・定期取引だけを返す（ルールを通らないのでコードで保証する） | `docs/claude-connector/仕様書.md` 7.2 | `src/server/kakeiboReader.emulator.test.ts` |
 | カテゴリの改名・削除 | 過去の取引の集計は変わらない（以前の名前・アーカイブ） | §3.1 | `categorySettings.test.ts` |
 | 編集 | メモだけ直しても取引タイプ・支出に含めるかは変わらない | §2.3、#99 | `transactionRules.test.ts` resolveFlagsOnEdit |
 | 定期取引の記録 | 定期取引 ID と対象月で記録済みを判定し、同じ月は1件にまとまる | §8、#101 | `recurring.test.ts` |
