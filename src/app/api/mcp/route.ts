@@ -6,10 +6,10 @@
  * MCP_ENABLED=1 でない環境では 404（開発環境のエミュレータ接続時を除く）。
  */
 import { createMcpHandler, withMcpAuth } from 'mcp-handler';
-import { isMcpEnabled } from '@/server/config';
 import { registerKakeiboTools } from '@/server/mcp/tools';
 import { KAKEIBO_INSTRUCTIONS } from '@/server/mcp/instructions';
-import { isDevBypass, verifyMcpToken } from '@/server/oauth/verifyMcpToken';
+import { verifyMcpToken } from '@/server/oauth/verifyMcpToken';
+import { isOAuthAvailable, notFound } from '@/server/oauth/availability';
 import packageJson from '../../../../package.json';
 
 // Admin SDK は Edge ランタイムでは動かない
@@ -28,6 +28,6 @@ const authHandler = withMcpAuth(handler, verifyMcpToken, {
 });
 
 const route = (request: Request): Promise<Response> | Response =>
-  isMcpEnabled() || isDevBypass() ? authHandler(request) : new Response(null, { status: 404 });
+  isOAuthAvailable() ? authHandler(request) : notFound();
 
 export { route as GET, route as POST, route as DELETE };

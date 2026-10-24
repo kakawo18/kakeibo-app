@@ -13,6 +13,11 @@ rules_version = '2';
 //   transactions/{id}                       … 取引。userId フィールドで所有者を持つ
 //   users/{uid}/settings/app                … カテゴリ・支払方法・月間予算・グラフの表示設定
 //   users/{uid}/recurringTransactions/{id}  … 定期取引
+//   oauthAuthorizationCodes/{hash}          … Claude 連携の認可コード（サーバーの Admin SDK だけが使う）
+//   oauthRefreshTokens/{hash}               … Claude 連携のリフレッシュトークン（同上）
+//
+// Admin SDK はこのルールを通らない。サーバー（src/server）が読む利用者のデータは、
+// コードの側で uid に絞っている（docs/claude-connector/仕様書.md 7.2）。
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -51,6 +56,16 @@ service cloud.firestore {
     // ユーザー個別のデータ（設定・定期取引）
     match /users/{userId}/{document=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Claude 連携の認可コードとリフレッシュトークン。
+    // サーバー（Admin SDK）だけが読み書きし、クライアントからは本人のものでも一切触らせない。
+    // 下の「全て拒否」でも拒否されるが、意図を残すために名指しする
+    match /oauthAuthorizationCodes/{codeHash} {
+      allow read, write: if false;
+    }
+    match /oauthRefreshTokens/{tokenHash} {
+      allow read, write: if false;
     }
 
     // 上記に当てはまらないパスは全て拒否

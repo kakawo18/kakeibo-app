@@ -15,6 +15,9 @@ src/
 │   │   ├── history/    # 履歴（/history）リスト⇄カレンダー
 │   │   ├── review/     # 年間振り返り（/review）
 │   │   └── settings/   # 設定（/settings）
+│   ├── oauth/authorize/ # Claude 連携の同意画面（/oauth/authorize）
+│   ├── api/            # Route Handler: mcp（MCP サーバー）・oauth/authorize・oauth/token
+│   ├── .well-known/    # OAuth のメタデータ（保護リソース・認可サーバー）
 │   └── globals.css     # デザイントークン（CSS 変数）と "Quiet Ledger" スタイル
 ├── features/           # 機能ごとの画面（#124）。外からは各機能の index.ts だけを import する
 │   ├── auth/           # LoginForm
@@ -23,7 +26,8 @@ src/
 │   ├── recurring/      # 定期取引の管理・登録・記録の確認・通知
 │   ├── review/         # 年間振り返りの各セクションとグラフ
 │   ├── settings/       # 設定ページの各セクション（カテゴリ/支払方法/予算）
-│   └── import-export/  # CSV の書き出し・取り込み
+│   ├── import-export/  # CSV の書き出し・取り込み
+│   └── claude-connect/ # Claude 連携の同意画面
 ├── components/         # 共通 UI（特定の機能に依存しない）
 │   ├── charts/         # PieChart（ホームと振り返りで使う）
 │   ├── forms/          # ResponsiveSelect（モバイルはネイティブ select）・formStyles
@@ -36,7 +40,8 @@ src/
 ├── hooks/              # useSelectedMonth
 ├── lib/                # firebase.ts（初期化・エミュレータ接続）
 ├── types/              # index.ts（取引・集計）, settings.ts（ユーザー設定・役割）
-├── domain/             # 会計の計算: transactionRules, calculations, annualSummary, cardRewards, categorySettings, recurring, tax/
+├── server/             # サーバー専用（Claude 連携）: Admin SDK・uid で絞った読み出し・MCP のツール・認可サーバー
+├── domain/             # 会計の計算: transactionRules, calculations, annualSummary, budget, cardRewards, categorySettings, recurring, tax/
 └── utils/              # 汎用処理: dateUtils, validation
 ```
 
@@ -79,6 +84,19 @@ app ─→ features ─→ components（共通 UI）
 Firestore の操作（購読・作成・更新・削除・初期設定の作成）と保存形式の変換は `src/data/` に置き、Context はユーザーごとの状態・エラー・購読の開始と解除だけを持つ（#122）。Repository は `db` を引数で受け取るので、エミュレータのテストから同じ関数を呼んで契約を確かめている（`repositories.emulator.test.ts`）。
 
 Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化している（`src/lib/firebase.ts`）。書き込みはまず端末のキャッシュに入りリスナーへすぐ反映されるが、Promise はサーバーの確定まで解決しない。オフラインで待ち続けないよう、Context の書き込みは `settle()`（`src/contexts/writeResult.ts` → `src/data/pendingWrite.ts`）を通し、オフライン時は `'queued'` を返す。画面は `notifySaved(result, ...)` で通知を出し分ける。取引の計算（月次集計・カテゴリ別・前月比）は `src/domain/calculations.ts` で `useMemo` を通して行う。
+
+## Claude 連携（サーバー側）
+
+Claude のチャットから家計簿を読み取り専用で検索・集計できるようにする MCP サーバーと、そのための OAuth の認可サーバーを、同じ Next.js アプリの Route Handler として置いている。仕様と設計の理由は `docs/claude-connector/仕様書.md`、作業と確認の手順は `docs/claude-connector/手順書.md`。
+
+```
+app（route.ts・oauth/authorize/page.tsx）─→ server ─→ data（変換だけ）・domain ─→ utils / types
+```
+
+- `src/server/` はサーバー専用。Admin SDK は `firestore.rules` を通らないので、利用者のデータは `kakeiboReader.ts` の関数で、トークンから得た uid に絞って読む
+- ツールの結果は `server/mcp/summaries.ts` の純関数で組み立て、集計は `src/domain` の関数をそのまま使う（画面と同じ数値になる）
+- 月の判定はローカル時刻で行うので、サーバーは `server/timezone.ts` で日本時間に固定し、集計の前に確かめる
+- 本番では `MCP_ENABLED=1` のときだけ有効（それ以外は 404）
 
 ## 役割ベースの集計（重要な設計）
 

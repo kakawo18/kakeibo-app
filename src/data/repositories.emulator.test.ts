@@ -14,7 +14,17 @@ import {
   assertFails,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { Firestore, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  Firestore,
+  Timestamp,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 import { RecurringTransaction, Transaction, TransactionInput, UserSettings } from '@/types';
 import {
   createTransaction,
@@ -310,5 +320,18 @@ describe('settingsRepository', () => {
     await expect(
       nextValue<UserSettings | null>((handlers) => subscribeSettings(otherDb, UID, handlers))
     ).rejects.toThrow();
+  });
+});
+
+describe('Claude 連携の認可コード・リフレッシュトークン（firestore.rules）', () => {
+  it('ログインしていても、クライアントからは読めず書けない（Admin SDK だけが使う）', async () => {
+    for (const path of ['oauthAuthorizationCodes', 'oauthRefreshTokens']) {
+      await env.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore() as unknown as Firestore, path, 'h1'), { uid: UID });
+      });
+      await assertFails(getDoc(doc(db, path, 'h1')));
+      await assertFails(getDocs(query(collection(db, path), where('uid', '==', UID))));
+      await assertFails(setDoc(doc(db, path, 'h2'), { uid: UID }));
+    }
   });
 });
