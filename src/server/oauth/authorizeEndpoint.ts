@@ -6,7 +6,6 @@
  */
 import 'server-only';
 import type { McpConfig } from '../config';
-import { adminAuth } from '../firebaseAdmin';
 import { isDevBypass } from './verifyMcpToken';
 import {
   CLAUDE_REDIRECT_URI,
@@ -15,14 +14,11 @@ import {
   validateAuthorizeParams,
 } from './params';
 import { issueAuthorizationCode } from './store';
+import { verifyFirebaseIdToken } from './firebaseIdToken';
 
 /** 受け付ける redirect_uri。開発中だけ手作業の確認用を足す（手順書 5.10） */
 export const allowedRedirectUris = (): string[] =>
   isDevBypass() ? [CLAUDE_REDIRECT_URI, DEV_REDIRECT_URI] : [CLAUDE_REDIRECT_URI];
-
-/** ID トークンを検証して uid を返す。失効させたトークンも拒否する */
-const verifyFirebaseIdToken = async (idToken: string): Promise<string> =>
-  (await adminAuth().verifyIdToken(idToken, true)).uid;
 
 export interface AuthorizeResponse {
   status: number;
@@ -38,7 +34,11 @@ export const handleAuthorizeApproval = async (
     now?: Date;
   } = {}
 ): Promise<AuthorizeResponse> => {
-  const { redirectUris = allowedRedirectUris(), verifyIdToken = verifyFirebaseIdToken, now = new Date() } = options;
+  const {
+    redirectUris = allowedRedirectUris(),
+    verifyIdToken = (idToken: string) => verifyFirebaseIdToken(idToken),
+    now = new Date(),
+  } = options;
   if (typeof input.idToken !== 'string' || !input.idToken || typeof input.query !== 'object' || !input.query) {
     return { status: 400, body: { error: 'invalid_request' } };
   }
@@ -69,8 +69,9 @@ export const handleAuthorizeApproval = async (
   try {
     uid = await verifyIdToken(input.idToken);
   } catch (error) {
-    // 理由の種類（期限切れ・失効など）だけを記録する。トークンは出さない
-    console.error('OAuth: ID token verification failed:', (error as { code?: string }).code ?? 'unknown');
+    // 理由の種類（期限切れ・宛先違いなど）だけを記録する。トークンは出さない
+    const reason = (error as { code?: string }).code ?? (error instanceof Error ? error.message : 'unknown');
+    console.error('OAuth: ID token verification failed:', reason);
     return { status: 401, body: { error: 'login_required' } };
   }
 

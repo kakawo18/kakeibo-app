@@ -84,6 +84,36 @@ const eslintConfig = [
     },
   },
   {
+    // firebase-admin/auth は使わない。依存する jwks-rsa が ES モジュールの jose を require() し、
+    // Vercel の Node.js 22（require(esm) に未対応の版）では読み込みに失敗して 500 になる（v6.7.2）。
+    // Firebase の ID トークンは src/server/oauth/firebaseIdToken.ts が jose で検証する
+    files: ["src/server/**/*.ts", "src/app/**/*.ts", "src/app/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "firebase-admin/auth",
+              message: "firebase-admin/auth は Vercel で読み込めない。ID トークンは src/server/oauth/firebaseIdToken.ts で検証する",
+            },
+            {
+              name: "firebase-admin",
+              message: "firebase-admin（auth も読み込む）は使わない。firebase-admin/app・firebase-admin/firestore を個別に読み込む",
+            },
+          ],
+          // 同じファイルにかかる上の規則（機能の公開窓口）はこのブロックで置き換わるので、ここでも重ねてかける
+          patterns: [
+            {
+              group: ["@/features/*/*"],
+              message: "機能の中のファイルを直接参照しない。@/features/<機能名>（index.ts）から import する",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // 共通 UI（src/components）は特定の機能に依存しない（#124）
     files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
     rules: {

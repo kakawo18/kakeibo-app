@@ -1,5 +1,8 @@
 /**
- * Firebase Admin SDK（サーバー専用）
+ * Firebase Admin SDK（サーバー専用）。使うのは Firestore だけ
+ *
+ * firebase-admin/auth は読み込まない（Vercel で読み込みに失敗する。ID トークンの検証は
+ * oauth/firebaseIdToken.ts。ESLint でも禁止している）。
  *
  * Admin SDK は firestore.rules を通らない。利用者のデータは kakeiboReader.ts の関数で、
  * 必ず uid を指定して読むこと（docs/claude-connector/仕様書.md 7.2）。
@@ -7,7 +10,6 @@
 import 'server-only';
 import './timezone';
 import { App, cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const createApp = (): App => {
@@ -30,4 +32,3 @@ let app: App | undefined;
 const getApp = (): App => (app ??= getApps()[0] ?? createApp());
 
 export const adminDb = () => getFirestore(getApp());
-export const adminAuth = () => getAuth(getApp());

@@ -11,7 +11,9 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 
 ## Node.js のバージョン
 
-`package.json` の `engines.node`（`22.x`）で Vercel の関数の Node.js を固定している。Vercel はプロジェクト設定の Node.js Version よりこちらを優先する。Claude 連携が使う `firebase-admin` 14 は Node.js 22 以上を要し、古い Node.js だと `ERR_REQUIRE_ESM`（`jwks-rsa` が `jose` を読み込めない）で Claude 連携のエンドポイントが 500 になる。CI（`.github/workflows/ci.yml`）も Node.js 22 で動かしている。
+`package.json` の `engines.node`（`22.x`）で Vercel の関数の Node.js を固定している。Vercel はプロジェクト設定の Node.js Version よりこちらを優先する。Claude 連携が使う `firebase-admin` 14 は Node.js 22 以上を要する。CI（`.github/workflows/ci.yml`）も Node.js 22 で動かしている。
+
+なお Vercel の Node.js 22 は ES モジュールの `require()`（Node.js 22.12 から既定で有効）に対応していない版で、`firebase-admin/auth` は読み込めない（依存する `jwks-rsa` が `jose` を `require()` して `ERR_REQUIRE_ESM` になる）。サーバーのコードは `firebase-admin/app` と `firebase-admin/firestore` だけを使い、Firebase の ID トークンは `jose` で検証している（v6.7.2。ESLint で `firebase-admin/auth` を禁止している）。
 
 ## Vercel の環境変数
 
