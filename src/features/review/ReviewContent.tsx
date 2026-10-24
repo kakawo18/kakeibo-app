@@ -1,0 +1,283 @@
+'use client';
+
+/**
+ * 年間振り返り (/review)
+ *
+ * 上段が複数年の比較、下段が選択した1年の詳細。
+ * 選択中の年は URL クエリ `?year=YYYY` に持つ（ダッシュボードの `?month=` と同じ方針）。
+ */
+import { useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Box, Button, Container, Grid, Group, Paper, Select, SimpleGrid, Spoiler, Stack, Text } from '@mantine/core';
+import { IconArrowDown } from '@tabler/icons-react';
+import { useMediaQuery } from '@mantine/hooks';
+import { useTransactions } from '@/contexts/TransactionsContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import {
+  calculateAnnualSummaries,
+  calculateCategoryYoY,
+  calculateCumulativeInvestment,
+  calculateMonthlyDetail,
+  getAvailableYears,
+} from '@/domain/annualSummary';
+import { calculateCategoryChartData } from '@/domain/calculations';
+import { AnnualIncomeChart } from './AnnualIncomeChart';
+import { AnnualFlowChart } from './AnnualFlowChart';
+import { SavingsRateTrendChart } from './SavingsRateTrendChart';
+import { CumulativeInvestmentChart } from './CumulativeInvestmentChart';
+import { PieChartBody } from '@/components/charts/PieChart';
+import { NetIncomeAllocation } from './NetIncomeAllocation';
+import { CategoryYoYChart } from './CategoryYoYChart';
+import { MonthlyBreakdown } from './MonthlyBreakdown';
+import { HistoryLoading, HistoryPartialNotice, useHistoryFor } from '@/components/ui/HistoryGate';
+
+interface ReviewTileProps {
+  label: string;
+  value: string;
+  note?: string;
+  color?: string;
+}
+
+/** 選択年のサマリータイル */
+const ReviewTile: React.FC<ReviewTileProps> = ({ label, value, note, color }) => (
+  <Box
+    p="md"
+    style={{
+      background: 'var(--app-surface-2)',
+      borderRadius: 'var(--radius-tile)',
+      border: '1px solid var(--hairline)',
+    }}
+  >
+    <Text className="overline-label" mb={4}>{label}</Text>
+    <Text size="lg" fw={700} className="tabular-nums" style={color ? { color } : undefined}>
+      {value}
+    </Text>
+    {note && <Text size="xs" c="dimmed" mt={2}>{note}</Text>}
+  </Box>
+);
+
+const formatYen = (amount: number): string =>
+  `${amount < 0 ? '−' : ''}¥${Math.abs(amount).toLocaleString()}`;
+
+export const ReviewContent = () => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const { transactions } = useTransactions();
+  const { rules } = useSettings();
+  // 年ごとの比較・累計投資は全期間を使うので、開いたら過去の取引も読む（#125）
+  const history = useHistoryFor(true);
+
+  const availableYears = useMemo(() => getAvailableYears(transactions), [transactions]);
+  const summaries = useMemo(
+    () => calculateAnnualSummaries(transactions, rules),
+    [transactions, rules]
+  );
+  const cumulativeInvestment = useMemo(
+    () => calculateCumulativeInvestment(transactions, rules),
+    [transactions, rules]
+  );
+
+  // 不正な年や取引の無い年を指定された場合は、最新の年にフォールバックする
+  const requestedYear = Number(searchParams.get('year'));
+  const selectedYear = availableYears.includes(requestedYear)
+    ? requestedYear
+    : availableYears[0] ?? new Date().getFullYear();
+
+  const selectedSummary = summaries.find((summary) => summary.year === selectedYear);
+  const monthlyDetails = useMemo(
+    () => calculateMonthlyDetail(transactions, selectedYear, rules),
+    [transactions, selectedYear, rules]
+  );
+  const categoryYoY = useMemo(
+    () => calculateCategoryYoY(transactions, selectedYear, rules),
+    [transactions, selectedYear, rules]
+  );
+  // 年間のカテゴリ別支出。ホームの月次内訳と同じ集計（サブカテゴリ優先・投資などは除外）
+  const categoryExpense = useMemo(
+    () =>
+      calculateCategoryChartData(
+        transactions.filter((t) => t.date.getFullYear() === selectedYear),
+        'expense',
+        rules
+      ),
+    [transactions, selectedYear, rules]
+  );
+
+  const handleYearChange = (value: string | null) => {
+    if (!value) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('year', value);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  // 「1年を詳しく見る」は比較グラフの下にあり、スマホでは2画面以上スクロールが要った（#113）。
+  // ページの先頭から年を選んで、そのまま詳細へ移れるようにする
+  const detailRef = useRef<HTMLDivElement>(null);
+  const scrollToDetail = () =>
+    detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const yearOptions = availableYears.map((year) => ({ value: String(year), label: `${year}年` }));
+
+  // 過去の分がそろうまでは集計を出さない（読めていない年を0円や「データなし」に見せない）
+  if (!history.ready) {
+    return (
+      <Container size="lg">
+        <Paper className="ledger-card">
+          <HistoryLoading />
+        </Paper>
+      </Container>
+    );
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <Container size="lg">
+        <Paper className="ledger-card" p="xl">
+          <Stack align="center" gap="xs">
+            <Text fw={700}>まだ振り返るデータがありません</Text>
+            <Text size="sm" c="dimmed" ta="center">
+              取引を記録すると、年ごとの収入・支出・投資の推移をここで見返せます。
+            </Text>
+          </Stack>
+        </Paper>
+      </Container>
+    );
+  }
+
+  return (
+    <Container size="lg">
+      <Stack gap="md">
+        <HistoryPartialNotice complete={history.complete} />
+        {/* ページの先頭から、詳しく見たい年を選んで下の詳細へ移れる */}
+        <Paper className="ledger-card" px="md" py="sm">
+          <Group wrap="nowrap" gap="xs">
+            <Select
+              data={yearOptions}
+              value={String(selectedYear)}
+              onChange={(value) => {
+                handleYearChange(value);
+                scrollToDetail();
+              }}
+              size="sm"
+              w={112}
+              allowDeselect={false}
+              aria-label="詳しく見る年"
+            />
+            <Button
+              size="sm"
+              variant="light"
+              onClick={scrollToDetail}
+              rightSection={<IconArrowDown size={14} />}
+              style={{ flex: 1 }}
+            >
+              この年を詳しく見る
+            </Button>
+          </Group>
+        </Paper>
+
+        {/* ここから複数年の比較 */}
+        <Text className="section-title" mt="xs">年ごとの比較</Text>
+        <AnnualIncomeChart summaries={summaries} />
+
+        <Paper className="ledger-card" p="lg">
+          <Text className="section-title" mb={6}>額面の推定について</Text>
+          {/* 長い説明は畳んでおく（振り返りの本題はグラフなので） */}
+          <Spoiler maxHeight={40} showLabel="続きを読む" hideLabel="閉じる">
+            <Text size="xs" c="dimmed">
+              このアプリが記録しているのは口座に入った金額（手取り）だけなので、額面は税と社会保険料から
+              逆算した概算です。協会けんぽ・一般の事業・40歳未満・扶養なしを前提に、健康保険・厚生年金・
+              雇用保険・所得税・住民税を年分ごとの料率で計算しています。介護保険料、扶養控除、生命保険料控除、
+              住宅ローン控除、iDeCo、ふるさと納税、財形貯蓄や社宅費などの天引きは含みません。
+              対象は「給与収入」の役割を付けたカテゴリの収入だけです。
+            </Text>
+          </Spoiler>
+        </Paper>
+
+        <AnnualFlowChart summaries={summaries} />
+
+        <Grid gutter="md">
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <SavingsRateTrendChart summaries={summaries} />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, lg: 6 }}>
+            <CumulativeInvestmentChart data={cumulativeInvestment} />
+          </Grid.Col>
+        </Grid>
+
+        {/* ここから選択した1年の詳細。固定ヘッダーの下に隠れないよう余白を取って止める */}
+        <Group
+          ref={detailRef}
+          justify="space-between"
+          align="center"
+          mt="xs"
+          style={{ scrollMarginTop: 72 }}
+        >
+          <Text className="section-title">{selectedYear}年を詳しく見る</Text>
+          <Select
+            data={yearOptions}
+            value={String(selectedYear)}
+            onChange={handleYearChange}
+            size="sm"
+            w={120}
+            allowDeselect={false}
+            searchable={!isMobile}
+            aria-label="表示する年"
+          />
+        </Group>
+
+        {selectedSummary && (
+          <SimpleGrid cols={{ base: 2, sm: 3, lg: 5 }} spacing="sm">
+            <ReviewTile
+              label="年収(額面・推定)"
+              value={formatYen(selectedSummary.estimatedGross)}
+              note="給与のみ"
+            />
+            <ReviewTile
+              label="年収(手取り)"
+              value={formatYen(selectedSummary.netIncome)}
+              color="var(--income)"
+            />
+            <ReviewTile
+              label="年間支出"
+              value={formatYen(selectedSummary.expense)}
+              note="投資を除く"
+              color="var(--expense)"
+            />
+            <ReviewTile
+              label="年間投資額"
+              value={formatYen(selectedSummary.investment)}
+              color="var(--series-investment)"
+            />
+            <ReviewTile
+              label="貯蓄率"
+              value={`${selectedSummary.savingsRate.toFixed(1)}%`}
+              note="投資 ÷ 給与収入"
+              color="var(--accent)"
+            />
+          </SimpleGrid>
+        )}
+
+        {selectedSummary && <NetIncomeAllocation summary={selectedSummary} />}
+
+        {/* 年間合計は桁が多く中央に収まらないため、中央を塗りつぶした円グラフにする。
+            年単位はカテゴリ数が多く引き出し線ラベルが重なるので、扇の数に上限を置く */}
+        <Paper className="ledger-card" p="lg">
+          <Text className="section-title" mb="xs">{selectedYear}年 カテゴリ別支出の内訳</Text>
+          {/* 幅の広い画面で円が中央にぽつんと残らないよう、描画幅を絞る */}
+          <Box maw={560} mx="auto">
+            <PieChartBody data={categoryExpense} variant="pie" maxSlices={6} />
+          </Box>
+        </Paper>
+
+        <CategoryYoYChart
+          year={selectedYear}
+          entries={categoryYoY}
+          hasPreviousYear={availableYears.includes(selectedYear - 1)}
+        />
+
+        <MonthlyBreakdown year={selectedYear} details={monthlyDetails} />
+      </Stack>
+    </Container>
+  );
+};

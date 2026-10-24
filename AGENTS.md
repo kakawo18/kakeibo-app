@@ -8,7 +8,8 @@
 - **Next.js 16**（App Router, Turbopack）/ React 19 / TypeScript（strict）
 - **Mantine 8**（UI・フォーム・通知・モーダル）— レイアウトとスタイルは基本 Mantine プロパティで組む
 - **Recharts**（チャート）※ Mantine Charts ではない
-- **Firebase**（Auth: メール/パスワードのみ、Firestore）
+- **Firebase**（Auth: メール/パスワードのみ、Firestore）。サーバー側は Claude 連携だけが Admin SDK（`firebase-admin`）を使う
+- **mcp-handler 2.x**（Claude 連携の MCP サーバー。`docs/claude-connector/`）
 - **framer-motion**（アニメーション・スワイプ）、**dayjs**（日付）
 
 ## セットアップ・コマンド
@@ -19,6 +20,8 @@ npm run dev                 # 開発サーバー（http://localhost:3000, Turbop
 npm run build               # 本番ビルド
 npm run lint                # ESLint
 npm run type-check          # tsc --noEmit
+npm test                    # Vitest（会計・集計の回帰テスト）
+npm run test:emulator       # Firestore エミュレータで保存形式とルールを検証（Java が必要）
 ```
 
 - 実行には `.env.local`（Firebase 設定）が必要。`.env.example` をコピーして埋める（手順は `docs/setup.md`）。
@@ -27,13 +30,27 @@ npm run type-check          # tsc --noEmit
 
 ## 変更後に必ず通すチェック
 
-コミット前に `npm run lint` と `npm run type-check` の両方を通すこと。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する（テストスイートは無い）。
+コミット前に `npm run lint`・`npm run type-check`・`npm test` を通すこと（CI でも同じものが走る: `.github/workflows/ci.yml`）。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する。
+
+### テスト
+
+- 対象は React・Firebase に依存しない純関数（`src/domain/` の集計・ルール・税計算、`src/data/csvUtils.ts`、`src/utils/` の日付・入力チェックなど）。画面のテストは無い。
+- 代表的な会計ケースの期待値と根拠は `docs/testing.md` の表にまとめている。会計ルールを足したら表にも1行足す。
+- テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/domain/calculations.test.ts`）。
+- 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
+- タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
+- 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
+- Firestore への書き込み（保存形式・`deleteField`・ルール）が絡む変更は、`*.emulator.test.ts` にエミュレータのテストを書く。`npm run test:emulator` が Firebase CLI（`npx firebase-tools`）でエミュレータを起動し、`firestore.rules` を読み込んで実行する。Java 21 が必要。CI でも別ジョブで走る。
+- Firestore の操作と変換は `src/data/` にまとめる。読み書きは `*Repository.ts`（`transactionRepository` / `recurringTransactionRepository` / `settingsRepository`。`db` を引数で受け取る）、保存形式の変換は `*Serializer.ts`。Context は状態の配布と購読の開始・解除だけを持ち、`collection` / `doc` / `onSnapshot` などを直接呼ばない。**作成と部分更新は別の関数**にし、更新では「undefined = 変更しない / 空文字 = 項目を消す（`deleteField`）」とする。
+- Repository の契約（購読・作成・更新・削除・旧データ・ルール）は `src/data/repositories.emulator.test.ts` で検証している。関数を足したらここにもテストを足す。
 
 ## コード規約
 
+- **画面の置き場所**: 機能ごとの画面は `src/features/<機能>/`（auth / dashboard / transactions / recurring / review / settings / import-export）。機能の外からは `@/features/<機能>`（index.ts）だけを import し、中のファイルを直接参照しない（機能の中は相対パス）。外から使うものを増やしたら index.ts に足す。`src/components/` は特定の機能に依存しない共通 UI。`src/app/` はルーティング・レイアウト・Provider の配置と Route Handler の入り口だけ。サーバーでだけ動くコード（Claude 連携の MCP サーバー・認可サーバー・Admin SDK での読み出し）は `src/server/` に置き、各ファイルの先頭で `import 'server-only'` する。`src/server` と `firebase-admin` は画面・Context・データアクセス・domain から import しない（ESLint で検査している）。
+- **依存の向き**: `app` → `features` → `components` / `contexts` → `data` → `domain` → `utils` / `types`。会計の計算（集計・役割・カード還元・税の推定・カテゴリの改名）は `src/domain/` に置き、React・Next・Firebase・Mantine と画面・Context・データアクセスを import しない（ESLint の `no-restricted-imports` で検査している）。表示用の色付けなどは画面側で行う。
 - **関数コンポーネント + フック**のみ。クライアントコンポーネントは先頭に `'use client'`。
-- **状態管理**: グローバルは 3 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext`、`src/app/layout.tsx` でラップ）。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
-- **集計はカテゴリ名ではなく「役割」（`CategoryRole`）で判定する**。投資・立替金・カード引き落とし等の除外判定は `src/utils/transactionRules.ts` の `createTransactionRules` が生成する関数群を使う。カテゴリ名で `if` 分岐しないこと。
+- **状態管理**: グローバルは 4 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext` / `RecurringTransactionsContext`、`src/app/layout.tsx` でラップ）。Firestore の購読（`onSnapshot`）はコレクションごとに Context の1か所だけに置き、画面やモーダルでは購読しない。取引は起動時に直近13か月だけを読む（#125）。それより前の月・年や全期間を使う画面は `useHistoryFor(needed)`（`src/components/ui/HistoryGate.tsx`）で過去の分を読み、そろうまで金額を出さない（未取得を0円に見せない）。削除の可否など欠けていると困る判断は `historyComplete` を見る。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
+- **集計はカテゴリ名ではなく「役割」（`CategoryRole`）で判定する**。投資・立替金・カード引き落とし等の除外判定は `src/domain/transactionRules.ts` の `createTransactionRules` が生成する関数群を使う。カテゴリ名で `if` 分岐しないこと。取引をカテゴリで分類・表示するときは `t.category` ではなく `rules.categoryName(t)` / `rules.chartKey(t)` を使う（改名前の名前を今の名前に読み替える。#97）。
 - **色**: セマンティック色（収入=`--income` / 支出=`--expense` / アクセント=`--accent`）とデザイントークンは `src/app/globals.css` の CSS 変数。カテゴリ/カードの色はユーザー設定（`getColor`）とパレット `src/config/colorPalette.ts` から解決する。コンポーネントに 16 進数の色を直書きしない。
 - **デザインシステム "Quiet Ledger"**: フラットな面 + ヘアライン境界（グラデーション/グラスモーフィズムは使わない）。カードは `.ledger-card`。
 - **レスポンシブ**: モバイル判定は `useMediaQuery('(max-width: 768px)')` の `isMobile`。この 768px ブレークポイントが全体で共通。
@@ -44,11 +61,15 @@ npm run type-check          # tsc --noEmit
 - **z-index の階層**: Mantine モーダル = 200。`.app-header` は 100、モバイル FAB（Affix）は 150。**200 以上にしない**（フルスクリーンモーダルの閉じるボタンを覆い、PWA でユーザーが戻れなくなる）。
 - **カード支払いの会計ロジック**: クレジットカードの支出は**購入月に計上する**。実際の口座残高や引き落とし月は扱わない（アプリが計算するのは「収支 = 選択月の収入−支出」のみ）。`transactionType`（`normal` / `card_payment`）と `affectsExpense` フラグで表現し、`rules.deriveTransactionFlags` が導出する。詳細は `docs/機能仕様書.md` の「クレジットカード払いの会計モデル」。
 - **モバイル入力**: iOS のズーム防止でフォントは 16px、タップ領域は 48px を確保する（`globals.css` の PWA 用ブロック）。
+- **Vercel の Node.js は ES モジュールの `require()` に未対応の版**（設定は 22.x）。サーバーで `firebase-admin/auth`（と全部を読み込む `firebase-admin`）を使うと、依存の `jwks-rsa` が `jose` を読み込めず、そのルートが本番だけ 500 になる（ESLint で禁止している）。手元の Node.js では再現しないので、サーバー側の依存を足したら `engines` を見て、怪しければ standalone ビルドを古い Node.js で動かして確かめる。経緯は `docs/claude-connector/手順書.md` 10.1。
+- **Firestore のエミュレータは複合インデックスを要求しない**。新しい条件や並び順のクエリはテストで通っても本番で `FAILED_PRECONDITION` になる。クエリを足したら `firestore.indexes.json` に足し、本番に作ってからデプロイする（手順書 10.2）。
 
 ## セキュリティ
 
 - `.env.local` は**コミットしない**（`.gitignore` 済み）。クライアントに出してよい値は `NEXT_PUBLIC_*` のみ。`next.config.ts` の `env` は使わない（`NEXT_PUBLIC_` 無しでもバンドルに埋め込まれるため、秘密情報の混入に気づけない）。
-- **Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、サーバー側の API 層が無い）。取引は トップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
+- **画面からの Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、画面用のサーバー側の API 層は無い）。
+- **例外は Claude 連携のサーバー（`src/server/`）で、Admin SDK は `firestore.rules` を通らない。** 利用者のデータを読むのは `src/server/kakeiboReader.ts` の関数だけにし、必ず uid（トークンの検証結果から得たもの）で絞る。uid をツールの入力から受け取らない。認可コードとリフレッシュトークン（`oauthAuthorizationCodes` / `oauthRefreshTokens`）はクライアントから一切触れないようルールで拒否している。詳細は `docs/claude-connector/仕様書.md` の 7.2 と 8章。
+- 画面のデータの置き場所: 取引はトップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
 - 取引の更新・削除はクライアント側で所有者チェックをしていない。所有者の検証はルール側の責務。
 - 本番デプロイ先ドメインは Firebase Console の Authentication → Authorized domains に追加が必要。
 - セキュリティヘッダーは `next.config.ts` の `securityHeaders` に集約。CSP は現在 **Report-Only**。接続先（Firebase 等）を増やしたら `connect-src` を更新する。

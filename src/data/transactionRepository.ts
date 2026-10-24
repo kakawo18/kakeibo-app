@@ -1,0 +1,140 @@
+/**
+ * 取引（トップレベル transactions）の読み書き（#122）
+ *
+ * Firestore の操作と保存形式の変換をここに閉じ込め、Context は状態の配布と
+ * 購読の開始・解除だけを持つ。db を引数で受け取るので、エミュレータのテストから
+ * そのまま呼べる（transactionRepository.emulator.test.ts）。
+ *
+ * 書き込み関数は Firestore の Promise をそのまま返す（サーバーが受け取ると解決する）。
+ * オフラインで待ち続けない扱いは呼び出し側（contexts/writeResult.ts の settle）が行う。
+ */
+import {
+  Firestore,
+  QueryConstraint,
+  Timestamp,
+  Unsubscribe,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  setDoc,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+import { Transaction, TransactionInput } from '@/types';
+import {
+  fromTransactionDoc,
+  missingRequiredFields,
+  toTransactionCreateData,
+  toTransactionUpdateData,
+} from '@/data/transactionSerializer';
+
+export interface SubscriptionHandlers<T> {
+  onChange: (value: T) => void;
+  onError: (error: Error) => void;
+}
+
+/** 購読する期間。from は含む（date >= from）、before は含まない（date < before） */
+export interface TransactionRange {
+  from?: Date;
+  before?: Date;
+  /**
+   * サーバーと同期済みか（fromCache でないか）を知りたいときに渡す。
+   * メタデータだけの変化も受け取るが、取引が変わっていなければ onChange は呼ばない。
+   * オフラインで端末キャッシュが空のときも「0件」が届くので、それと本当の0件を区別するのに使う
+   */
+  onSyncState?: (fromCache: boolean) => void;
+}
+
+/**
+ * ユーザーの取引を日付の新しい順に購読する
+ *
+ * 必須項目が欠けたドキュメントは飛ばす（取引の中身はログに出さず、ID と欠けた項目名だけ出す）。
+ * 取引が0件のときも onChange([]) が呼ばれる。取得の失敗は onError（0件とは区別する。#105）。
+ * range を渡すとその期間だけを購読する（直近と過去を分けて読む。#125）。
+ * 境界の日時ちょうどの取引は from 側（date >= from）に入る。
+ */
+export const subscribeTransactions = (
+  db: Firestore,
+  uid: string,
+  { onChange, onError }: SubscriptionHandlers<Transaction[]>,
+  range: TransactionRange = {}
+): Unsubscribe => {
+  const constraints: QueryConstraint[] = [where('userId', '==', uid)];
+  if (range.from) constraints.push(where('date', '>=', Timestamp.fromDate(range.from)));
+  if (range.before) constraints.push(where('date', '<', Timestamp.fromDate(range.before)));
+  constraints.push(orderBy('date', 'desc'));
+
+  const { onSyncState } = range;
+  let first = true;
+  return onSnapshot(
+    query(collection(db, 'transactions'), ...constraints),
+    { includeMetadataChanges: Boolean(onSyncState) },
+    (snapshot) => {
+      onSyncState?.(snapshot.metadata.fromCache);
+      // メタデータだけの変化（同期の完了など）では一覧を作り直さない
+      if (onSyncState && !first && snapshot.docChanges().length === 0) return;
+      first = false;
+
+      const transactions: Transaction[] = [];
+      snapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const transaction = fromTransactionDoc(docSnapshot.id, data);
+        if (!transaction) {
+          console.warn('Incomplete transaction data:', docSnapshot.id, missingRequiredFields(data));
+          return;
+        }
+        transactions.push(transaction);
+      });
+      onChange(transactions);
+    },
+    onError
+  );
+};
+
+/**
+ * 取引を1件作る
+ *
+ * id を渡すとその ID で書く（同じ ID なら上書きになり、複数端末から同時に記録しても1件にまとまる。
+ * 定期取引の記録で使う。#101）。渡さなければ自動の ID。
+ */
+export const createTransaction = (
+  db: Firestore,
+  uid: string,
+  input: TransactionInput,
+  { id, now = new Date() }: { id?: string; now?: Date } = {}
+): Promise<unknown> => {
+  const timestamp = Timestamp.fromDate(now);
+  const data = {
+    ...toTransactionCreateData(input),
+    userId: uid,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  return id
+    ? setDoc(doc(db, 'transactions', id), data)
+    : addDoc(collection(db, 'transactions'), data);
+};
+
+/**
+ * 取引の一部を更新する
+ *
+ * undefined の項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）。
+ * 所有者の確認は firestore.rules が行う（他人の取引は更新できない）。
+ */
+export const updateTransaction = (
+  db: Firestore,
+  id: string,
+  updates: Partial<Transaction>,
+  now: Date = new Date()
+): Promise<void> =>
+  updateDoc(doc(db, 'transactions', id), {
+    ...toTransactionUpdateData(updates),
+    updatedAt: Timestamp.fromDate(now),
+  });
+
+export const deleteTransaction = (db: Firestore, id: string): Promise<void> =>
+  deleteDoc(doc(db, 'transactions', id));

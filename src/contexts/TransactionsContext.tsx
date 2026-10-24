@@ -8,6 +8,12 @@
  * 同一クエリの購読が複数本走っていた）
  *
  * 利用側は useTransactions() を呼ぶだけでよい。
+ *
+ * 購読は「直近」と「過去」の2本に分けている（#125）。
+ * - 直近: 今月を含む13か月（data/transactionWindow.ts の recentWindowStart 以降）。常に購読する
+ * - 過去: それより前。過去の月・年を表示する画面や CSV の書き出しなどが ensureHistory() を
+ *   呼んでから購読し、そのセッション中は続ける。起動時には読まない（起動を速くするため）
+ * 期間が重ならないので、2本をつなげても重複しない。
  */
 import {
   createContext,
@@ -18,176 +24,159 @@ import {
   useCallback,
   ReactNode,
 } from 'react';
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  writeBatch,
-  Timestamp,
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Transaction, TransactionInput, TransactionKind, TransactionType } from '@/types';
+import { Transaction, TransactionInput } from '@/types';
+import {
+  createTransaction,
+  deleteTransaction as deleteTransactionDoc,
+  subscribeTransactions,
+  updateTransaction as updateTransactionDoc,
+} from '@/data/transactionRepository';
+import { writeTransactionsInBatches } from '@/data/transactionImport';
+import { mergeTransactionRanges, recentWindowStart } from '@/data/transactionWindow';
+import { WriteResult } from '@/data/pendingWrite';
+import { settle } from '@/contexts/writeResult';
 
-// Firestore用のクリーンなトランザクションデータの型定義
-interface CleanTransactionData {
-  type?: TransactionKind;
-  amount?: number;
-  category?: string;
-  date?: Timestamp;
-  transactionType?: TransactionType;
-  affectsExpense?: boolean;
-  subcategory?: string;
-  paymentMethod?: string;
-  description?: string;
-}
-
-// トランザクションデータをFirestore用にクリーニングするヘルパー関数
-// （undefined のフィールドを除去し、文字列はトリムする）
-const cleanTransactionData = (transaction: Partial<Transaction>): CleanTransactionData => {
-  const cleaned: CleanTransactionData = {};
-
-  if (transaction.type !== undefined) {
-    cleaned.type = transaction.type;
-  }
-  if (transaction.amount !== undefined) {
-    cleaned.amount = transaction.amount;
-  }
-  if (transaction.category !== undefined) {
-    cleaned.category = transaction.category;
-  }
-  if (transaction.date !== undefined) {
-    cleaned.date = Timestamp.fromDate(
-      transaction.date instanceof Date ? transaction.date : new Date(transaction.date)
-    );
-  }
-  if (transaction.transactionType !== undefined) {
-    cleaned.transactionType = transaction.transactionType;
-  }
-  if (transaction.affectsExpense !== undefined) {
-    cleaned.affectsExpense = transaction.affectsExpense;
-  }
-
-  // subcategory と paymentMethod: 値がある場合のみ追加、空文字列は除外
-  if (transaction.subcategory && transaction.subcategory.trim()) {
-    cleaned.subcategory = transaction.subcategory.trim();
-  }
-  if (transaction.paymentMethod && transaction.paymentMethod.trim()) {
-    cleaned.paymentMethod = transaction.paymentMethod.trim();
-  }
-
-  // description: 空文字列での削除に対応するため、undefinedでない場合は常に設定
-  if (transaction.description !== undefined) {
-    cleaned.description = transaction.description.trim() || '';
-  }
-
-  return cleaned;
-};
-
-/** writeBatch の上限（Firestore の制約） */
-const WRITE_BATCH_LIMIT = 500;
+/**
+ * 過去（直近13か月より前）の取引の読み込み状態
+ * - idle: まだ読んでいない（ensureHistory() を呼ぶと読み始める）
+ * - loading: 読み込み中
+ * - loaded: 読み込み済み（以後は変更も反映される）
+ */
+export type HistoryStatus = 'idle' | 'loading' | 'loaded';
 
 interface TransactionsContextType {
+  /** 読み込み済みの取引（日付の新しい順）。過去の分が未読なら直近の分だけ */
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (transaction: TransactionInput) => Promise<void>;
-  /** CSVインポート用の一括追加。500件ずつバッチ書き込みする */
-  addTransactions: (transactions: TransactionInput[]) => Promise<number>;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<void>;
-  deleteTransaction: (id: string) => Promise<void>;
+  /** 直近の購読の開始日時。これより前の取引は historyStatus が loaded のときだけ含まれる */
+  recentFrom: Date;
+  historyStatus: HistoryStatus;
+  /**
+   * 過去の取引がサーバーで確認済みか
+   *
+   * loaded でも、オフラインで端末キャッシュから出しているだけのときは false
+   * （キャッシュに無い分は欠けている可能性がある）。欠けていると困る判断
+   * （カテゴリを削除してよいか・CSV を全件書き出せたか）はこちらを見る
+   */
+  historyComplete: boolean;
+  /** 過去の取引の購読を始める（すでに始めていれば何もしない） */
+  ensureHistory: () => void;
+  /** 取得に失敗したときのエラー。0円や「取引なし」と区別するために使う（#105） */
+  error: Error | null;
+  /** 取得をやり直す */
+  retry: () => void;
+  /**
+   * 取引を1件追加する。options.id を渡すとその ID で書く（同じ ID なら上書きになり、
+   * 複数端末から同時に記録しても1件にまとまる。定期取引の記録で使う）
+   */
+  addTransaction: (transaction: TransactionInput, options?: { id?: string }) => Promise<WriteResult>;
+  /**
+   * CSVインポート用の一括追加。500件ずつバッチ書き込みする。
+   * 途中で失敗すると ImportWriteError（保存済みの件数つき）を投げる
+   */
+  addTransactions: (
+    transactions: TransactionInput[],
+    options?: { importId?: string }
+  ) => Promise<number>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<WriteResult>;
+  deleteTransaction: (id: string) => Promise<WriteResult>;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | null>(null);
 
+/** 読み込み前・未ログインのときに返す空配列（毎回新しい配列を作らない） */
+const NO_TRANSACTIONS: Transaction[] = [];
+
+type Received = { uid: string; transactions: Transaction[] };
+
 export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  // 受け取ったデータとエラーは「どのユーザーの、何回目の購読か」と一緒に持つ。
+  // ユーザーが切り替わった直後に前のユーザーの取引や読み込み完了の状態が
+  // 残って見えないよう、表示する値は下で現在のユーザー・購読に合うものだけにする（#105）
+  const [attempt, setAttempt] = useState(0);
+  const [recentReceived, setRecentReceived] = useState<Received | null>(null);
+  const [olderReceived, setOlderReceived] = useState<Received | null>(null);
+  const [olderSync, setOlderSync] = useState<{ uid: string; fromCache: boolean } | null>(null);
+  const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
+  // 直近と過去の境界。起動中は固定する（月が変わっても直近が1か月広がるだけで、欠けはしない）
+  const [recentFrom] = useState(() => recentWindowStart(new Date()));
+  // 過去の取引を読むよう頼まれたユーザー。起動時には読まず、必要な画面が ensureHistory() で頼む
+  const [historyRequestedBy, setHistoryRequestedBy] = useState<string | null>(null);
+  const historyRequested = Boolean(user) && historyRequestedBy === user?.uid;
+
+  // 購読と保存形式の変換は data/transactionRepository.ts。ここは状態の配布と購読の開始・解除だけ（#122）
+  useEffect(() => {
+    if (!user) return;
+    const uid = user.uid;
+    return subscribeTransactions(
+      db,
+      uid,
+      {
+        onChange: (transactions) => setRecentReceived({ uid, transactions }),
+        onError: (error) => {
+          console.error('Error listening to recent transactions:', error);
+          setFailure({ uid, attempt, error });
+        },
+      },
+      { from: recentFrom }
+    );
+  }, [user, attempt, recentFrom]);
 
   useEffect(() => {
-    if (!user) {
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
-
-    const q = query(
-      collection(db, 'transactions'),
-      where('userId', '==', user.uid),
-      orderBy('date', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const transactionList: Transaction[] = [];
-        snapshot.forEach((docSnapshot) => {
-          const data = docSnapshot.data();
-          // データの型安全性を確保（金額0の取引は有効なので == null で判定）
-          if (!data.type || data.amount == null || !data.category || !data.date) {
-            // 取引の中身はコンソールに出さない（共有端末・拡張機能経由の漏洩を避ける）。
-            // 調査に必要な「どのドキュメントの、どのフィールドが欠けているか」だけを出す。
-            const missingFields = (['type', 'amount', 'category', 'date'] as const).filter(
-              (field) => (field === 'amount' ? data.amount == null : !data[field])
-            );
-            console.warn('Incomplete transaction data:', docSnapshot.id, missingFields);
-            return;
-          }
-
-          transactionList.push({
-            id: docSnapshot.id,
-            userId: data.userId,
-            type: data.type,
-            amount: Number(data.amount),
-            category: data.category,
-            subcategory: data.subcategory || undefined,
-            paymentMethod: data.paymentMethod || undefined,
-            transactionType: data.transactionType || 'normal',
-            affectsExpense: data.affectsExpense !== undefined ? data.affectsExpense : true,
-            date: data.date?.toDate() || new Date(),
-            description: data.description || undefined,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            updatedAt: data.updatedAt?.toDate() || new Date(),
-          });
-        });
-        setTransactions(transactionList);
-        setLoading(false);
+    if (!user || !historyRequested) return;
+    const uid = user.uid;
+    return subscribeTransactions(
+      db,
+      uid,
+      {
+        onChange: (transactions) => setOlderReceived({ uid, transactions }),
+        onError: (error) => {
+          console.error('Error listening to older transactions:', error);
+          setFailure({ uid, attempt, error });
+        },
       },
-      (error) => {
-        console.error('Error listening to transactions:', error);
-        setLoading(false);
+      {
+        before: recentFrom,
+        onSyncState: (fromCache) =>
+          setOlderSync((prev) =>
+            prev?.uid === uid && prev.fromCache === fromCache ? prev : { uid, fromCache }
+          ),
       }
     );
+  }, [user, attempt, recentFrom, historyRequested]);
 
-    return unsubscribe;
+  const recent = user && recentReceived?.uid === user.uid ? recentReceived.transactions : null;
+  const older =
+    user && historyRequested && olderReceived?.uid === user.uid ? olderReceived.transactions : null;
+  const error =
+    user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
+  const transactions = useMemo(
+    () => (recent ? mergeTransactionRanges(recent, older ?? NO_TRANSACTIONS) : NO_TRANSACTIONS),
+    [recent, older]
+  );
+  const historyStatus: HistoryStatus = !historyRequested ? 'idle' : older ? 'loaded' : 'loading';
+  const historyComplete =
+    historyStatus === 'loaded' && olderSync?.uid === user?.uid && olderSync?.fromCache === false;
+  // ログイン中で、直近の取引もエラーもまだ届いていないあいだが読み込み中（過去の分は待たない）
+  const loading = Boolean(user) && !error && !recent;
+
+  const ensureHistory = useCallback(() => {
+    if (user) setHistoryRequestedBy(user.uid);
   }, [user]);
 
+  /** 購読をやり直す（取得に失敗したときの再試行） */
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
+
   const addTransaction = useCallback(
-    async (transaction: TransactionInput) => {
-      if (!user) return;
-
-      const now = new Date();
-      const cleanedData = cleanTransactionData({
-        ...transaction,
-        transactionType: transaction.transactionType || 'normal',
-        affectsExpense: transaction.affectsExpense !== undefined ? transaction.affectsExpense : true,
-      });
-
-      const transactionData = {
-        ...cleanedData,
-        userId: user.uid,
-        createdAt: Timestamp.fromDate(now),
-        updatedAt: Timestamp.fromDate(now),
-      };
+    async (transaction: TransactionInput, options?: { id?: string }): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       try {
-        await addDoc(collection(db, 'transactions'), transactionData);
+        // オフラインではサーバーの確定を待たずに返す（端末に保存され、通信が戻ると送信される）
+        return await settle(createTransaction(db, user.uid, transaction, { id: options?.id }));
       } catch (error) {
         console.error('Error adding transaction:', error);
         throw error;
@@ -197,51 +186,21 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const addTransactions = useCallback(
-    async (inputs: TransactionInput[]): Promise<number> => {
+    async (inputs: TransactionInput[], options?: { importId?: string }): Promise<number> => {
       if (!user || inputs.length === 0) return 0;
-
-      const now = Timestamp.fromDate(new Date());
-      let written = 0;
-
-      // 1件ずつ addDoc すると件数分の往復が発生するため、500件ずつまとめて書く
-      for (let start = 0; start < inputs.length; start += WRITE_BATCH_LIMIT) {
-        const chunk = inputs.slice(start, start + WRITE_BATCH_LIMIT);
-        const batch = writeBatch(db);
-
-        chunk.forEach((input) => {
-          const cleanedData = cleanTransactionData({
-            ...input,
-            transactionType: input.transactionType || 'normal',
-            affectsExpense: input.affectsExpense !== undefined ? input.affectsExpense : true,
-          });
-          batch.set(doc(collection(db, 'transactions')), {
-            ...cleanedData,
-            userId: user.uid,
-            createdAt: now,
-            updatedAt: now,
-          });
-        });
-
-        await batch.commit();
-        written += chunk.length;
-      }
-
-      return written;
+      // 500件ずつまとめて書く。importId を渡すと、同じファイルの取り込み直しで重複しない（#103）
+      return writeTransactionsInBatches(db, user.uid, inputs, { importId: options?.importId });
     },
     [user]
   );
 
   const updateTransaction = useCallback(
-    async (id: string, updates: Partial<Transaction>) => {
-      if (!user) return;
-
-      const updateData = {
-        ...cleanTransactionData(updates),
-        updatedAt: Timestamp.fromDate(new Date()),
-      };
+    async (id: string, updates: Partial<Transaction>): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       try {
-        await updateDoc(doc(db, 'transactions', id), updateData);
+        // 省略した項目は変更しない。サブカテゴリ・支払方法の空文字は項目の削除（#98）
+        return await settle(updateTransactionDoc(db, id, updates));
       } catch (error) {
         console.error('Error updating transaction:', error);
         throw error;
@@ -251,11 +210,11 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const deleteTransaction = useCallback(
-    async (id: string) => {
-      if (!user) return;
+    async (id: string): Promise<WriteResult> => {
+      if (!user) throw new Error('User not authenticated');
 
       try {
-        await deleteDoc(doc(db, 'transactions', id));
+        return await settle(deleteTransactionDoc(db, id));
       } catch (error) {
         console.error('Error deleting transaction:', error);
         throw error;
@@ -265,8 +224,21 @@ export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const value = useMemo(
-    () => ({ transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction }),
-    [transactions, loading, addTransaction, addTransactions, updateTransaction, deleteTransaction]
+    () => ({
+      transactions,
+      loading,
+      recentFrom,
+      historyStatus,
+      historyComplete,
+      ensureHistory,
+      error,
+      retry,
+      addTransaction,
+      addTransactions,
+      updateTransaction,
+      deleteTransaction,
+    }),
+    [transactions, loading, recentFrom, historyStatus, historyComplete, ensureHistory, error, retry, addTransaction, addTransactions, updateTransaction, deleteTransaction]
   );
 
   return <TransactionsContext.Provider value={value}>{children}</TransactionsContext.Provider>;

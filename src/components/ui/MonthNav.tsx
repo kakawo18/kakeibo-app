@@ -13,19 +13,42 @@ import { ActionIcon, Group, Select } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { useMemo } from 'react';
-import { getMonthOptions } from '@/utils/dateUtils';
+import dayjs from 'dayjs';
+import { formatMonthLocal, getCurrentMonth, monthOptionsBetween } from '@/utils/dateUtils';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
+import { useTransactions } from '@/contexts/TransactionsContext';
+
+/** 取引が無くても選べる範囲（今月から前後） */
+const DEFAULT_YEARS_BACK = 2;
+const DEFAULT_YEARS_FORWARD = 1;
 
 export const MonthNav = () => {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const { selectedMonth, setMonth, goPreviousMonth, goNextMonth } = useSelectedMonth();
-  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const { transactions, ensureHistory } = useTransactions();
+
+  // 選択肢は「今月の前後」に加えて、記録のある最古〜最新の月と表示中の月を必ず含める。
+  // 固定の範囲だと、矢印で範囲外の月へ進んだときに年月が表示されなくなり、
+  // 古い取引をプルダウンから選べなかった（#116）
+  const monthOptions = useMemo(() => {
+    const current = getCurrentMonth();
+    let from = dayjs(current).subtract(DEFAULT_YEARS_BACK, 'year').format('YYYY-MM');
+    let to = dayjs(current).add(DEFAULT_YEARS_FORWARD, 'year').format('YYYY-MM');
+    for (const month of [selectedMonth, ...transactions.map((t) => formatMonthLocal(t.date))]) {
+      if (month < from) from = month;
+      if (month > to) to = month;
+    }
+    return monthOptionsBetween(from, to);
+  }, [transactions, selectedMonth]);
 
   const monthSelector = (
     <Select
       data={monthOptions}
       value={selectedMonth}
       onChange={setMonth}
+      // 起動時は直近13か月の取引しか読んでいない。選択肢を開いたら過去も読み、
+      // 記録のある最古の月まで選べるようにする（#125）
+      onDropdownOpen={ensureHistory}
       searchable={!isMobile}
       w={isMobile ? 132 : 160}
       size={isMobile ? 'sm' : 'md'}
@@ -50,7 +73,10 @@ export const MonthNav = () => {
       <ActionIcon
         variant="subtle"
         color="gray"
-        size={isMobile ? 'md' : 'lg'}
+        // スマホは指で押すので高さ 44px を確保する（#111）。幅は、履歴タブで表示の切り替えと
+        // 1行に並べても年月が欠けず、375px 幅でも折り返さない 34px にとどめる
+        size={isMobile ? 44 : 40}
+        style={isMobile ? { width: 34, minWidth: 34 } : undefined}
         onClick={goPreviousMonth}
         aria-label="前の月へ"
       >
@@ -62,7 +88,10 @@ export const MonthNav = () => {
       <ActionIcon
         variant="subtle"
         color="gray"
-        size={isMobile ? 'md' : 'lg'}
+        // スマホは指で押すので高さ 44px を確保する（#111）。幅は、履歴タブで表示の切り替えと
+        // 1行に並べても年月が欠けず、375px 幅でも折り返さない 34px にとどめる
+        size={isMobile ? 44 : 40}
+        style={isMobile ? { width: 34, minWidth: 34 } : undefined}
         onClick={goNextMonth}
         aria-label="次の月へ"
       >

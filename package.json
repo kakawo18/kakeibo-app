@@ -1,6 +1,9 @@
 {
   "name": "kakeibo-app",
-  "version": "6.4.6",
+  "version": "6.8.1",
+  "engines": {
+    "node": "22.x"
+  },
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
@@ -9,6 +12,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:emulator": "npx --yes firebase-tools@13 emulators:exec --only firestore --project demo-kakeibo \"vitest run -c vitest.emulator.config.ts\"",
     "build:analyze": "ANALYZE=true npm run build",
     "postinstall": "npm run type-check"
   },
@@ -20,17 +26,24 @@
     "@mantine/hooks": "^8.1.1",
     "@mantine/modals": "^8.1.1",
     "@mantine/notifications": "^8.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
     "@tabler/icons-react": "^3.34.0",
     "dayjs": "^1.11.13",
     "firebase": "^11.9.1",
+    "firebase-admin": "^14.5.0",
     "framer-motion": "^12.23.0",
+    "jose": "^6.2.13",
+    "mcp-handler": "^2.3.0",
     "next": "^16.4.3",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "recharts": "^2.15.4"
+    "recharts": "^2.15.4",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@firebase/rules-unit-testing": "^4.0.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -38,6 +51,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.4.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

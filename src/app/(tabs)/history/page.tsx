@@ -13,13 +13,15 @@ import { Box, Container, Group, Loader, Paper, SegmentedControl, Stack, Text } f
 import { useMediaQuery } from '@mantine/hooks';
 import { MonthNav } from '@/components/ui/MonthNav';
 import { SwipeArea } from '@/components/ui/SwipeArea';
-import { TransactionList } from '@/components/ui/TransactionList';
-import { CalendarView } from '@/components/ui/CalendarView';
-import { AddTransactionFab } from '@/components/ui/AddTransactionFab';
-import { TransactionForm } from '@/components/forms/TransactionForm';
+import { TransactionList } from '@/features/transactions';
+import { CalendarView } from '@/features/transactions';
+import { AddTransactionFab } from '@/features/transactions';
+import { TransactionForm } from '@/features/transactions';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSelectedMonth } from '@/hooks/useSelectedMonth';
 import { formatMonthLocal } from '@/utils/dateUtils';
+import { monthNeedsHistory } from '@/data/transactionWindow';
+import { HistoryLoading, HistoryPartialNotice, useHistoryFor } from '@/components/ui/HistoryGate';
 import { Transaction } from '@/types';
 
 type ViewMode = 'list' | 'calendar';
@@ -31,8 +33,10 @@ const VIEW_TABS: { value: ViewMode; label: string }[] = [
 
 function HistoryContent() {
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const { transactions } = useTransactions();
+  const { transactions, recentFrom } = useTransactions();
   const { selectedMonth, setMonth, goPreviousMonth, goNextMonth } = useSelectedMonth();
+  // 直近13か月より前の月は過去の取引を読み、そろうまで一覧を出さない（#125）
+  const history = useHistoryFor(monthNeedsHistory(selectedMonth, recentFrom));
   const [view, setView] = useState<ViewMode>('list');
   const [formOpened, setFormOpened] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -62,7 +66,8 @@ function HistoryContent() {
       <SwipeArea enabled={isMobile} onPrevious={goPreviousMonth} onNext={goNextMonth}>
         <Stack gap="md">
           {/* 月の切り替えと表示の切り替えを1行に収める。専用の行を作ると高さだけを食う */}
-          <Group justify="space-between" align="center" wrap="nowrap">
+          {/* 幅が足りない端末（320px など）では表示の切り替えを次の行へ回す */}
+          <Group justify="space-between" align="center" wrap="wrap" gap={8} style={{ rowGap: 4 }}>
             <MonthNav />
             <SegmentedControl
               value={view}
@@ -73,7 +78,13 @@ function HistoryContent() {
             />
           </Group>
 
-          {view === 'list' ? (
+          <HistoryPartialNotice complete={history.complete} />
+
+          {!history.ready ? (
+            <Paper className="ledger-card">
+              <HistoryLoading />
+            </Paper>
+          ) : view === 'list' ? (
             <Box key="list" className="chart-swap">
               <TransactionList
                 transactions={selectedMonthTransactions}
@@ -86,7 +97,9 @@ function HistoryContent() {
                 value={calendarValue}
                 // 日付タップは下の欄に内訳を出すだけなので、選択の通知は不要
                 onChange={() => {}}
-                transactions={selectedMonthTransactions}
+                // 前後の月の日付も画面に出て選べるので、表示月に絞らずに渡す。
+                // カレンダー側が画面に出ている42日分だけを使う（#114）
+                transactions={transactions}
                 showHeader={false}
                 swipeable={false}
                 onMonthChange={setMonth}

@@ -10,10 +10,11 @@
 import { useState } from 'react';
 import { Button, Container, Group, Paper, Stack, Text } from '@mantine/core';
 import { IconRepeat } from '@tabler/icons-react';
-import { BudgetSection } from '@/components/settings/BudgetSection';
-import { CategorySection } from '@/components/settings/CategorySection';
-import { PaymentMethodSection } from '@/components/settings/PaymentMethodSection';
-import { RecurringTransactionManager } from '@/components/recurring/RecurringTransactionManager';
+import { BudgetSection } from '@/features/settings';
+import { CategorySection } from '@/features/settings';
+import { PaymentMethodSection } from '@/features/settings';
+import { RecurringTransactionManager } from '@/features/recurring';
+import { ClaudeConnectionSection } from '@/features/claude-connect';
 
 export default function SettingsPage() {
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
@@ -31,7 +32,7 @@ export default function SettingsPage() {
             <div>
               <Text className="section-title" mb={4}>定期取引</Text>
               <Text size="xs" c="dimmed">
-                家賃やサブスクなど毎月自動で記録する取引を管理します
+                家賃やサブスクなど毎月決まった取引を登録します。実行日になるとホームに表示され、確認して記録します
               </Text>
             </div>
             <Button
@@ -44,6 +45,8 @@ export default function SettingsPage() {
             </Button>
           </Group>
         </Paper>
+
+        <ClaudeConnectionSection />
       </Stack>
 
       <RecurringTransactionManager

@@ -21,124 +21,14 @@ import {
   useRef,
   ReactNode,
 } from 'react';
-import {
-  collection,
-  query,
-  where,
-  limit,
-  getDocs,
-  onSnapshot,
-  doc,
-  runTransaction,
-  setDoc,
-  Timestamp,
-  DocumentData,
-} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  UserSettings,
-  CategorySetting,
-  SubcategorySetting,
-  PaymentMethodSetting,
-  CategoryColor,
-} from '@/types';
-import {
-  buildGenericDefaultSettings,
-  buildLegacySettings,
-} from '@/config/defaultSettings';
+import { UserSettings, CategoryColor, CategorySetting, PaymentMethodSetting } from '@/types';
+import { SettingsPatch } from '@/data/settingsSerializer';
+import { patchSettings, seedSettingsIfMissing, subscribeSettings } from '@/data/settingsRepository';
 import { NEUTRAL_COLOR } from '@/config/colorPalette';
-import { createTransactionRules, TransactionRules } from '@/utils/transactionRules';
-
-const settingsDocRef = (uid: string) => doc(db, 'users', uid, 'settings', 'app');
-
-// ============================================================
-// Firestore シリアライズ / デシリアライズ
-// ============================================================
-
-/** undefined フィールドを除去しつつ Firestore 保存用に変換する */
-const serializeSettings = (settings: UserSettings): DocumentData => ({
-  schemaVersion: settings.schemaVersion,
-  monthlyBudget: settings.monthlyBudget,
-  categories: settings.categories.map((category) => ({
-    id: category.id,
-    name: category.name,
-    type: category.type,
-    roles: category.roles,
-    color: category.color,
-    subcategories: category.subcategories.map((sub) => ({
-      id: sub.id,
-      name: sub.name,
-      roles: sub.roles,
-      ...(sub.color ? { color: sub.color } : {}),
-    })),
-  })),
-  paymentMethods: settings.paymentMethods.map((method) => ({
-    id: method.id,
-    name: method.name,
-    isCash: method.isCash,
-    rewardRate: method.rewardRate,
-    color: method.color,
-  })),
-  // 未設定のときはキー自体を書かない。merge:true なので既存値はそのまま残る
-  ...(settings.chartPreferences?.categoryTrendCategories
-    ? {
-        chartPreferences: {
-          categoryTrendCategories: settings.chartPreferences.categoryTrendCategories,
-        },
-      }
-    : {}),
-  createdAt: Timestamp.fromDate(settings.createdAt),
-  updatedAt: Timestamp.fromDate(settings.updatedAt),
-});
-
-const deserializeSettings = (data: DocumentData): UserSettings => ({
-  schemaVersion: 1,
-  monthlyBudget: Number(data.monthlyBudget) || 0,
-  categories: Array.isArray(data.categories)
-    ? data.categories.map(
-        (category: DocumentData): CategorySetting => ({
-          id: category.id,
-          name: category.name,
-          type: category.type === 'income' ? 'income' : 'expense',
-          roles: Array.isArray(category.roles) ? category.roles : [],
-          color: category.color ?? NEUTRAL_COLOR,
-          subcategories: Array.isArray(category.subcategories)
-            ? category.subcategories.map(
-                (sub: DocumentData): SubcategorySetting => ({
-                  id: sub.id,
-                  name: sub.name,
-                  roles: Array.isArray(sub.roles) ? sub.roles : [],
-                  ...(sub.color ? { color: sub.color } : {}),
-                })
-              )
-            : [],
-        })
-      )
-    : [],
-  paymentMethods: Array.isArray(data.paymentMethods)
-    ? data.paymentMethods.map(
-        (method: DocumentData): PaymentMethodSetting => ({
-          id: method.id,
-          name: method.name,
-          isCash: Boolean(method.isCash),
-          rewardRate: Number(method.rewardRate) || 0,
-          color: method.color ?? '#8b919e',
-        })
-      )
-    : [],
-  ...(Array.isArray(data.chartPreferences?.categoryTrendCategories)
-    ? {
-        chartPreferences: {
-          categoryTrendCategories: data.chartPreferences.categoryTrendCategories.filter(
-            (name: unknown): name is string => typeof name === 'string'
-          ),
-        },
-      }
-    : {}),
-  createdAt: data.createdAt?.toDate() ?? new Date(),
-  updatedAt: data.updatedAt?.toDate() ?? new Date(),
-});
+import { createTransactionRules, TransactionRules } from '@/domain/transactionRules';
+import { settle } from '@/contexts/writeResult';
 
 // ============================================================
 // Context
@@ -155,10 +45,24 @@ interface SettingsContextType {
   expenseCategories: CategorySetting[];
   incomeCategories: CategorySetting[];
   paymentMethods: PaymentMethodSetting[];
-  updateSettings: (patch: Partial<Omit<UserSettings, 'createdAt' | 'updatedAt'>>) => Promise<void>;
+  /** 取得・初期設定の作成に失敗したときのエラー（#105） */
+  error: Error | null;
+  /** 取得をやり直す */
+  retry: () => void;
+  /** 渡した項目だけを保存する（他の項目は書かない） */
+  updateSettings: (patch: SettingsPatch) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
+
+/**
+ * 中身が同じなら前の参照を使い回す
+ *
+ * スナップショットのたびに配列を作り直すと、グラフの表示設定だけが変わっても
+ * カテゴリ由来の rules・色・一覧が作り直され、全期間の集計がやり直しになる（#104）。
+ */
+const keepIfSame = <T,>(previous: T | undefined, next: T): T =>
+  previous !== undefined && JSON.stringify(previous) === JSON.stringify(next) ? previous : next;
 
 /** 設定ロード前でも安全に呼べるフォールバックルール(空設定由来) */
 const EMPTY_SETTINGS: UserSettings = {
@@ -175,6 +79,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const seedingRef = useRef(false);
+  // 取得・初期設定の作成に失敗したとき。どのユーザーの何回目の購読かと一緒に持つ（#105）
+  const [attempt, setAttempt] = useState(0);
+  const [failure, setFailure] = useState<{ uid: string; attempt: number; error: Error } | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -184,13 +91,17 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     }
 
     setLoading(true);
-    const ref = settingsDocRef(user.uid);
+    const uid = user.uid;
 
-    const unsubscribe = onSnapshot(
-      ref,
-      async (snapshot) => {
-        if (snapshot.exists()) {
-          setSettings(deserializeSettings(snapshot.data()));
+    // 購読・初期設定の作成・保存形式の変換は data/settingsRepository.ts（#122）
+    const unsubscribe = subscribeSettings(db, uid, {
+      onChange: async (next) => {
+        if (next) {
+          setSettings((previous) => ({
+            ...next,
+            categories: keepIfSame(previous?.categories, next.categories),
+            paymentMethods: keepIfSame(previous?.paymentMethods, next.paymentMethods),
+          }));
           setLoading(false);
           return;
         }
@@ -199,78 +110,90 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         if (seedingRef.current) return;
         seedingRef.current = true;
         try {
-          const txSnapshot = await getDocs(
-            query(
-              collection(db, 'transactions'),
-              where('userId', '==', user.uid),
-              limit(1)
-            )
-          );
-          const seed = txSnapshot.empty
-            ? buildGenericDefaultSettings()
-            : buildLegacySettings();
-
-          // 多タブ同時オープンによる二重シードを防ぐ(未存在時のみ作成)
-          await runTransaction(db, async (tx) => {
-            const current = await tx.get(ref);
-            if (!current.exists()) {
-              tx.set(ref, serializeSettings(seed));
-            }
-          });
+          await seedSettingsIfMissing(db, uid);
         } catch (error) {
           console.error('Error seeding user settings:', error);
+          // 空の設定のまま画面を出すと、役割が無いので集計が静かにずれる。失敗として扱う
+          setFailure({ uid, attempt, error: error as Error });
           setLoading(false);
         } finally {
           seedingRef.current = false;
         }
       },
-      (error) => {
+      onError: (error) => {
         console.error('Error listening to user settings:', error);
+        setFailure({ uid, attempt, error });
         setLoading(false);
-      }
-    );
+      },
+    });
 
     return unsubscribe;
-  }, [user]);
+  }, [user, attempt]);
+
+  const error =
+    user && failure?.uid === user.uid && failure.attempt === attempt ? failure.error : null;
+
+  /** 購読をやり直す（取得に失敗したときの再試行） */
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
+
+  // 設定ドキュメントができる前（シード前）は書かない
+  const settingsReady = settings !== null;
 
   const updateSettings = useCallback(
-    async (patch: Partial<Omit<UserSettings, 'createdAt' | 'updatedAt'>>) => {
-      if (!user || !settings) return;
+    async (patch: SettingsPatch) => {
+      if (!user || !settingsReady) return;
 
-      // 現在値にパッチを重ねて全体をシリアライズ(単一docの部分配列更新は不可のため)
-      const next: UserSettings = {
-        ...settings,
-        ...patch,
-        updatedAt: new Date(),
-      };
-
+      // 渡された項目だけを書く。手元の設定全体を書き戻すと、まだ届いていない
+      // 他端末の変更（カテゴリ・予算など）を古い値で上書きしてしまう（#104）
       try {
-        await setDoc(settingsDocRef(user.uid), serializeSettings(next), { merge: true });
+        // オフラインではサーバーの確定を待たずに返す（#126）
+        await settle(patchSettings(db, user.uid, patch));
       } catch (error) {
         console.error('Error updating user settings:', error);
         throw error;
       }
     },
-    [user, settings]
+    [user, settingsReady]
   );
 
+  const categories = settings?.categories;
+  const paymentMethodList = settings?.paymentMethods;
+
+  // 集計ルールはカテゴリと支払方法だけから作る。予算やグラフの表示設定が
+  // 変わっても作り直さない（作り直すと全画面の集計がやり直しになる）
   const rules = useMemo(
-    () => createTransactionRules(settings ?? EMPTY_SETTINGS),
-    [settings]
+    () =>
+      createTransactionRules({
+        ...EMPTY_SETTINGS,
+        categories: categories ?? [],
+        paymentMethods: paymentMethodList ?? [],
+      }),
+    [categories, paymentMethodList]
   );
 
   // カテゴリ/サブカテゴリ名 → 色のマップ(サブカテゴリ優先で解決)
   const colorMap = useMemo(() => {
     const map = new Map<string, CategoryColor>();
-    for (const category of (settings ?? EMPTY_SETTINGS).categories) {
+    for (const category of categories ?? []) {
       // サブカテゴリで上書きされないよう、カテゴリ名は未登録時のみ設定
       if (!map.has(category.name)) map.set(category.name, category.color);
       for (const sub of category.subcategories) {
         if (!map.has(sub.name)) map.set(sub.name, sub.color ?? category.color);
       }
     }
+    // 改名前の名前（#97）。今の名前と重なるものは今の名前の色を優先する
+    for (const category of categories ?? []) {
+      for (const alias of category.aliases ?? []) {
+        if (!map.has(alias)) map.set(alias, category.color);
+      }
+      for (const sub of category.subcategories) {
+        for (const alias of sub.aliases ?? []) {
+          if (!map.has(alias)) map.set(alias, sub.color ?? category.color);
+        }
+      }
+    }
     return map;
-  }, [settings]);
+  }, [categories]);
 
   const getColor = useCallback(
     (name: string, isDark: boolean): string => {
@@ -281,19 +204,21 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const expenseCategories = useMemo(
-    () => (settings?.categories ?? []).filter((c) => c.type === 'expense'),
-    [settings]
+    () => (categories ?? []).filter((c) => c.type === 'expense'),
+    [categories]
   );
   const incomeCategories = useMemo(
-    () => (settings?.categories ?? []).filter((c) => c.type === 'income'),
-    [settings]
+    () => (categories ?? []).filter((c) => c.type === 'income'),
+    [categories]
   );
-  const paymentMethods = useMemo(() => settings?.paymentMethods ?? [], [settings]);
+  const paymentMethods = useMemo(() => paymentMethodList ?? [], [paymentMethodList]);
 
   const value = useMemo(
     () => ({
       settings,
       loading,
+      error,
+      retry,
       rules,
       getColor,
       expenseCategories,
@@ -301,7 +226,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       paymentMethods,
       updateSettings,
     }),
-    [settings, loading, rules, getColor, expenseCategories, incomeCategories, paymentMethods, updateSettings]
+    [settings, loading, error, retry, rules, getColor, expenseCategories, incomeCategories, paymentMethods, updateSettings]
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

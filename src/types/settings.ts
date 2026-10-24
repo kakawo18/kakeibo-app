@@ -57,6 +57,10 @@ export interface SubcategorySetting {
   name: string;              // 取引データはこの文字列を保持する(表示名=保存名)
   roles: CategoryRole[];
   color?: CategoryColor;     // 円グラフはサブカテゴリ優先で集計するため個別色を持てる
+  /** 以前の名前。これらの名前で記録された取引も、このサブカテゴリとして扱う（#97） */
+  aliases?: string[];
+  /** 取引で使われたまま削除されたもの。入力の選択肢には出さず、役割と色は残す（#97） */
+  archived?: boolean;
 }
 
 /** カテゴリ設定 */
@@ -67,6 +71,16 @@ export interface CategorySetting {
   roles: CategoryRole[];
   color: CategoryColor;
   subcategories: SubcategorySetting[];
+  /**
+   * 以前の名前（#97）
+   *
+   * 取引はカテゴリ名の文字列を保持しているので、改名すると過去の取引が
+   * 設定と結びつかなくなり、役割（投資・給与など）が外れて集計が変わっていた。
+   * 改名時に旧名をここに残し、旧名の取引も同じ役割・色・表示名で扱う。
+   */
+  aliases?: string[];
+  /** 取引で使われたまま削除されたもの。入力の選択肢には出さず、役割と色は残す（#97） */
+  archived?: boolean;
 }
 
 /** 支払方法設定 */
