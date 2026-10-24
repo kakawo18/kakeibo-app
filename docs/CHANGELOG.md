@@ -2,6 +2,13 @@
 
 変更を入れたら `package.json` の `version` を更新し、このファイルの先頭に節を追加する（運用ルールは `AGENTS.md` の「バージョン管理」を参照）。
 
+## [6.7.2] - 2026-10-24
+
+### 修正
+- **本番で Claude 連携がエラー（500）になる問題を直した（6.7.1 で直らなかった分）**: Node.js を 22 に固定しても、Vercel の Node.js 22 は ES モジュールの `require()` に対応していない版で、`firebase-admin/auth` が読み込めずに失敗していた（`ERR_REQUIRE_ESM`。依存する `jwks-rsa` が `jose` を `require()` する）。Node.js 22.11 で同じエラーを再現し、`firebase-admin/app`・`firebase-admin/firestore` は読み込めることを確かめた
+  - 同意画面での Firebase の ID トークンの検証を、`firebase-admin/auth` から `jose` での検証（Firebase が公開している手順どおり: RS256・aud・iss・exp・iat・auth_time・sub）に替えた。失効の確認はしなくなった（ID トークンの寿命は1時間）
+  - `firebase-admin/auth` と `firebase-admin`（全部を読み込む）を ESLint で禁止した
+
 ## [6.7.1] - 2026-10-24
 
 ### 修正
