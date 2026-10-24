@@ -61,6 +61,8 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 - **z-index の階層**: Mantine モーダル = 200。`.app-header` は 100、モバイル FAB（Affix）は 150。**200 以上にしない**（フルスクリーンモーダルの閉じるボタンを覆い、PWA でユーザーが戻れなくなる）。
 - **カード支払いの会計ロジック**: クレジットカードの支出は**購入月に計上する**。実際の口座残高や引き落とし月は扱わない（アプリが計算するのは「収支 = 選択月の収入−支出」のみ）。`transactionType`（`normal` / `card_payment`）と `affectsExpense` フラグで表現し、`rules.deriveTransactionFlags` が導出する。詳細は `docs/機能仕様書.md` の「クレジットカード払いの会計モデル」。
 - **モバイル入力**: iOS のズーム防止でフォントは 16px、タップ領域は 48px を確保する（`globals.css` の PWA 用ブロック）。
+- **Vercel の Node.js は ES モジュールの `require()` に未対応の版**（設定は 22.x）。サーバーで `firebase-admin/auth`（と全部を読み込む `firebase-admin`）を使うと、依存の `jwks-rsa` が `jose` を読み込めず、そのルートが本番だけ 500 になる（ESLint で禁止している）。手元の Node.js では再現しないので、サーバー側の依存を足したら `engines` を見て、怪しければ standalone ビルドを古い Node.js で動かして確かめる。経緯は `docs/claude-connector/手順書.md` 10.1。
+- **Firestore のエミュレータは複合インデックスを要求しない**。新しい条件や並び順のクエリはテストで通っても本番で `FAILED_PRECONDITION` になる。クエリを足したら `firestore.indexes.json` に足し、本番に作ってからデプロイする（手順書 10.2）。
 
 ## セキュリティ
 
