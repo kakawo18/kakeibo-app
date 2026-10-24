@@ -60,8 +60,17 @@ export const registerKakeiboTools = (server: McpServer): void => {
     },
     async (ctx) =>
       runTool('get_kakeibo_overview', ctx, async (uid) => {
-        const [settings, period] = await Promise.all([readSettings(uid), readRecordedPeriod(uid)]);
-        return buildOverview(settings, period, new Date());
+        // 記録のある期間の読み出し（最も古い取引を引くには複合インデックスが要る）が失敗しても、
+        // 概要のほかの項目は返す。最初に呼ぶツールなので、ここが止まるとほかのツールも使われなくなる
+        const period = readRecordedPeriod(uid).catch((error: unknown) => {
+          console.error(
+            'MCP tool get_kakeibo_overview: recorded period unavailable:',
+            error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error'
+          );
+          return 'unavailable' as const;
+        });
+        const [settings, recordedPeriod] = await Promise.all([readSettings(uid), period]);
+        return buildOverview(settings, recordedPeriod, new Date());
       })
   );
 

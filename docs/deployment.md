@@ -43,6 +43,10 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 
 あわせて Firestore の TTL ポリシー（`oauthAuthorizationCodes` と `oauthRefreshTokens` の `expiresAt`）を設定する（手順書 2.6）。
 
+## Firestore のインデックス
+
+使っている複合インデックスは `firestore.indexes.json` で管理する（`transactions` の `userId` + `date` の降順と昇順）。降順はアプリの画面、昇順は Claude 連携の概要（最も古い取引を引く）が使う。無ければ Firebase Console →「Firestore Database」→「インデックス」で作るか、`firebase deploy --only firestore:indexes` で反映する。エミュレータはインデックスを要求しないので、テストでは気づけない。
+
 ## Firebase 側の必須設定
 
 - **Authorized domains**: Firebase Console → Authentication → Settings → Authorized domains に、Vercel が発行した本番ドメイン（例: `kakeibo-app-xxxx.vercel.app`）とカスタムドメインを追加する。追加しないとデプロイ先でログインできない。
