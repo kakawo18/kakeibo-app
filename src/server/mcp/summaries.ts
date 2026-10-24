@@ -57,13 +57,23 @@ const describeSubcategory = (sub: SubcategorySetting) => ({
   ...settingMeta(sub),
 });
 
+/**
+ * @param period 最も古い取引と最も新しい取引の日付。取引が無ければ null、
+ *   読み出しに失敗したときは 'unavailable'（概要のほかの項目は返す）
+ */
 export const buildOverview = (
   settings: UserSettings,
-  period: { first: Date; last: Date } | null,
+  period: { first: Date; last: Date } | null | 'unavailable',
   today: Date
 ) => ({
   today: formatDate(today),
-  recordedPeriod: period ? { first: formatDate(period.first), last: formatDate(period.last) } : null,
+  recordedPeriod:
+    period && period !== 'unavailable'
+      ? { first: formatDate(period.first), last: formatDate(period.last) }
+      : null,
+  ...(period === 'unavailable'
+    ? { recordedPeriodNote: '記録のある期間を取得できなかった。期間を指定してほかのツールを呼べば集計はできる' }
+    : {}),
   monthlyBudget: settings.monthlyBudget,
   categories: settings.categories.map((category) => ({
     name: category.name,

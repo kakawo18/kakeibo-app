@@ -39,6 +39,14 @@ describe('buildOverview', () => {
   it('取引が無ければ recordedPeriod は null', () => {
     expect(buildOverview(testSettings, null, new Date(2026, 9, 22)).recordedPeriod).toBeNull();
   });
+
+  it('期間を読み出せなかったときも、ほかの項目は返し、取得できなかったことを添える', () => {
+    const overview = buildOverview(testSettings, 'unavailable', new Date(2026, 9, 22));
+
+    expect(overview.recordedPeriod).toBeNull();
+    expect(overview.recordedPeriodNote).toContain('取得できなかった');
+    expect(overview.categories.length).toBe(testSettings.categories.length);
+  });
 });
 
 describe('buildSearchResult', () => {
