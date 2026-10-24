@@ -2,6 +2,11 @@
 
 変更を入れたら `package.json` の `version` を更新し、このファイルの先頭に節を追加する（運用ルールは `AGENTS.md` の「バージョン管理」を参照）。
 
+## [6.7.1] - 2026-10-24
+
+### 修正
+- **本番で Claude 連携の接続・トークン発行・同意画面がエラー（500）になる問題を直した**: Vercel の関数が古い Node.js で動いており、Firebase Admin SDK が依存する `jwks-rsa` が `jose`（ES モジュール）を `require()` で読み込めずに失敗していた（`ERR_REQUIRE_ESM`）。`package.json` の `engines.node` を `22.x` にして、Vercel が Node.js 22 で動かすようにした（`firebase-admin` 14 は Node.js 22 以上、`jwks-rsa` 4 は 20.19 / 22.12 以上が必要）
+
 ## [6.7.0] - 2026-10-24
 
 ### 追加

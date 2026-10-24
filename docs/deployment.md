@@ -9,6 +9,10 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 3. **環境変数を設定**（下記）。
 4. Deploy。
 
+## Node.js のバージョン
+
+`package.json` の `engines.node`（`22.x`）で Vercel の関数の Node.js を固定している。Vercel はプロジェクト設定の Node.js Version よりこちらを優先する。Claude 連携が使う `firebase-admin` 14 は Node.js 22 以上を要し、古い Node.js だと `ERR_REQUIRE_ESM`（`jwks-rsa` が `jose` を読み込めない）で Claude 連携のエンドポイントが 500 になる。CI（`.github/workflows/ci.yml`）も Node.js 22 で動かしている。
+
 ## Vercel の環境変数
 
 `.env.local` と同じ 6 つを Vercel のプロジェクト設定 → Environment Variables に登録する:
