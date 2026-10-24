@@ -41,7 +41,7 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 | `MCP_TOKEN_SECRET` | アクセストークンの署名鍵（32バイト以上の乱数）。替えると発行済みのアクセストークンが無効になる |
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | Admin SDK 用サービスアカウントの JSON を base64 にしたもの |
 
-あわせて Firestore の TTL ポリシー（`oauthAuthorizationCodes` と `oauthRefreshTokens` の `expiresAt`）を設定する（手順書 2.6）。
+期限の切れた認可コードとリフレッシュトークンは、トークンを発行するたびにアプリが消す（Firestore の TTL は無料プランでは使えないため。v6.8.0）。あわせて `firestore.indexes.json` の複合インデックスを作っておく（下記）。
 
 ## Firestore のインデックス
 
