@@ -22,6 +22,21 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` |
 
+### Claude 連携を使う場合
+
+次の6つを **Production 環境だけ** に登録する（Preview には入れない。プレビューの URL ごとに本番データへの入り口が増えるため）。作り方は `docs/claude-connector/手順書.md` の2章。どれも `NEXT_PUBLIC_` を付けない（ブラウザ向けのバンドルに入れない）。
+
+| キー | 中身 |
+|------|------|
+| `MCP_ENABLED` | `1` で有効。消すか `1` 以外にして再デプロイすると、Claude 連携のエンドポイントがすべて 404 になる |
+| `MCP_PUBLIC_ORIGIN` | 本番の URL（末尾の `/` なし）。Claude に登録する URL とトークンの宛先になるので、変えると全員がつなぎ直す |
+| `MCP_OAUTH_CLIENT_ID` | Claude のコネクタに入力する Client ID |
+| `MCP_ALLOWED_UIDS` | 使ってよい Firebase の uid（カンマ区切り）。外せば即座に使えなくなる |
+| `MCP_TOKEN_SECRET` | アクセストークンの署名鍵（32バイト以上の乱数）。替えると発行済みのアクセストークンが無効になる |
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Admin SDK 用サービスアカウントの JSON を base64 にしたもの |
+
+あわせて Firestore の TTL ポリシー（`oauthAuthorizationCodes` と `oauthRefreshTokens` の `expiresAt`）を設定する（手順書 2.6）。
+
 ## Firebase 側の必須設定
 
 - **Authorized domains**: Firebase Console → Authentication → Settings → Authorized domains に、Vercel が発行した本番ドメイン（例: `kakeibo-app-xxxx.vercel.app`）とカスタムドメインを追加する。追加しないとデプロイ先でログインできない。

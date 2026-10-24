@@ -8,7 +8,8 @@
 - **Next.js 16**（App Router, Turbopack）/ React 19 / TypeScript（strict）
 - **Mantine 8**（UI・フォーム・通知・モーダル）— レイアウトとスタイルは基本 Mantine プロパティで組む
 - **Recharts**（チャート）※ Mantine Charts ではない
-- **Firebase**（Auth: メール/パスワードのみ、Firestore）
+- **Firebase**（Auth: メール/パスワードのみ、Firestore）。サーバー側は Claude 連携だけが Admin SDK（`firebase-admin`）を使う
+- **mcp-handler 2.x**（Claude 連携の MCP サーバー。`docs/claude-connector/`）
 - **framer-motion**（アニメーション・スワイプ）、**dayjs**（日付）
 
 ## セットアップ・コマンド
@@ -45,7 +46,7 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 ## コード規約
 
-- **画面の置き場所**: 機能ごとの画面は `src/features/<機能>/`（auth / dashboard / transactions / recurring / review / settings / import-export）。機能の外からは `@/features/<機能>`（index.ts）だけを import し、中のファイルを直接参照しない（機能の中は相対パス）。外から使うものを増やしたら index.ts に足す。`src/components/` は特定の機能に依存しない共通 UI。`src/app/` はルーティング・レイアウト・Provider の配置だけ。
+- **画面の置き場所**: 機能ごとの画面は `src/features/<機能>/`（auth / dashboard / transactions / recurring / review / settings / import-export）。機能の外からは `@/features/<機能>`（index.ts）だけを import し、中のファイルを直接参照しない（機能の中は相対パス）。外から使うものを増やしたら index.ts に足す。`src/components/` は特定の機能に依存しない共通 UI。`src/app/` はルーティング・レイアウト・Provider の配置と Route Handler の入り口だけ。サーバーでだけ動くコード（Claude 連携の MCP サーバー・認可サーバー・Admin SDK での読み出し）は `src/server/` に置き、各ファイルの先頭で `import 'server-only'` する。`src/server` と `firebase-admin` は画面・Context・データアクセス・domain から import しない（ESLint で検査している）。
 - **依存の向き**: `app` → `features` → `components` / `contexts` → `data` → `domain` → `utils` / `types`。会計の計算（集計・役割・カード還元・税の推定・カテゴリの改名）は `src/domain/` に置き、React・Next・Firebase・Mantine と画面・Context・データアクセスを import しない（ESLint の `no-restricted-imports` で検査している）。表示用の色付けなどは画面側で行う。
 - **関数コンポーネント + フック**のみ。クライアントコンポーネントは先頭に `'use client'`。
 - **状態管理**: グローバルは 4 つの Context（`AuthContext` / `SettingsContext` / `TransactionsContext` / `RecurringTransactionsContext`、`src/app/layout.tsx` でラップ）。Firestore の購読（`onSnapshot`）はコレクションごとに Context の1か所だけに置き、画面やモーダルでは購読しない。取引は起動時に直近13か月だけを読む（#125）。それより前の月・年や全期間を使う画面は `useHistoryFor(needed)`（`src/components/ui/HistoryGate.tsx`）で過去の分を読み、そろうまで金額を出さない（未取得を0円に見せない）。削除の可否など欠けていると困る判断は `historyComplete` を見る。表示中の年月は **URL クエリ `?month=YYYY-MM`** で持ち、`useSearchParams` で読む（専用の state は作らない）。
@@ -64,7 +65,9 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 ## セキュリティ
 
 - `.env.local` は**コミットしない**（`.gitignore` 済み）。クライアントに出してよい値は `NEXT_PUBLIC_*` のみ。`next.config.ts` の `env` は使わない（`NEXT_PUBLIC_` 無しでもバンドルに埋め込まれるため、秘密情報の混入に気づけない）。
-- **Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、サーバー側の API 層が無い）。取引は トップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
+- **画面からの Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、画面用のサーバー側の API 層は無い）。
+- **例外は Claude 連携のサーバー（`src/server/`）で、Admin SDK は `firestore.rules` を通らない。** 利用者のデータを読むのは `src/server/kakeiboReader.ts` の関数だけにし、必ず uid（トークンの検証結果から得たもの）で絞る。uid をツールの入力から受け取らない。認可コードとリフレッシュトークン（`oauthAuthorizationCodes` / `oauthRefreshTokens`）はクライアントから一切触れないようルールで拒否している。詳細は `docs/claude-connector/仕様書.md` の 7.2 と 8章。
+- 画面のデータの置き場所: 取引はトップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
 - 取引の更新・削除はクライアント側で所有者チェックをしていない。所有者の検証はルール側の責務。
 - 本番デプロイ先ドメインは Firebase Console の Authentication → Authorized domains に追加が必要。
 - セキュリティヘッダーは `next.config.ts` の `securityHeaders` に集約。CSP は現在 **Report-Only**。接続先（Firebase 等）を増やしたら `connect-src` を更新する。
