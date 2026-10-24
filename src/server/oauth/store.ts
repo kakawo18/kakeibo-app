@@ -3,8 +3,9 @@
  *
  * どちらもハッシュを ID にして保存する（値そのものは保存しない）。
  * クライアントからは firestore.rules で一切触らせない（Admin SDK だけが読み書きする）。
- * 期限切れのドキュメントは Firestore の TTL ポリシー（expiresAt）で消えるが、
- * 消えるのは最大で1日ほど遅れるので、ここでも必ず expiresAt を確かめる。
+ * 期限切れのドキュメントは deleteExpired（トークンを発行するたびに呼ぶ）で消す。
+ * Firestore の TTL ポリシーは無料プランでは使えないため（v6.8.0）。消すのは発行のついでなので、
+ * 読み出すときは必ず expiresAt も確かめる。
  */
 import 'server-only';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -18,6 +19,16 @@ export const CODE_TTL_MS = 5 * 60 * 1000;
 export const REFRESH_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 /** 使用済みのリフレッシュトークンがこの時間内に再び使われたら、同時の更新とみなす */
 export const REFRESH_REUSE_GRACE_MS = 60 * 1000;
+/**
+ * 使用済みのリフレッシュトークンを残しておく時間（再使用の検出に使う）
+ *
+ * 更新は1時間ごとに起きるので、30日の期限まで残すと1つの接続で数百件が溜まる。
+ * 使った時点で期限をここまで縮め、deleteExpired で消えるようにする。
+ * これより後の再使用は「知らないトークン」として拒否される（接続ごとの削除はしない）。
+ */
+export const USED_REFRESH_TOKEN_RETENTION_MS = 24 * 60 * 60 * 1000;
+/** deleteExpired が1回に消す件数の上限（1回の処理を軽く保つ。残りは次の発行のときに消える） */
+const DELETE_EXPIRED_LIMIT = 200;
 
 // ============================================================
 // 認可コード
@@ -128,10 +139,32 @@ export const rotateRefreshToken = (
 
     const grant: RefreshGrant = { uid: data.uid, clientId: data.clientId, scope: data.scope };
     const next = randomToken();
-    tx.update(ref, { usedAt: Timestamp.fromDate(now) });
+    const retainedUntil = Math.min(
+      (data.expiresAt as Timestamp).toMillis(),
+      now.getTime() + USED_REFRESH_TOKEN_RETENTION_MS
+    );
+    tx.update(ref, { usedAt: Timestamp.fromDate(now), expiresAt: Timestamp.fromMillis(retainedUntil) });
     tx.create(adminDb().doc(`${REFRESH_TOKENS}/${sha256Hex(next)}`), refreshTokenData(grant, data.familyId, now));
     return { ok: true, grant, refreshToken: next };
   });
+
+/**
+ * 期限切れの認可コードとリフレッシュトークンを消す（TTL ポリシーの代わり）。消した件数を返す
+ *
+ * expiresAt だけの条件なので、単一フィールドの自動インデックスで足りる。
+ */
+export const deleteExpired = async (now: Date = new Date()): Promise<number> => {
+  const cutoff = Timestamp.fromDate(now);
+  const snapshots = await Promise.all(
+    [AUTHORIZATION_CODES, REFRESH_TOKENS].map((collection) =>
+      adminDb().collection(collection).where('expiresAt', '<=', cutoff).limit(DELETE_EXPIRED_LIMIT).get()
+    )
+  );
+  const writer = adminDb().bulkWriter();
+  snapshots.forEach((snapshot) => snapshot.docs.forEach((doc) => writer.delete(doc.ref)));
+  await writer.close();
+  return snapshots.reduce((sum, snapshot) => sum + snapshot.size, 0);
+};
 
 /** uid のリフレッシュトークンをすべて消す（接続の解除）。消した件数を返す */
 export const revokeRefreshTokensForUid = async (uid: string): Promise<number> => {

@@ -48,6 +48,7 @@ CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテス�
 | 月間予算との比較 | 共通の除外に加えて「支出ペース除外」の取引も外す。今月は今日までの取引だけ数える。ホームの支出ペースと Claude 連携で同じ関数を使う | `docs/claude-connector/仕様書.md` 6.4 | `budget.test.ts` |
 | Admin SDK の読み出し | 指定した uid の取引・設定・定期取引だけを返す（ルールを通らないのでコードで保証する） | `docs/claude-connector/仕様書.md` 7.2 | `src/server/kakeiboReader.emulator.test.ts` |
 | Claude 連携の認可 | 認可コードは5分・1回限り、PKCE（S256）必須、redirect_uri は完全一致。リフレッシュトークンはローテーションし、60秒より後の再使用で接続ごと消す。許可リスト外の uid は拒否 | `docs/claude-connector/仕様書.md` 5章 | `src/server/oauth/oauth.test.ts`、`oauth.emulator.test.ts` |
+| Claude 連携の接続の解除・掃除 | 解除は本人のリフレッシュトークンだけを消す。使用済みのトークンは24時間で期限切れ、期限切れのコードとトークンは発行のたびに消す | `docs/claude-connector/仕様書.md` 5.9・5.10 | `src/server/oauth/oauth.emulator.test.ts` |
 | Claude 連携のツールの数値 | ホーム・振り返りと同じ domain の関数で集計し、改名前のカテゴリも今の名前で数える | `docs/claude-connector/仕様書.md` 6章 | `src/server/mcp/summaries.test.ts` |
 | カテゴリの改名・削除 | 過去の取引の集計は変わらない（以前の名前・アーカイブ） | §3.1 | `categorySettings.test.ts` |
 | 編集 | メモだけ直しても取引タイプ・支出に含めるかは変わらない | §2.3、#99 | `transactionRules.test.ts` resolveFlagsOnEdit |

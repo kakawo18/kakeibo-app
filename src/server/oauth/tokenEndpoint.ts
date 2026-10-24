@@ -11,6 +11,7 @@ import { verifyPkce } from './pkce';
 import { isAllowedScope } from './params';
 import {
   consumeAuthorizationCode,
+  deleteExpired,
   issueRefreshToken,
   rotateRefreshToken,
 } from './store';
@@ -30,16 +31,22 @@ const issueTokens = async (
   refreshToken: string,
   config: McpConfig,
   now: Date
-): Promise<TokenResponse> => ({
-  status: 200,
-  body: {
-    access_token: await signAccessToken(grant, config, now),
-    token_type: 'Bearer',
-    expires_in: ACCESS_TOKEN_TTL_SECONDS,
-    refresh_token: refreshToken,
-    scope: grant.scope,
-  },
-});
+): Promise<TokenResponse> => {
+  // 発行のついでに期限切れのコードとトークンを消す（TTL の代わり）。失敗しても発行は止めない
+  await deleteExpired(now).catch((error: unknown) => {
+    console.error('OAuth: failed to delete expired documents:', error instanceof Error ? error.message : 'unknown');
+  });
+  return {
+    status: 200,
+    body: {
+      access_token: await signAccessToken(grant, config, now),
+      token_type: 'Bearer',
+      expires_in: ACCESS_TOKEN_TTL_SECONDS,
+      refresh_token: refreshToken,
+      scope: grant.scope,
+    },
+  };
+};
 
 const exchangeAuthorizationCode = async (
   form: URLSearchParams,

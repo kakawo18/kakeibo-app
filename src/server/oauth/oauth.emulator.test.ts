@@ -15,11 +15,18 @@ import { CLAUDE_REDIRECT_URI } from '@/server/oauth/params';
 import { challengeOf } from '@/server/oauth/pkce';
 import { verifyAccessToken } from '@/server/oauth/accessToken';
 import {
+  AUTHORIZATION_CODES,
   CODE_TTL_MS,
   REFRESH_REUSE_GRACE_MS,
+  REFRESH_TOKENS,
+  USED_REFRESH_TOKEN_RETENTION_MS,
+  deleteExpired,
   hasActiveRefreshToken,
   revokeRefreshTokensForUid,
 } from '@/server/oauth/store';
+import { handleConnectionsRequest } from '@/server/oauth/connectionsEndpoint';
+import { sha256Hex } from '@/server/oauth/random';
+import { adminDb } from '@/server/firebaseAdmin';
 
 const verifier = 'v'.repeat(64);
 let alice: string;
@@ -229,5 +236,69 @@ describe('トークンのエンドポイントの入力', () => {
       config
     );
     expect(response.body).toMatchObject({ error: 'unsupported_grant_type' });
+  });
+});
+
+describe('期限切れのデータの掃除（TTL の代わり）', () => {
+  const exists = async (collection: string, value: string) =>
+    (await adminDb().doc(`${collection}/${sha256Hex(value)}`).get()).exists;
+
+  it('使ったリフレッシュトークンは24時間だけ残し、そのあとの再使用は接続を消さずに拒否する', async () => {
+    const usedAt = new Date();
+    const first = (await exchange(await codeFor(alice), {}, usedAt)).body as Record<string, string>;
+    const second = await refresh(first.refresh_token, usedAt);
+
+    const afterRetention = new Date(usedAt.getTime() + USED_REFRESH_TOKEN_RETENTION_MS + 1_000);
+    expect((await refresh(first.refresh_token, afterRetention)).body).toMatchObject({ error: 'invalid_grant' });
+    // 正しい利用者の新しいトークンは残っている（24時間を過ぎた再使用では接続ごとは消さない）
+    expect((await refresh(second.body.refresh_token as string, afterRetention)).status).toBe(200);
+  });
+
+  it('期限切れの認可コードとリフレッシュトークンを消し、期限内のものは残す', async () => {
+    const issuedAt = new Date();
+    const unusedCode = await codeFor(alice, issuedAt);
+    const first = (await exchange(await codeFor(alice, issuedAt), {}, issuedAt)).body as Record<string, string>;
+    const second = await refresh(first.refresh_token, issuedAt);
+
+    await deleteExpired(new Date(issuedAt.getTime() + USED_REFRESH_TOKEN_RETENTION_MS + 1_000));
+
+    expect(await exists(AUTHORIZATION_CODES, unusedCode)).toBe(false);
+    expect(await exists(REFRESH_TOKENS, first.refresh_token)).toBe(false);
+    expect(await exists(REFRESH_TOKENS, second.body.refresh_token as string)).toBe(true);
+  });
+
+  it('トークンを発行するたびに、期限切れのものを消す', async () => {
+    const longAgo = new Date(Date.now() - 2 * CODE_TTL_MS);
+    const staleCode = await codeFor(alice, longAgo);
+
+    await exchange(await codeFor(alice));
+
+    expect(await exists(AUTHORIZATION_CODES, staleCode)).toBe(false);
+  });
+});
+
+describe('接続の確認と解除（/api/oauth/connections）', () => {
+  const as = (uid: string) => ({ verifyIdToken: async () => uid });
+
+  it('接続中かを返し、解除するとその利用者だけ未接続になる', async () => {
+    await exchange(await codeFor(alice));
+    await exchange(await codeFor(bob));
+
+    expect(await handleConnectionsRequest('GET', 'Bearer id', as(alice))).toEqual({ status: 200, body: { connected: true } });
+    expect(await handleConnectionsRequest('DELETE', 'Bearer id', as(alice))).toEqual({ status: 200, body: { revoked: 1 } });
+
+    expect((await handleConnectionsRequest('GET', 'Bearer id', as(alice))).body).toEqual({ connected: false });
+    expect((await handleConnectionsRequest('GET', 'Bearer id', as(bob))).body).toEqual({ connected: true });
+  });
+
+  it('ログインの証明が無い・無効なら 401', async () => {
+    expect((await handleConnectionsRequest('GET', null)).status).toBe(401);
+    expect((await handleConnectionsRequest('DELETE', 'Basic abc')).status).toBe(401);
+    const invalid = await handleConnectionsRequest('DELETE', 'Bearer bad', {
+      verifyIdToken: async () => {
+        throw new Error('invalid');
+      },
+    });
+    expect(invalid.status).toBe(401);
   });
 });

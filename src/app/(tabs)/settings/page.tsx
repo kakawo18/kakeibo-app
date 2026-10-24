@@ -14,6 +14,7 @@ import { BudgetSection } from '@/features/settings';
 import { CategorySection } from '@/features/settings';
 import { PaymentMethodSection } from '@/features/settings';
 import { RecurringTransactionManager } from '@/features/recurring';
+import { ClaudeConnectionSection } from '@/features/claude-connect';
 
 export default function SettingsPage() {
   const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
@@ -44,6 +45,8 @@ export default function SettingsPage() {
             </Button>
           </Group>
         </Paper>
+
+        <ClaudeConnectionSection />
       </Stack>
 
       <RecurringTransactionManager
