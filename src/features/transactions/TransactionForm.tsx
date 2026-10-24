@@ -24,7 +24,7 @@ import { MobileCalendar } from './MobileCalendar';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles, getTextareaStyles } from '@/components/forms/formStyles';
-import { validateAmount } from '@/utils/validation';
+import { validateAmount, validateDescription } from '@/utils/validation';
 import { activeCategories } from '@/domain/categorySettings';
 import { notifySaved } from '@/contexts/writeResult';
 
@@ -85,6 +85,8 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
       // 数値にならない値・無限大・上限超えも弾く（取引・定期取引・CSVで共通の基準。#117）
       amount: (value) => validateAmount(value),
       category: (value) => (!value || value.trim() === '' ? 'カテゴリを選択してください' : null),
+      // firestore.rules と同じ上限（#163）
+      description: (value) => validateDescription(value),
     },
   });
 

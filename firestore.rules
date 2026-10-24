@@ -26,6 +26,35 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // 書き込みの形と大きさの検査（#163）
+    //
+    // 新規登録は誰でもできる（#66）ため、自分の領域にでも任意のフィールド・任意の大きさの
+    // データを書けると、第三者が Firestore の容量（Spark プランは 1 GiB）を使い切れてしまう。
+    // そこで、作成ではアプリが書くフィールドだけを許し、文字列の長さに上限を設ける。
+    //
+    // 更新では「今回変わったフィールド」（affectedKeys）だけを検査する。ドキュメント全体を
+    // 検査すると、上限を入れる前に保存された長いメモなどを持つ既存データが、別の項目の
+    // 編集まで拒否されてしまうため。上限の値は src/utils/validation.ts と揃える。
+
+    // key が無いか、max 文字以下の文字列
+    function isShortString(data, key, max) {
+      return !(key in data) || (data[key] is string && data[key].size() <= max);
+    }
+
+    // key が無いか、1〜max 文字の文字列
+    function isName(data, key, max) {
+      return !(key in data) || (data[key] is string && data[key].size() > 0 && data[key].size() <= max);
+    }
+
+    function isTimestampOrAbsent(data, key) {
+      return !(key in data) || data[key] is timestamp;
+    }
+
+    // 更新で変わったフィールド
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
     // 取引データ（トップレベルコレクション）
     match /transactions/{transactionId} {
       function isOwner() {
@@ -45,18 +74,117 @@ service cloud.firestore {
           && incoming.date is timestamp;
       }
 
+      // アプリが書く取引のフィールド（src/data/transactionSerializer.ts と transactionRepository.ts）
+      function transactionFields() {
+        return ['userId', 'type', 'amount', 'category', 'subcategory', 'paymentMethod',
+          'description', 'date', 'transactionType', 'affectsExpense',
+          'recurringTransactionId', 'recurringMonth', 'createdAt', 'updatedAt'];
+      }
+
+      // keys に入っている任意項目だけを検査する（作成では全キー、更新では変わったキー）
+      function hasValidOptionalFields(keys) {
+        let data = request.resource.data;
+        return (!('subcategory' in keys) || isShortString(data, 'subcategory', 50))
+          && (!('paymentMethod' in keys) || isShortString(data, 'paymentMethod', 50))
+          && (!('description' in keys) || isShortString(data, 'description', 200))
+          && (!('transactionType' in keys) || !('transactionType' in data)
+            // card_withdrawal は廃止済みのレガシー値だが、CSV の復元で書き戻すことがある
+            || data.transactionType in ['normal', 'card_payment', 'card_withdrawal'])
+          && (!('affectsExpense' in keys) || !('affectsExpense' in data) || data.affectsExpense is bool)
+          && (!('recurringTransactionId' in keys) || isShortString(data, 'recurringTransactionId', 100))
+          && (!('recurringMonth' in keys) || !('recurringMonth' in data)
+            || (data.recurringMonth is string && data.recurringMonth.matches('[0-9]{4}-[0-9]{2}')))
+          && (!('createdAt' in keys) || isTimestampOrAbsent(data, 'createdAt'))
+          && (!('updatedAt' in keys) || isTimestampOrAbsent(data, 'updatedAt'));
+      }
+
       allow read, delete: if isOwner();
-      allow create: if isValidNewTransaction();
+      allow create: if isValidNewTransaction()
+        && request.resource.data.keys().hasOnly(transactionFields())
+        && hasValidOptionalFields(request.resource.data.keys());
       // 所有者の付け替え（他人への譲渡・なりすまし）を禁止する
       allow update: if isOwner()
         && isValidNewTransaction()
-        && request.resource.data.userId == resource.data.userId;
+        && request.resource.data.userId == resource.data.userId
+        && changedKeys().hasOnly(transactionFields())
+        && hasValidOptionalFields(changedKeys());
     }
 
-    // ユーザー個別のデータ（設定・定期取引）
-    match /users/{userId}/{document=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    // ユーザー設定（カテゴリ・支払方法・月間予算・グラフの表示設定）
+    // カテゴリなどの配列の中身はルールでは検査しきれないので、件数とトップレベルのキーに絞る。
+    // パスが1つに決まっているので、1人あたりの大きさは 1 ドキュメント（最大 1 MiB）に収まる
+    match /users/{userId}/settings/app {
+      function settingsFields() {
+        return ['schemaVersion', 'monthlyBudget', 'categories', 'paymentMethods',
+          'chartPreferences', 'createdAt', 'updatedAt'];
+      }
+
+      function hasValidSettingsFields(keys) {
+        let data = request.resource.data;
+        return (!('schemaVersion' in keys) || !('schemaVersion' in data) || data.schemaVersion is int)
+          && (!('monthlyBudget' in keys) || !('monthlyBudget' in data) || data.monthlyBudget is number)
+          && (!('categories' in keys) || !('categories' in data)
+            || (data.categories is list && data.categories.size() <= 200))
+          && (!('paymentMethods' in keys) || !('paymentMethods' in data)
+            || (data.paymentMethods is list && data.paymentMethods.size() <= 100))
+          && (!('chartPreferences' in keys) || !('chartPreferences' in data)
+            || (data.chartPreferences is map
+              && (!('categoryTrendCategories' in data.chartPreferences)
+                || (data.chartPreferences.categoryTrendCategories is list
+                  && data.chartPreferences.categoryTrendCategories.size() <= 200))))
+          && (!('createdAt' in keys) || isTimestampOrAbsent(data, 'createdAt'))
+          && (!('updatedAt' in keys) || isTimestampOrAbsent(data, 'updatedAt'));
+      }
+
+      function isSelf() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      allow read, delete: if isSelf();
+      allow create: if isSelf()
+        && request.resource.data.keys().hasOnly(settingsFields())
+        && hasValidSettingsFields(request.resource.data.keys());
+      allow update: if isSelf()
+        && changedKeys().hasOnly(settingsFields())
+        && hasValidSettingsFields(changedKeys());
     }
+
+    // 定期取引（src/data/recurringTransactionSerializer.ts）
+    match /users/{userId}/recurringTransactions/{recurringId} {
+      function recurringFields() {
+        return ['name', 'amount', 'category', 'subcategory', 'paymentMethod', 'dayOfMonth',
+          'isEnabled', 'createdAt', 'updatedAt'];
+      }
+
+      function hasValidRecurringFields(keys) {
+        let data = request.resource.data;
+        return (!('name' in keys) || isName(data, 'name', 50))
+          && (!('amount' in keys) || !('amount' in data) || (data.amount is number && data.amount >= 0))
+          && (!('category' in keys) || isName(data, 'category', 50))
+          && (!('subcategory' in keys) || isShortString(data, 'subcategory', 50))
+          && (!('paymentMethod' in keys) || isShortString(data, 'paymentMethod', 50))
+          && (!('dayOfMonth' in keys) || !('dayOfMonth' in data)
+            || (data.dayOfMonth is int && data.dayOfMonth >= 1 && data.dayOfMonth <= 31))
+          && (!('isEnabled' in keys) || !('isEnabled' in data) || data.isEnabled is bool)
+          && (!('createdAt' in keys) || isTimestampOrAbsent(data, 'createdAt'))
+          && (!('updatedAt' in keys) || isTimestampOrAbsent(data, 'updatedAt'));
+      }
+
+      function isSelf() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      allow read, delete: if isSelf();
+      allow create: if isSelf()
+        && request.resource.data.keys().hasOnly(recurringFields())
+        && request.resource.data.keys().hasAll(['name', 'amount', 'category', 'dayOfMonth', 'isEnabled'])
+        && hasValidRecurringFields(request.resource.data.keys());
+      allow update: if isSelf()
+        && changedKeys().hasOnly(recurringFields())
+        && hasValidRecurringFields(changedKeys());
+    }
+
+    // users/{uid} 配下のそれ以外のパス（任意のサブコレクションなど）は、末尾の「全て拒否」に落ちる
 
     // Claude 連携の認可コードとリフレッシュトークン。
     // サーバー（Admin SDK）だけが読み書きし、クライアントからは本人のものでも一切触らせない。
