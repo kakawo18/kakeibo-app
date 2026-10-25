@@ -32,3 +32,15 @@ let app: App | undefined;
 const getApp = (): App => (app ??= getApps()[0] ?? createApp());
 
 export const adminDb = () => getFirestore(getApp());
+
+/**
+ * サービスアカウントの OAuth アクセストークン（Google の REST API を呼ぶときに使う）
+ *
+ * Firebase Auth の利用者の状態を Identity Toolkit の REST で引くのに使う（oauth/firebaseAccount.ts）。
+ * firebase-admin/auth の代わり（Vercel で読み込めないため）。エミュレータでは認証情報が無いので使えない。
+ */
+export const adminAccessToken = async (): Promise<string> => {
+  const credential = getApp().options.credential;
+  if (!credential) throw new Error('Admin credential is not available');
+  return (await credential.getAccessToken()).access_token;
+};

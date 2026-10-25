@@ -112,6 +112,42 @@ export const issueRefreshToken = async (grant: RefreshGrant, now: Date = new Dat
   return token;
 };
 
+export interface ActiveRefreshToken {
+  uid: string;
+  familyId: string;
+  /** 接続を最初に許可した時刻（ミリ秒）。connectedAt の無い古いドキュメントは createdAt */
+  connectedAtMs: number;
+}
+
+/**
+ * まだ使える（未使用で期限内の）リフレッシュトークンの持ち主と接続を読む。無ければ null
+ *
+ * ローテーションの前に Firebase の利用者の状態を確かめるために使う（tokenEndpoint.ts。#178）。
+ * 外部への問い合わせをトランザクションの中で行わないよう、トランザクションの外で読む。
+ */
+export const findActiveRefreshToken = async (
+  token: string,
+  now: Date = new Date()
+): Promise<ActiveRefreshToken | null> => {
+  const data = (await adminDb().doc(`${REFRESH_TOKENS}/${sha256Hex(token)}`).get()).data();
+  if (!data || data.usedAt || (data.expiresAt as Timestamp).toMillis() <= now.getTime()) return null;
+  return {
+    uid: data.uid,
+    familyId: data.familyId,
+    connectedAtMs: ((data.connectedAt ?? data.createdAt) as Timestamp).toMillis(),
+  };
+};
+
+/** 接続（familyId）のトークンをすべて消す。消した件数を返す */
+export const revokeFamily = async (familyId: string): Promise<number> => {
+  if (!familyId) throw new Error('familyId is required');
+  const snapshot = await adminDb().collection(REFRESH_TOKENS).where('familyId', '==', familyId).get();
+  const writer = adminDb().bulkWriter();
+  snapshot.docs.forEach((doc) => writer.delete(doc.ref));
+  await writer.close();
+  return snapshot.size;
+};
+
 export type RotateResult =
   | { ok: true; grant: RefreshGrant; refreshToken: string }
   | { ok: false; reason: 'not_found' | 'expired' | 'client_mismatch' | 'reused' | 'reused_within_grace' };
