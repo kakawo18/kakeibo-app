@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { monthStart, monthsBetween, nextDay, nextMonthStart, parseDay, shiftMonth } from '@/server/mcp/dates';
+import { daysInclusive, monthStart, monthsBetween, nextDay, nextMonthStart, parseDay, shiftMonth } from '@/server/mcp/dates';
 import { UserFacingError } from '@/server/errors';
 
 describe('parseDay', () => {
@@ -24,5 +24,13 @@ describe('月の計算', () => {
     expect(monthStart('2026-03')).toEqual(new Date(2026, 2, 1));
     expect(nextMonthStart('2026-12')).toEqual(new Date(2027, 0, 1));
     expect(nextDay(new Date(2026, 1, 28))).toEqual(new Date(2026, 2, 1));
+  });
+});
+
+describe('daysInclusive', () => {
+  it('両端を含めて数える。うるう年の2月29日も1日として数える', () => {
+    expect(daysInclusive(new Date(2026, 2, 1), new Date(2026, 2, 1))).toBe(1);
+    expect(daysInclusive(new Date(2026, 0, 1), new Date(2026, 11, 31))).toBe(365);
+    expect(daysInclusive(new Date(2028, 0, 1), new Date(2028, 11, 31))).toBe(366);
   });
 });

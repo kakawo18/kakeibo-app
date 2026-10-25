@@ -40,6 +40,10 @@ export const shiftMonth = (month: string, n: number): string => {
   return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
 };
 
+/** from から to までの日数（両端を含む）。どちらもその日の0時（日本時間。夏時間は無い） */
+export const daysInclusive = (from: Date, to: Date): number =>
+  Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+
 /** 'YYYY-MM' 同士の月数の差（to − from） */
 export const monthsBetween = (from: string, to: string): number => {
   const [fy, fm] = from.split('-').map(Number);

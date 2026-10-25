@@ -20,6 +20,7 @@ import { runTool } from './result';
 import {
   DAY_PATTERN,
   MONTH_PATTERN,
+  daysInclusive,
   monthStart,
   monthsBetween,
   nextDay,
@@ -46,6 +47,7 @@ const month = z.string().regex(MONTH_PATTERN, 'YYYY-MM で指定してくださ�
 const names = z.array(z.string().min(1).max(50)).max(30);
 
 const MAX_TREND_MONTHS = 36;
+const MAX_SEARCH_DAYS = 366;
 
 export const registerKakeiboTools = (server: McpServer): void => {
   server.registerTool(
@@ -80,7 +82,7 @@ export const registerKakeiboTools = (server: McpServer): void => {
       title: '取引の検索',
       description:
         '条件に合う取引を探して一覧と合計を返す。「先月のコンビニの支出」「メモに〇〇とある取引」などに使う。' +
-        '期間を省くと、to（既定は今日）の月から2か月前の1日から to まで。' +
+        `期間を省くと、to（既定は今日）の月から2か月前の1日から to まで。期間は最長${MAX_SEARCH_DAYS}日。` +
         'totals は件数の上限で切る前の全件の合計で、countedExpense / countedIncome はアプリの集計に入る分だけの合計。' +
         '月ごとの合計やカテゴリ別の内訳が知りたいだけなら get_monthly_summary か get_trend を使う。' +
         AMOUNT_NOTE,
@@ -106,6 +108,10 @@ export const registerKakeiboTools = (server: McpServer): void => {
           ? parseDay(input.from, 'from')
           : monthStart(shiftMonth(`${to.getFullYear()}-${String(to.getMonth() + 1).padStart(2, '0')}`, 2));
         if (from > to) throw new UserFacingError('from は to より前の日付にしてください');
+        // 期間内の取引はすべて読むので、1回に読む量を抑える（#179）
+        if (daysInclusive(from, to) > MAX_SEARCH_DAYS) {
+          throw new UserFacingError(`期間は最長${MAX_SEARCH_DAYS}日です。分けて呼んでください`);
+        }
         if (input.minAmount !== undefined && input.maxAmount !== undefined && input.minAmount > input.maxAmount) {
           throw new UserFacingError('minAmount は maxAmount 以下にしてください');
         }
