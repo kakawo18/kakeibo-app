@@ -3,13 +3,12 @@
 /**
  * 毎月の定期取引の合計と内訳
  *
- * - RecurringSummaryCard: ホームに置く小さなカード。押すと設定タブの内訳へ移る
+ * - useRecurringSummary: 合計の取得。ホームは KPI タイルと同じ形で合計だけを出す（dashboard の KpiTiles）
  * - RecurringSummarySection: 設定タブの上部。合計・支出/投資の内訳・カテゴリごとの一覧と管理画面への導線
  *
  * 合計は有効な定期取引だけ（1か月分）。集計は src/domain/recurring.ts の summarizeRecurring。
  */
 import { useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Box,
   Button,
@@ -20,16 +19,16 @@ import {
   Text,
   useComputedColorScheme,
 } from '@mantine/core';
-import { IconChevronRight, IconRepeat } from '@tabler/icons-react';
+import { IconRepeat } from '@tabler/icons-react';
 import { useRecurringTransactions } from '@/contexts/RecurringTransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { pressable } from '@/components/ui/pressable';
 import { RecurringSummary, summarizeRecurring } from '@/domain/recurring';
 import { RecurringTransactionManager } from './RecurringTransactionManager';
 
 const yen = (amount: number) => `¥${amount.toLocaleString()}`;
 
-const useRecurringSummary = () => {
+/** 有効な定期取引の毎月の合計と内訳 */
+export const useRecurringSummary = () => {
   const { recurringTransactions, loading, error } = useRecurringTransactions();
   const { rules } = useSettings();
   const summary = useMemo(
@@ -50,49 +49,6 @@ const roleParts = (summary: RecurringSummary) => {
     { label: '投資', amount: summary.investment },
     { label: '立替など', amount: summary.other },
   ].filter((part) => part.amount > 0);
-};
-
-// ============================================================
-// ホームのカード
-// ============================================================
-export const RecurringSummaryCard = () => {
-  const { summary, loading, error } = useRecurringSummary();
-  const router = useRouter();
-
-  // 読み込み中・失敗・未登録のときはホームに出さない（設定タブで案内する）
-  if (loading || error || summary.count === 0) return null;
-  const parts = roleParts(summary);
-
-  return (
-    <Paper
-      className="ledger-card ledger-card-clickable"
-      p="md"
-      {...pressable(() => router.push('/settings'), '定期取引の内訳を開く')}
-    >
-      <Group justify="space-between" wrap="nowrap" gap="xs" mb={6}>
-        <Group gap={6} c="var(--ink-3)" wrap="nowrap">
-          <IconRepeat size={14} stroke={1.8} />
-          <Text className="overline-label">毎月の定期取引</Text>
-        </Group>
-        <Group gap={2} c="var(--ink-3)" wrap="nowrap">
-          <Text size="xs" c="dimmed">{summary.count}件</Text>
-          <IconChevronRight size={14} stroke={1.8} />
-        </Group>
-      </Group>
-      <Text
-        fw={700}
-        className="tabular-nums"
-        style={{ fontSize: 20, lineHeight: 1.1, letterSpacing: '-0.015em' }}
-      >
-        {yen(summary.total)}
-      </Text>
-      {parts.length > 0 && (
-        <Text size="xs" c="dimmed" mt={6} className="tabular-nums">
-          {parts.map((part) => `${part.label} ${yen(part.amount)}`).join(' · ')}
-        </Text>
-      )}
-    </Paper>
-  );
 };
 
 // ============================================================

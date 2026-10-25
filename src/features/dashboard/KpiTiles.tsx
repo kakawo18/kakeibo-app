@@ -2,9 +2,10 @@
 
 /**
  * ホームの KPI タイル: 貯蓄率 / 獲得ポイント / 年間投資額（#124 で DashboardContent から分離）
+ * その下に、毎月の定期取引の合計を同じ形のタイルで1行に出す（有効な定期取引があるときだけ）
  */
-import { Group, Paper, SimpleGrid, Text } from '@mantine/core';
-import { IconTrendingUp, IconWallet, IconCoins } from '@tabler/icons-react';
+import { Group, Paper, SimpleGrid, Stack, Text } from '@mantine/core';
+import { IconTrendingUp, IconWallet, IconCoins, IconRepeat } from '@tabler/icons-react';
 import { pressable } from '@/components/ui/pressable';
 import { YearlySavings } from '@/domain/annualSummary';
 
@@ -61,43 +62,59 @@ const KpiTile = ({
 interface KpiTilesProps {
   savingsData: YearlySavings;
   monthlyCardPoints: number;
+  /** 毎月の定期取引の合計。null ならタイルを出さない */
+  recurringTotal: number | null;
   isMobile: boolean;
   onOpenSavingsRate: () => void;
   onOpenCardRewards: () => void;
   onOpenInvestmentHistory: () => void;
+  onOpenRecurring: () => void;
 }
 
 export const KpiTiles = ({
   savingsData,
   monthlyCardPoints,
+  recurringTotal,
   isMobile,
   onOpenSavingsRate,
   onOpenCardRewards,
   onOpenInvestmentHistory,
+  onOpenRecurring,
 }: KpiTilesProps) => (
-    <SimpleGrid cols={3} spacing={isMobile ? 'xs' : 'md'}>
-      <KpiTile
-        label="貯蓄率"
-        value={savingsData.savingsRate.toFixed(1)}
-        unit="%"
-        icon={<IconTrendingUp size={14} stroke={1.8} />}
-        compact={isMobile}
-        onClick={onOpenSavingsRate}
-      />
-      <KpiTile
-        label="獲得ポイント"
-        value={monthlyCardPoints.toLocaleString()}
-        unit="pt"
-        icon={<IconCoins size={14} stroke={1.8} />}
-        compact={isMobile}
-        onClick={onOpenCardRewards}
-      />
-      <KpiTile
-        label="年間投資額"
-        value={`¥${savingsData.investment.toLocaleString()}`}
-        icon={<IconWallet size={14} stroke={1.8} />}
-        compact={isMobile}
-        onClick={onOpenInvestmentHistory}
-      />
-    </SimpleGrid>
+    <Stack gap={isMobile ? 'xs' : 'md'}>
+      <SimpleGrid cols={3} spacing={isMobile ? 'xs' : 'md'}>
+        <KpiTile
+          label="貯蓄率"
+          value={savingsData.savingsRate.toFixed(1)}
+          unit="%"
+          icon={<IconTrendingUp size={14} stroke={1.8} />}
+          compact={isMobile}
+          onClick={onOpenSavingsRate}
+        />
+        <KpiTile
+          label="獲得ポイント"
+          value={monthlyCardPoints.toLocaleString()}
+          unit="pt"
+          icon={<IconCoins size={14} stroke={1.8} />}
+          compact={isMobile}
+          onClick={onOpenCardRewards}
+        />
+        <KpiTile
+          label="年間投資額"
+          value={`¥${savingsData.investment.toLocaleString()}`}
+          icon={<IconWallet size={14} stroke={1.8} />}
+          compact={isMobile}
+          onClick={onOpenInvestmentHistory}
+        />
+      </SimpleGrid>
+      {recurringTotal !== null && (
+        <KpiTile
+          label="毎月の定期取引"
+          value={`¥${recurringTotal.toLocaleString()}`}
+          icon={<IconRepeat size={14} stroke={1.8} />}
+          compact={isMobile}
+          onClick={onOpenRecurring}
+        />
+      )}
+    </Stack>
 );
