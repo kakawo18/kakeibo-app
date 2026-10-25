@@ -3,56 +3,28 @@
 /**
  * 設定タブ (/settings)
  *
- * カテゴリ・支払い方法・月間予算・定期取引などユーザーごとの設定を管理する。
+ * 定期取引・カテゴリ・支払い方法・月間予算などユーザーごとの設定を管理する。
  * 設定は Firestore の users/{uid}/settings/app に保存され、他のタブへリアルタイムに反映される。
+ * 上部の定期取引では、毎月の合計と内訳を確かめて管理画面を開ける。
  * 認証ガードとローディングは (tabs)/layout.tsx が持つ。
  */
-import { useState } from 'react';
-import { Button, Container, Group, Paper, Stack, Text } from '@mantine/core';
-import { IconRepeat } from '@tabler/icons-react';
+import { Container, Stack } from '@mantine/core';
 import { BudgetSection } from '@/features/settings';
 import { CategorySection } from '@/features/settings';
 import { PaymentMethodSection } from '@/features/settings';
-import { RecurringTransactionManager } from '@/features/recurring';
+import { RecurringSummarySection } from '@/features/recurring';
 import { ClaudeConnectionSection } from '@/features/claude-connect';
 
 export default function SettingsPage() {
-  const [recurringManagerOpened, setRecurringManagerOpened] = useState(false);
-
   return (
     <Container size="sm">
       <Stack gap="md">
+        <RecurringSummarySection />
         <BudgetSection />
         <CategorySection />
         <PaymentMethodSection />
-
-        {/* 定期取引(既存の管理モーダルへの導線) */}
-        <Paper className="ledger-card" p="lg">
-          <Group justify="space-between" align="center">
-            <div>
-              <Text className="section-title" mb={4}>定期取引</Text>
-              <Text size="xs" c="dimmed">
-                家賃やサブスクなど毎月決まった取引を登録します。実行日になるとホームに表示され、確認して記録します
-              </Text>
-            </div>
-            <Button
-              variant="light"
-              size="xs"
-              leftSection={<IconRepeat size={14} />}
-              onClick={() => setRecurringManagerOpened(true)}
-            >
-              管理
-            </Button>
-          </Group>
-        </Paper>
-
         <ClaudeConnectionSection />
       </Stack>
-
-      <RecurringTransactionManager
-        opened={recurringManagerOpened}
-        onClose={() => setRecurringManagerOpened(false)}
-      />
     </Container>
   );
 }

@@ -6,3 +6,4 @@
 export { RecurringTransactionConfirm } from './RecurringTransactionConfirm';
 export { RecurringTransactionManager } from './RecurringTransactionManager';
 export { RecurringTransactionNotice } from './RecurringTransactionNotice';
+export { RecurringSummaryCard, RecurringSummarySection } from './RecurringSummary';
