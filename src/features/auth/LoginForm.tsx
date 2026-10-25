@@ -17,6 +17,8 @@ import { emailLinkSettings, rememberEmailForSignIn } from './emailLink';
 const KNOWN_AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/invalid-email': 'メールアドレスの形式が正しくありません。',
   'auth/too-many-requests': '試行回数が多すぎます。しばらく時間をおいてお試しください。',
+  // 無料プラン（Spark）では、リンクのメールは1日5通まで（#164）
+  'auth/quota-exceeded': '今日はこれ以上確認メールを送れません。明日もう一度お試しください。',
   'auth/network-request-failed': 'ネットワークエラーが発生しました。接続を確認してください。',
   // 「未登録」と「パスワード違い」は区別しない。
   // 区別すると、任意のメールアドレスが登録済みかを外部から判定できてしまう（アカウント列挙）。
@@ -33,7 +35,9 @@ const getAuthErrorMessage = (error: unknown): string => {
   if (isKnownAuthError(error)) {
     return KNOWN_AUTH_ERROR_MESSAGES[error.code];
   }
-  return 'エラーが発生しました。もう一度お試しください。';
+  // 原因を特定できるよう、コードを添える（家計データは含まない）
+  const code = error instanceof FirebaseError ? `（${error.code}）` : '';
+  return `エラーが発生しました。もう一度お試しください。${code}`;
 };
 
 interface LoginFormProps {

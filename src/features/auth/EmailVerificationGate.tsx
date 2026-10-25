@@ -17,10 +17,22 @@ import { FirebaseError } from 'firebase/app';
 import { sendEmailVerification } from 'firebase/auth';
 import { useAuth } from '@/contexts/AuthContext';
 
-const sendErrorMessage = (error: unknown): string =>
-  error instanceof FirebaseError && error.code === 'auth/too-many-requests'
-    ? '送信が続いたため、しばらく送れません。時間をおいてからお試しください。'
-    : '確認メールを送れませんでした。通信状態を確かめて、もう一度お試しください。';
+const errorCode = (error: unknown): string | null => (error instanceof FirebaseError ? error.code : null);
+
+const sendErrorMessage = (error: unknown): string => {
+  const code = errorCode(error);
+  if (code === 'auth/too-many-requests') {
+    return '送信が続いたため、しばらく送れません。時間をおいてからお試しください。';
+  }
+  if (code === 'auth/user-token-expired' || code === 'auth/user-disabled' || code === 'auth/invalid-user-token') {
+    return 'ログインの有効期限が切れています。ログアウトして、ログインし直してください。';
+  }
+  // 原因を問い合わせで特定できるよう、コードを添える（家計データは含まない）
+  return `確認メールを送れませんでした。通信状態を確かめて、もう一度お試しください。${code ? `（${code}）` : ''}`;
+};
+
+/** 戻り先の URL が許可されていない（Firebase の承認済みドメインに無い）ときのエラー */
+const CONTINUE_URL_ERRORS = ['auth/unauthorized-continue-uri', 'auth/invalid-continue-uri'];
 
 export const EmailVerificationGate: React.FC = () => {
   const { user, refreshEmailVerification, logout } = useAuth();
@@ -64,7 +76,13 @@ export const EmailVerificationGate: React.FC = () => {
     setSending(true);
     setMessage(null);
     try {
-      await sendEmailVerification(user, { url: window.location.origin });
+      try {
+        await sendEmailVerification(user, { url: window.location.origin });
+      } catch (error) {
+        // 戻り先のリンクが付けられなくても、確認そのものはできるので付けずに送り直す
+        if (!CONTINUE_URL_ERRORS.includes(errorCode(error) ?? '')) throw error;
+        await sendEmailVerification(user);
+      }
       setSent(true);
     } catch (error) {
       setMessage({ color: 'red', text: sendErrorMessage(error) });
