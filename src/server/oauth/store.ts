@@ -88,12 +88,19 @@ export interface RefreshGrant {
   scope: string;
 }
 
-const refreshTokenData = (grant: RefreshGrant, familyId: string, now: Date) => ({
+/**
+ * リフレッシュトークンのドキュメント
+ *
+ * connectedAt は最初に許可した時刻で、ローテーションでも引き継ぐ（設定画面の接続の一覧に出す。#178）。
+ * createdAt はそのトークンを発行した時刻なので、接続の中で最も新しいトークンの createdAt が最後に使われた時刻になる。
+ */
+const refreshTokenData = (grant: RefreshGrant, familyId: string, now: Date, connectedAt: Date = now) => ({
   ...grant,
   familyId,
   usedAt: null,
   expiresAt: Timestamp.fromMillis(now.getTime() + REFRESH_TOKEN_TTL_MS),
   createdAt: Timestamp.fromDate(now),
+  connectedAt: Timestamp.fromDate(connectedAt),
 });
 
 /** 最初の認可でリフレッシュトークンを発行する（新しい familyId を作る） */
@@ -144,7 +151,12 @@ export const rotateRefreshToken = (
       now.getTime() + USED_REFRESH_TOKEN_RETENTION_MS
     );
     tx.update(ref, { usedAt: Timestamp.fromDate(now), expiresAt: Timestamp.fromMillis(retainedUntil) });
-    tx.create(adminDb().doc(`${REFRESH_TOKENS}/${sha256Hex(next)}`), refreshTokenData(grant, data.familyId, now));
+    // connectedAt の無い古いドキュメント（v6.10 まで）は、そのトークンの発行時刻で代える
+    const connectedAt = ((data.connectedAt ?? data.createdAt) as Timestamp).toDate();
+    tx.create(
+      adminDb().doc(`${REFRESH_TOKENS}/${sha256Hex(next)}`),
+      refreshTokenData(grant, data.familyId, now, connectedAt)
+    );
     return { ok: true, grant, refreshToken: next };
   });
 
@@ -166,7 +178,7 @@ export const deleteExpired = async (now: Date = new Date()): Promise<number> => 
   return snapshots.reduce((sum, snapshot) => sum + snapshot.size, 0);
 };
 
-/** uid のリフレッシュトークンをすべて消す（接続の解除）。消した件数を返す */
+/** uid のリフレッシュトークンをすべて消す（すべての接続の解除）。消した件数を返す */
 export const revokeRefreshTokensForUid = async (uid: string): Promise<number> => {
   if (!uid) throw new Error('uid is required');
   const snapshot = await adminDb().collection(REFRESH_TOKENS).where('uid', '==', uid).get();
@@ -176,12 +188,51 @@ export const revokeRefreshTokensForUid = async (uid: string): Promise<number> =>
   return snapshot.size;
 };
 
-/** uid に、まだ使える（未使用で期限内の）リフレッシュトークンがあるか */
-export const hasActiveRefreshToken = async (uid: string, now: Date = new Date()): Promise<boolean> => {
+/**
+ * 接続（familyId）を画面に出すときの ID
+ *
+ * familyId そのものは出さず、ハッシュの先頭だけを使う（画面や通信に内部の値を残さない）。
+ */
+const connectionIdOf = (familyId: string): string => sha256Hex(familyId).slice(0, 16);
+
+export interface Connection {
+  id: string;
+  /** 最初に許可した時刻 */
+  connectedAt: Date;
+  /** 最後にトークンを発行した時刻（Claude は使うたびに1時間ごとに更新するので、最後に使った時期の目安） */
+  lastActiveAt: Date;
+}
+
+/**
+ * uid の、まだ使える（未使用で期限内のリフレッシュトークンがある）接続の一覧。新しく許可した順
+ *
+ * uid だけの条件で読み、familyId ごとにまとめるのはメモリ上で行う（複合インデックスを増やさない）。
+ */
+export const listConnections = async (uid: string, now: Date = new Date()): Promise<Connection[]> => {
   if (!uid) throw new Error('uid is required');
   const snapshot = await adminDb().collection(REFRESH_TOKENS).where('uid', '==', uid).get();
-  return snapshot.docs.some((doc) => {
+  const byFamily = new Map<string, Connection>();
+  snapshot.docs.forEach((doc) => {
     const data = doc.data();
-    return !data.usedAt && (data.expiresAt as Timestamp).toMillis() > now.getTime();
+    if (data.usedAt || (data.expiresAt as Timestamp).toMillis() <= now.getTime()) return;
+    const createdAt = (data.createdAt as Timestamp).toDate();
+    const connectedAt = ((data.connectedAt ?? data.createdAt) as Timestamp).toDate();
+    const current = byFamily.get(data.familyId);
+    // 同時の更新で未使用のトークンが2つある接続は、新しいほうの発行時刻を使う
+    if (!current || current.lastActiveAt < createdAt) {
+      byFamily.set(data.familyId, { id: connectionIdOf(data.familyId), connectedAt, lastActiveAt: createdAt });
+    }
   });
+  return [...byFamily.values()].sort((a, b) => b.connectedAt.getTime() - a.connectedAt.getTime());
+};
+
+/** uid の接続のうち1つを解除する（その familyId のトークンをすべて消す）。消した件数を返す */
+export const revokeConnection = async (uid: string, connectionId: string): Promise<number> => {
+  if (!uid) throw new Error('uid is required');
+  const snapshot = await adminDb().collection(REFRESH_TOKENS).where('uid', '==', uid).get();
+  const targets = snapshot.docs.filter((doc) => connectionIdOf(doc.data().familyId) === connectionId);
+  const writer = adminDb().bulkWriter();
+  targets.forEach((doc) => writer.delete(doc.ref));
+  await writer.close();
+  return targets.length;
 };

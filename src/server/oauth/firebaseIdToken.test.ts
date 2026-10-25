@@ -4,6 +4,7 @@
  * Firebase が公開している手順（第三者の JWT ライブラリでの検証）どおりに確かめる:
  * RS256・公開鍵の kid・aud = プロジェクト ID・iss = https://securetoken.google.com/<プロジェクト ID>・
  * exp が未来・iat が過去・sub（uid）が空でない・auth_time が過去
+ * （auth_time が直近かどうかは同意の側で確かめる。oauth.emulator.test.ts）
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SignJWT, UnsecuredJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
@@ -42,8 +43,8 @@ const sign = (claims: Record<string, unknown> = {}, header: { kid?: string } = {
 const verify = (token: string) => verifyFirebaseIdToken(token, { projectId: PROJECT, keys, now });
 
 describe('verifyFirebaseIdToken', () => {
-  it('Firebase が署名した正しい ID トークンなら uid を返す', async () => {
-    expect(await verify(await sign())).toBe('alice');
+  it('Firebase が署名した正しい ID トークンなら uid とログインした時刻を返す', async () => {
+    expect(await verify(await sign())).toEqual({ uid: 'alice', authTime: seconds - 60 });
   });
 
   it('別のプロジェクト宛て（aud）・別の発行者（iss）のトークンは拒否する', async () => {

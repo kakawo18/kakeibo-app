@@ -7,7 +7,8 @@
  * https://firebase.google.com/docs/auth/admin/verify-id-tokens#verify_id_tokens_using_a_third-party_jwt_library
  *
  * firebase-admin の verifyIdToken(token, true) と違い、失効（revokeRefreshTokens）は確かめない。
- * ID トークンの寿命は1時間で、同意画面はその時点でログインしている本人が「許可する」を押したときだけ呼ぶ。
+ * その代わり同意では authTime（最後にログインした時刻）が直近であることを求め、何か月も前から
+ * ログインしたままのセッションでは同意させない（authorizeEndpoint.ts。#178）。
  */
 import 'server-only';
 import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
@@ -24,7 +25,14 @@ const defaultKeys = (): JWTVerifyGetKey => (firebaseKeys ??= createRemoteJWKSet(
 /** 時計のずれとして許す秒数 */
 const CLOCK_TOLERANCE_SECONDS = 60;
 
-const checkClaims = (payload: JWTPayload, now: Date): string => {
+/** 検証した ID トークンの中身 */
+export interface VerifiedIdToken {
+  uid: string;
+  /** 最後にパスワードなどでログインした時刻（秒。UNIX 時間）。ID トークンの自動更新では変わらない */
+  authTime: number;
+}
+
+const checkClaims = (payload: JWTPayload, now: Date): VerifiedIdToken => {
   const nowSeconds = Math.floor(now.getTime() / 1000);
   if (!payload.sub) throw new Error('ID token has no subject');
   if (typeof payload.iat !== 'number' || payload.iat > nowSeconds + CLOCK_TOLERANCE_SECONDS) {
@@ -33,11 +41,11 @@ const checkClaims = (payload: JWTPayload, now: Date): string => {
   if (typeof payload.auth_time !== 'number' || payload.auth_time > nowSeconds + CLOCK_TOLERANCE_SECONDS) {
     throw new Error('ID token has no valid auth_time');
   }
-  return payload.sub;
+  return { uid: payload.sub, authTime: payload.auth_time };
 };
 
 /**
- * ID トークンを検証して uid を返す。不正なら例外
+ * ID トークンを検証して uid とログインした時刻を返す。不正なら例外
  *
  * 開発中に Auth エミュレータを使っているときは、エミュレータが署名なしのトークンを出すので
  * 署名だけは確かめない（開発用の認証の省略と同じ条件のときだけ）。
@@ -45,7 +53,7 @@ const checkClaims = (payload: JWTPayload, now: Date): string => {
 export const verifyFirebaseIdToken = async (
   idToken: string,
   options: { projectId?: string; keys?: JWTVerifyGetKey; now?: Date } = {}
-): Promise<string> => {
+): Promise<VerifiedIdToken> => {
   const { projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID, keys, now = new Date() } = options;
   if (!projectId) throw new Error('Firebase project ID is not set');
   const issuer = `https://securetoken.google.com/${projectId}`;
