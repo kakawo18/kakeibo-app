@@ -1,6 +1,6 @@
 // キャッシュ名を変えると activate 時に旧キャッシュが削除される。
 // キャッシュ戦略を変更したら必ずバージョンを上げること。
-const VERSION = 'v5';
+const VERSION = 'v6';
 const STATIC_CACHE = `kakeibo-static-${VERSION}`; // /_next/static（ハッシュ付き・不変）
 const PAGE_CACHE = `kakeibo-pages-${VERSION}`;     // ページの HTML（オフライン時の表示用）
 const ASSET_CACHE = `kakeibo-assets-${VERSION}`;   // public/ のアイコン・manifest など
@@ -33,6 +33,9 @@ const shouldBypass = (request, url) => {
   // 画像の最適化・開発用の通信・SW 自身はキャッシュしない
   if (url.pathname.startsWith('/_next/image') || url.pathname.startsWith('/_next/webpack-hmr')) return true;
   if (url.pathname === '/sw.js') return true;
+  // API と OAuth のメタデータはキャッシュしない。Cache API は Cache-Control: no-store を見ず、
+  // キーも URL だけなので、古い応答や別のアカウントの応答を返してしまう（#180）
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/.well-known/')) return true;
   return false;
 };
 
