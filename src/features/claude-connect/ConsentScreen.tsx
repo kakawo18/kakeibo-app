@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { Alert, Box, Button, Container, Group, List, Loader, Paper, Stack, Text, Title } from '@mantine/core';
 import { IconCheck, IconLock } from '@tabler/icons-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoginForm } from '@/features/auth';
+import { EmailVerificationGate, LoginForm } from '@/features/auth';
 
 interface ConsentScreenProps {
   /** /oauth/authorize のクエリ（サーバーで検証済み）。そのままサーバーへ送り返す */
@@ -23,7 +23,7 @@ interface ConsentScreenProps {
 }
 
 export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHost, cancelUrl }) => {
-  const { user, loading } = useAuth();
+  const { user, verifiedUser, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +39,8 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
 
   // ログインしたら同じ画面のまま同意に進む
   if (!user) return <LoginForm />;
+  // 未確認のアカウントはサーバーでも拒否する（firebaseIdToken.ts の email_verified）
+  if (!verifiedUser) return <EmailVerificationGate />;
 
   const approve = async () => {
     setSubmitting(true);

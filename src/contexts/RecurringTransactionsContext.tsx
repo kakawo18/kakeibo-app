@@ -49,7 +49,8 @@ const RecurringTransactionsContext = createContext<RecurringTransactionsContextT
 const NO_RECURRING: RecurringTransaction[] = [];
 
 export const RecurringTransactionsProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
+  // メールアドレスが未確認の間はルールで拒否されるので購読しない（#164）
+  const { verifiedUser: user } = useAuth();
   // 受け取ったデータとエラーは「どのユーザーのものか」と一緒に持ち、
   // ユーザーが切り替わった直後に前のユーザーの定期取引が見えないようにする
   const [received, setReceived] = useState<{ uid: string; list: RecurringTransaction[] } | null>(null);

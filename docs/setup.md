@@ -15,7 +15,7 @@ npm install
 このアプリは認証とデータ保存に Firebase を使う。自分の Firebase プロジェクトが必要。
 
 1. [Firebase Console](https://console.firebase.google.com/) で新規プロジェクトを作成
-2. **Authentication** → 「始める」→ ログイン方法で **メール/パスワード** を有効化
+2. **Authentication** → 「始める」→ ログイン方法で **メール/パスワード** を有効化し、同じ画面の **メールリンク（パスワードなしでログイン）** も有効にする（新規登録・パスワードの再設定で使う）
 3. **Firestore Database** → データベースを作成（本番モード。ルールは `docs/deployment.md` を参照）
 4. プロジェクト設定（歯車）→「全般」→「マイアプリ」→ ウェブアプリを追加し `firebaseConfig` を控える
 

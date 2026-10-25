@@ -77,7 +77,8 @@ const EMPTY_SETTINGS: UserSettings = {
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  // メールアドレスが未確認の間はルールで拒否されるので購読しない（#164）
+  const { verifiedUser: user } = useAuth();
   const seedingRef = useRef(false);
   // 取得・初期設定の作成に失敗したとき。どのユーザーの何回目の購読かと一緒に持つ（#105）
   const [attempt, setAttempt] = useState(0);

@@ -22,8 +22,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ログインしていて、メールアドレスを確認済み（#164）
+    //
+    // 未確認のアカウント（他人のアドレスで登録されたものを含む）には家計データを読み書きさせない。
+    // 画面は確認を求める画面（EmailVerificationGate）を出し、確認が済むまで購読しない。
+    // メールのリンクでの登録は最初から確認済み。email_verified は ID トークンに入っているので、
+    // 確認した後はトークンを取り直す（AuthContext の refreshEmailVerification）
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.email_verified == true;
     }
 
     // 書き込みの形と大きさの検査（#163）
