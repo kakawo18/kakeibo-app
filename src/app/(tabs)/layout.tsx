@@ -14,7 +14,7 @@ import { Box, Button, Container, Group, Loader, Paper, Stack, Text } from '@mant
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTransactions } from '@/contexts/TransactionsContext';
-import { LoginForm } from '@/features/auth';
+import { EmailVerificationGate, LoginForm } from '@/features/auth';
 import { AppHeader } from '@/components/nav/AppHeader';
 import { AppTabBar } from '@/components/nav/AppTabBar';
 import { RecurringTransactionManager } from '@/features/recurring';
@@ -95,7 +95,7 @@ const LoadErrorState = ({
 };
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, verifiedUser, loading: authLoading, logout } = useAuth();
   // 設定のロード前は rules が空になり、投資や給与収入の判定が全て false になる。
   // 集計が静かにずれるので、取引と設定の両方が揃うまで中身を描画しない。
   const { loading: settingsLoading, error: settingsError, retry: retrySettings } = useSettings();
@@ -119,6 +119,16 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
         <Container size="xs" py="xl">
           <LoginForm />
         </Container>
+        <PWAInstaller />
+      </>
+    );
+  }
+
+  // メールアドレスを確認するまでは家計データを読まない（ルールが拒否する。#164）
+  if (!verifiedUser) {
+    return (
+      <>
+        <EmailVerificationGate />
         <PWAInstaller />
       </>
     );
