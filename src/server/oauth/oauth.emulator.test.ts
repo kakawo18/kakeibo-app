@@ -5,11 +5,13 @@
  * - リフレッシュトークンはローテーションし、使用済みのものが60秒より後に使われたら接続ごと消す
  * - 同意には直近のログインが要る（ログインしたままのセッションでは同意できない）
  * - 接続の一覧は接続（familyId）ごとに返し、解除はその利用者のトークンだけ・その接続だけを消す
- * ID トークンの検証（Firebase Auth）は差し替えて、uid を直接渡す。
+ * - 接続を作った後にパスワードの変更などがあれば、リフレッシュのときにその接続を消す
+ * ID トークンの検証と利用者の状態の問い合わせ（Firebase Auth）は差し替えて、uid と状態を直接渡す。
  */
 import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { McpConfig } from '@/server/config';
+import type { FirebaseAccountState } from '@/server/oauth/firebaseAccount';
 import { CONSENT_MAX_AUTH_AGE_SECONDS, handleAuthorizeApproval } from '@/server/oauth/authorizeEndpoint';
 import { handleTokenRequest } from '@/server/oauth/tokenEndpoint';
 import { CLAUDE_REDIRECT_URI } from '@/server/oauth/params';
@@ -28,13 +30,23 @@ import {
 import { handleConnectionsRequest } from '@/server/oauth/connectionsEndpoint';
 import { sha256Hex } from '@/server/oauth/random';
 import { adminDb } from '@/server/firebaseAdmin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 const verifier = 'v'.repeat(64);
 let alice: string;
 let bob: string;
 let config: McpConfig;
+/** Firebase の利用者の状態（リフレッシュのときに問い合わせる）。既定は「作成から変わっていない」 */
+let accounts: Map<string, FirebaseAccountState>;
+let lookupFails: boolean;
+const lookupAccount = async (uid: string): Promise<FirebaseAccountState> => {
+  if (lookupFails) throw new Error('accounts:lookup failed with status 403');
+  return accounts.get(uid) ?? { exists: true, disabled: false, validSinceMs: 0 };
+};
 
 beforeEach(() => {
+  accounts = new Map();
+  lookupFails = false;
   const run = randomUUID().slice(0, 8);
   alice = `alice-${run}`;
   bob = `bob-${run}`;
@@ -93,7 +105,8 @@ const refresh = (refreshToken: string, now = new Date()) =>
   handleTokenRequest(
     new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: 'kakeibo-claude-test' }),
     config,
-    now
+    now,
+    { lookupAccount }
   );
 
 describe('同意（POST /api/oauth/authorize）', () => {
@@ -235,6 +248,62 @@ describe('リフレッシュトークン（grant_type=refresh_token）', () => {
     config = { ...config, allowedUids: new Set([bob]) };
 
     expect((await refresh(first.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
+  });
+});
+
+describe('Firebase の利用者の変化への追従（リフレッシュのとき）', () => {
+  it('接続を作った後にパスワードが変わったら、その接続のトークンをすべて消す。ほかの利用者の接続は残る', async () => {
+    const connectedAt = new Date(Date.now() - 60 * 60 * 1000);
+    const aliceTokens = (await exchange(await codeFor(alice, connectedAt), {}, connectedAt)).body as Record<string, string>;
+    const bobTokens = (await exchange(await codeFor(bob))).body as Record<string, string>;
+    // 一度ローテーションしても、比べるのは最初に許可した時刻
+    const rotated = await refresh(aliceTokens.refresh_token, new Date(connectedAt.getTime() + 1000));
+    accounts.set(alice, { exists: true, disabled: false, validSinceMs: connectedAt.getTime() + 30 * 60 * 1000 });
+
+    expect((await refresh(rotated.body.refresh_token as string)).body).toMatchObject({ error: 'invalid_grant' });
+
+    expect(await listConnections(alice)).toEqual([]);
+    expect((await adminDb().collection(REFRESH_TOKENS).where('uid', '==', alice).get()).size).toBe(0);
+    expect((await refresh(bobTokens.refresh_token)).status).toBe(200);
+  });
+
+  it('パスワードを変えた後に作った接続は使える', async () => {
+    accounts.set(alice, { exists: true, disabled: false, validSinceMs: Date.now() - 60_000 });
+    const tokens = (await exchange(await codeFor(alice))).body as Record<string, string>;
+
+    expect((await refresh(tokens.refresh_token)).status).toBe(200);
+  });
+
+  it('アカウントが削除・無効化されたら接続を消す', async () => {
+    const deleted = (await exchange(await codeFor(alice))).body as Record<string, string>;
+    const disabled = (await exchange(await codeFor(bob))).body as Record<string, string>;
+    accounts.set(alice, { exists: false, disabled: false, validSinceMs: 0 });
+    accounts.set(bob, { exists: true, disabled: true, validSinceMs: 0 });
+
+    expect((await refresh(deleted.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
+    expect((await refresh(disabled.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
+    expect(await listConnections(alice)).toEqual([]);
+    expect(await listConnections(bob)).toEqual([]);
+  });
+
+  it('利用者の状態を確かめられなければ 503。接続は消さず、同じトークンを後で使える', async () => {
+    const tokens = (await exchange(await codeFor(alice))).body as Record<string, string>;
+    lookupFails = true;
+
+    expect((await refresh(tokens.refresh_token)).status).toBe(503);
+
+    lookupFails = false;
+    expect((await refresh(tokens.refresh_token)).status).toBe(200);
+  });
+
+  it('connectedAt の無い古いトークン（v6.10 まで）は、そのトークンの発行時刻と比べる', async () => {
+    const tokens = (await exchange(await codeFor(alice))).body as Record<string, string>;
+    const ref = adminDb().doc(`${REFRESH_TOKENS}/${sha256Hex(tokens.refresh_token)}`);
+    const createdAt = ((await ref.get()).data()!.createdAt as { toMillis: () => number }).toMillis();
+    await ref.update({ connectedAt: FieldValue.delete() });
+    accounts.set(alice, { exists: true, disabled: false, validSinceMs: createdAt + 1000 });
+
+    expect((await refresh(tokens.refresh_token)).body).toMatchObject({ error: 'invalid_grant' });
   });
 });
 
