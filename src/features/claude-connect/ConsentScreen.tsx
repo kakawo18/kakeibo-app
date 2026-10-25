@@ -6,10 +6,15 @@
  * 表示する前の検証はページ（サーバー）が済ませている。「許可する」を押すと Firebase の ID トークンと
  * クエリをそのまま送り、返ってきた redirectTo（claude.ai のコールバック）へ移動する。
  * フォーム送信 + 302 にしないのは、CSP の form-action 'self' が送信後のリダイレクト先にも効くため。
+ *
+ * 同意には直近のログインが要る（サーバーは最後のログインから5分以内でなければ reauthentication_required を返す。#178）。
+ * ログインしたままのセッションなら、パスワードを入れ直してもらってから送る。
  */
-import { useState } from 'react';
-import { Alert, Box, Button, Container, Group, List, Loader, Paper, Stack, Text, Title } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { Alert, Box, Button, Container, Group, List, Loader, Paper, PasswordInput, Stack, Text, Title } from '@mantine/core';
 import { IconCheck, IconLock } from '@tabler/icons-react';
+import { EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { FirebaseError } from 'firebase/app';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoginForm } from '@/features/auth';
 
@@ -22,10 +27,36 @@ interface ConsentScreenProps {
   cancelUrl: string;
 }
 
+/**
+ * パスワードを入れ直さずに同意できる、ログインからの時間（ミリ秒）
+ * サーバーの上限（5分。authorizeEndpoint.ts の CONSENT_MAX_AUTH_AGE_SECONDS）より短くし、
+ * ボタンを押すまでの時間と時計のずれの分だけ余裕を持たせる。
+ */
+const FRESH_LOGIN_MS = 3 * 60 * 1000;
+
 export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHost, cancelUrl }) => {
   const { user, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsPassword, setNeedsPassword] = useState(false);
+  const [password, setPassword] = useState('');
+
+  // ログインから時間がたっていれば、最初からパスワードの欄を出す
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    user
+      .getIdTokenResult()
+      .then((result) => {
+        if (active && Date.now() - Date.parse(result.authTime) > FRESH_LOGIN_MS) setNeedsPassword(true);
+      })
+      .catch(() => {
+        // 確かめられなくても、サーバーが reauthentication_required を返せば欄を出す
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   if (loading) {
     return (
@@ -40,19 +71,49 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
   // ログインしたら同じ画面のまま同意に進む
   if (!user) return <LoginForm />;
 
+  const reauthenticate = async (): Promise<boolean> => {
+    if (!user.email) return false;
+    try {
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+      return true;
+    } catch (e) {
+      const code = e instanceof FirebaseError ? e.code : '';
+      setError(
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password'
+          ? 'パスワードが違います。'
+          : code === 'auth/too-many-requests'
+            ? '試行回数が多すぎます。しばらく待ってから、もう一度試してください。'
+            : 'パスワードを確認できませんでした。もう一度試してください。'
+      );
+      return false;
+    }
+  };
+
   const approve = async () => {
     setSubmitting(true);
     setError(null);
     try {
-      const idToken = await user.getIdToken();
+      if (needsPassword && !(await reauthenticate())) {
+        setSubmitting(false);
+        return;
+      }
+      // ログインし直した直後は、新しいログイン時刻の入った ID トークンを取り直す
+      const idToken = await user.getIdToken(needsPassword);
       const response = await fetch('/api/oauth/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, query }),
       });
-      const body = (await response.json().catch(() => ({}))) as { redirectTo?: string };
+      const body = (await response.json().catch(() => ({}))) as { redirectTo?: string; error?: string };
       if (response.ok && body.redirectTo) {
         window.location.assign(body.redirectTo);
+        return;
+      }
+      if (body.error === 'reauthentication_required') {
+        setNeedsPassword(true);
+        setPassword('');
+        setError('安全のため、パスワードをもう一度入力してから許可してください。');
+        setSubmitting(false);
         return;
       }
       setError(
@@ -104,6 +165,19 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
             </Text>
           </Stack>
 
+          {needsPassword && (
+            <PasswordInput
+              label="パスワード"
+              description="安全のため、許可する前にパスワードをもう一度入力してください"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && password) void approve();
+              }}
+            />
+          )}
+
           {error && (
             <Alert color="red" variant="light" radius="md">
               {error}
@@ -111,7 +185,7 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
           )}
 
           <Stack gap="xs">
-            <Button size="md" onClick={approve} loading={submitting} fullWidth>
+            <Button size="md" onClick={approve} loading={submitting} disabled={needsPassword && !password} fullWidth>
               許可する
             </Button>
             <Button

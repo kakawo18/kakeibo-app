@@ -3,7 +3,9 @@
 /**
  * 設定画面の「Claude との接続」欄（docs/claude-connector/仕様書.md 5.10）
  *
- * 接続中か（家計簿の側にまだ使えるリフレッシュトークンがあるか）を表示し、解除できるようにする。
+ * まだ使える接続（家計簿の側に使えるリフレッシュトークンがある接続）を、許可した日時と最後に使った時期つきで並べ、
+ * 1つずつ、またはまとめて解除できるようにする。接続はパスワードを変えても切れないので、
+ * 心当たりの無い接続に気づけるよう一覧で見せる（#178）。
  * Claude の側でコネクタを削除しても家計簿の側のトークンは残るので、ここで消す。
  * Claude 連携が無効な環境（API が 404）では欄ごと出さない。
  */
@@ -12,20 +14,38 @@ import { Badge, Button, Group, Paper, Stack, Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { IconPlugConnectedX } from '@tabler/icons-react';
+import dayjs from 'dayjs';
 import { useAuth } from '@/contexts/AuthContext';
 
-type ConnectionState = 'loading' | 'unavailable' | 'error' | 'connected' | 'disconnected';
+interface Connection {
+  id: string;
+  connectedAt: string;
+  lastActiveAt: string;
+}
+
+type ConnectionState =
+  | { status: 'loading' | 'unavailable' | 'error' }
+  | { status: 'loaded'; connections: Connection[] };
+
+const formatDateTime = (iso: string) => dayjs(iso).format('YYYY/M/D HH:mm');
 
 export const ClaudeConnectionSection = () => {
   const { user } = useAuth();
-  const [state, setState] = useState<ConnectionState>('loading');
-  const [revoking, setRevoking] = useState(false);
+  const [state, setState] = useState<ConnectionState>({ status: 'loading' });
+  /** 解除中の接続の id（'all' はまとめて解除） */
+  const [revoking, setRevoking] = useState<string | null>(null);
 
   const request = useCallback(
-    async (method: 'GET' | 'DELETE') => {
+    async (method: 'GET' | 'DELETE', connectionId?: string) => {
       if (!user) throw new Error('not signed in');
       const idToken = await user.getIdToken();
-      return fetch('/api/oauth/connections', { method, headers: { Authorization: `Bearer ${idToken}` } });
+      const query = connectionId ? `?id=${encodeURIComponent(connectionId)}` : '';
+      // 接続の状態は常に最新を取る（Service Worker も /api/ はキャッシュしない。#180）
+      return fetch(`/api/oauth/connections${query}`, {
+        method,
+        headers: { Authorization: `Bearer ${idToken}` },
+        cache: 'no-store',
+      });
     },
     [user]
   );
@@ -33,12 +53,12 @@ export const ClaudeConnectionSection = () => {
   const refresh = useCallback(async () => {
     try {
       const response = await request('GET');
-      if (response.status === 404) return setState('unavailable');
-      if (!response.ok) return setState('error');
-      const body = (await response.json()) as { connected?: boolean };
-      setState(body.connected ? 'connected' : 'disconnected');
+      if (response.status === 404) return setState({ status: 'unavailable' });
+      if (!response.ok) return setState({ status: 'error' });
+      const body = (await response.json()) as { connections?: Connection[] };
+      setState({ status: 'loaded', connections: body.connections ?? [] });
     } catch {
-      setState('error');
+      setState({ status: 'error' });
     }
   }, [request]);
 
@@ -46,12 +66,11 @@ export const ClaudeConnectionSection = () => {
     void refresh();
   }, [refresh]);
 
-  const revoke = async () => {
-    setRevoking(true);
+  const revoke = async (connectionId?: string) => {
+    setRevoking(connectionId ?? 'all');
     try {
-      const response = await request('DELETE');
+      const response = await request('DELETE', connectionId);
       if (!response.ok) throw new Error(`status ${response.status}`);
-      setState('disconnected');
       notifications.show({
         title: '接続を解除しました',
         message: 'Claude からは1時間以内に使えなくなります。Claude の側のコネクタも削除してください。',
@@ -64,24 +83,29 @@ export const ClaudeConnectionSection = () => {
         color: 'red',
       });
     }
-    setRevoking(false);
+    setRevoking(null);
+    await refresh();
   };
 
-  const confirmRevoke = () =>
+  const confirmRevoke = (connection?: Connection) =>
     modals.openConfirmModal({
-      title: 'Claude との接続を解除',
+      title: connection ? 'この接続を解除' : 'Claude との接続をすべて解除',
       children: (
         <Text size="sm">
-          {'Claude から家計簿を読み取れないようにします。すでに渡した通行証が切れるまで、最長1時間は読み取れることがあります。' +
+          {(connection
+            ? `${formatDateTime(connection.connectedAt)} に許可した接続を解除します。`
+            : 'Claude から家計簿を読み取れないようにします。') +
+            'すでに渡した通行証が切れるまで、最長1時間は読み取れることがあります。' +
             'もう一度使うときは、Claude のコネクタの画面から接続し直してください。'}
         </Text>
       ),
       labels: { confirm: '解除する', cancel: 'キャンセル' },
       confirmProps: { color: 'red' },
-      onConfirm: () => void revoke(),
+      onConfirm: () => void revoke(connection?.id),
     });
 
-  if (state === 'unavailable') return null;
+  if (state.status === 'unavailable') return null;
+  const connections = state.status === 'loaded' ? state.connections : [];
 
   return (
     <Paper className="ledger-card" p="lg">
@@ -94,29 +118,73 @@ export const ClaudeConnectionSection = () => {
             </Text>
           </div>
           {/* 説明文に押されて縮まないようにする（スマホ幅で「接…」と切れていた） */}
-          {state === 'connected' && <Badge variant="light" color="teal" style={{ flexShrink: 0 }}>接続中</Badge>}
-          {state === 'disconnected' && <Badge variant="light" color="gray" style={{ flexShrink: 0 }}>未接続</Badge>}
+          {state.status === 'loaded' && connections.length > 0 && (
+            <Badge variant="light" color="teal" style={{ flexShrink: 0 }}>
+              {connections.length > 1 ? `接続中 ${connections.length}件` : '接続中'}
+            </Badge>
+          )}
+          {state.status === 'loaded' && connections.length === 0 && (
+            <Badge variant="light" color="gray" style={{ flexShrink: 0 }}>未接続</Badge>
+          )}
         </Group>
 
-        {state === 'error' && (
+        {state.status === 'error' && (
           <Text size="xs" c="dimmed">
             接続の状態を確認できませんでした。時間をおいて開き直してください。
           </Text>
         )}
 
-        {state === 'connected' && (
-          <Group justify="flex-end">
-            <Button
-              variant="light"
-              color="red"
-              size="xs"
-              leftSection={<IconPlugConnectedX size={14} />}
-              loading={revoking}
-              onClick={confirmRevoke}
-            >
-              接続を解除
-            </Button>
-          </Group>
+        {connections.length > 0 && (
+          <>
+            <Stack gap={0}>
+              {connections.map((connection) => (
+                <Group
+                  key={connection.id}
+                  justify="space-between"
+                  wrap="nowrap"
+                  gap="sm"
+                  py="xs"
+                  style={{ borderTop: '1px solid var(--hairline)' }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <Text size="sm">{formatDateTime(connection.connectedAt)} に許可</Text>
+                    <Text size="xs" c="dimmed">最後に使った時期: {formatDateTime(connection.lastActiveAt)}</Text>
+                  </div>
+                  <Button
+                    variant="subtle"
+                    color="red"
+                    size="xs"
+                    style={{ flexShrink: 0 }}
+                    loading={revoking === connection.id}
+                    disabled={revoking !== null && revoking !== connection.id}
+                    onClick={() => confirmRevoke(connection)}
+                  >
+                    解除
+                  </Button>
+                </Group>
+              ))}
+            </Stack>
+
+            <Text size="xs" c="dimmed">
+              心当たりの無い接続があれば解除してください。パスワードを変えても、接続は切れません。
+            </Text>
+
+            {connections.length > 1 && (
+              <Group justify="flex-end">
+                <Button
+                  variant="light"
+                  color="red"
+                  size="xs"
+                  leftSection={<IconPlugConnectedX size={14} />}
+                  loading={revoking === 'all'}
+                  disabled={revoking !== null && revoking !== 'all'}
+                  onClick={() => confirmRevoke()}
+                >
+                  すべて解除
+                </Button>
+              </Group>
+            )}
+          </>
         )}
       </Stack>
     </Paper>

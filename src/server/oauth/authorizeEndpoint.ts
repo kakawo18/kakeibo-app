@@ -14,7 +14,16 @@ import {
   validateAuthorizeParams,
 } from './params';
 import { issueAuthorizationCode } from './store';
-import { verifyFirebaseIdToken } from './firebaseIdToken';
+import { verifyFirebaseIdToken, type VerifiedIdToken } from './firebaseIdToken';
+
+/**
+ * 同意に求めるログインの新しさ（秒）
+ *
+ * Claude との接続はパスワードを変えても切れないので、ログインしたままのセッション（ID トークンは
+ * 自動で更新される）では同意させず、直前にパスワードを入れた本人だけに許す（#178）。
+ * 同意画面は、ログインから時間がたっていればパスワードを入れ直させてから送る。
+ */
+export const CONSENT_MAX_AUTH_AGE_SECONDS = 5 * 60;
 
 /** 受け付ける redirect_uri。開発中だけ手作業の確認用を足す（手順書 5.10） */
 export const allowedRedirectUris = (): string[] =>
@@ -22,6 +31,7 @@ export const allowedRedirectUris = (): string[] =>
 
 export interface AuthorizeResponse {
   status: number;
+  /** reauthentication_required: ログインから時間がたっている。パスワードを入れ直してから送り直す */
   body: { redirectTo: string } | { error: string };
 }
 
@@ -30,7 +40,7 @@ export const handleAuthorizeApproval = async (
   config: McpConfig,
   options: {
     redirectUris?: readonly string[];
-    verifyIdToken?: (idToken: string) => Promise<string>;
+    verifyIdToken?: (idToken: string) => Promise<VerifiedIdToken>;
     now?: Date;
   } = {}
 ): Promise<AuthorizeResponse> => {
@@ -65,14 +75,18 @@ export const handleAuthorizeApproval = async (
   }
   const { request } = validation;
 
-  let uid: string;
+  let verified: VerifiedIdToken;
   try {
-    uid = await verifyIdToken(input.idToken);
+    verified = await verifyIdToken(input.idToken);
   } catch (error) {
     // 理由の種類（期限切れ・宛先違いなど）だけを記録する。トークンは出さない
     const reason = (error as { code?: string }).code ?? (error instanceof Error ? error.message : 'unknown');
     console.error('OAuth: ID token verification failed:', reason);
     return { status: 401, body: { error: 'login_required' } };
+  }
+  const { uid } = verified;
+  if (Math.floor(now.getTime() / 1000) - verified.authTime > CONSENT_MAX_AUTH_AGE_SECONDS) {
+    return { status: 401, body: { error: 'reauthentication_required' } };
   }
 
   if (!config.allowedUids.has(uid)) {

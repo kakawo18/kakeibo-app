@@ -9,6 +9,7 @@ import type { McpConfig } from '../config';
 import { ACCESS_TOKEN_TTL_SECONDS, signAccessToken } from './accessToken';
 import { verifyPkce } from './pkce';
 import { isAllowedScope } from './params';
+import { isTokenFormat } from './random';
 import {
   consumeAuthorizationCode,
   deleteExpired,
@@ -61,6 +62,8 @@ const exchangeAuthorizationCode = async (
     return oauthError('invalid_request', 'code, redirect_uri and code_verifier are required');
   }
 
+  if (!isTokenFormat(code)) return oauthError('invalid_grant', 'authorization code is invalid or expired');
+
   // 検証に失敗しても、コードは使用済みになる（同じコードで何度も試させない）
   const grant = await consumeAuthorizationCode(code, now);
   if (!grant) return oauthError('invalid_grant', 'authorization code is invalid or expired');
@@ -86,6 +89,7 @@ const refresh = async (form: URLSearchParams, config: McpConfig, now: Date): Pro
   const resource = form.get('resource');
   if (resource && resource !== config.resource) return oauthError('invalid_target', 'resource does not match');
   if (!isAllowedScope(form.get('scope') ?? undefined)) return oauthError('invalid_scope', 'scope is not allowed');
+  if (!isTokenFormat(token)) return oauthError('invalid_grant', 'refresh token is invalid or expired');
 
   const result = await rotateRefreshToken(token, config.clientId, now);
   if (!result.ok) {
