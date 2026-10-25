@@ -2,6 +2,14 @@
 
 変更を入れたら `package.json` の `version` を更新し、このファイルの先頭に節を追加する（運用ルールは `AGENTS.md` の「バージョン管理」を参照）。
 
+## [6.8.1] - 2026-10-25
+
+### 修正
+- **Next.js を 16.3.1 から 16.4.3 に更新し、既知の脆弱性を解消した** (#161): 16.3.1 には Image Optimization・`use cache`・SSG/ISR のキャッシュ汚染などに関する critical / high の advisory が出ていた。Claude 連携の Route Handler（`/api/mcp`・`/api/oauth/*`）で本番にサーバー処理が加わったこともあり、到達性を個別に調べるより修正版への更新で塞いだ
+  - 同梱の `sharp` も 0.35.5 に上がり、libheif / librsvg の脆弱性が解消された
+  - `eslint-config-next` も 16.4.3 に揃えた
+  - 画面や操作に変化は無い
+
 ## [6.8.0] - 2026-10-25
 
 ### 追加
