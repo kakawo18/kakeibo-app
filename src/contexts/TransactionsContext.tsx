@@ -92,8 +92,7 @@ const NO_TRANSACTIONS: Transaction[] = [];
 type Received = { uid: string; transactions: Transaction[] };
 
 export const TransactionsProvider = ({ children }: { children: ReactNode }) => {
-  // メールアドレスが未確認の間はルールで拒否されるので購読しない（#164）
-  const { verifiedUser: user } = useAuth();
+  const { user } = useAuth();
   // 受け取ったデータとエラーは「どのユーザーの、何回目の購読か」と一緒に持つ。
   // ユーザーが切り替わった直後に前のユーザーの取引や読み込み完了の状態が
   // 残って見えないよう、表示する値は下で現在のユーザー・購読に合うものだけにする（#105）

@@ -33,8 +33,6 @@ const checkClaims = (payload: JWTPayload, now: Date): string => {
   if (typeof payload.auth_time !== 'number' || payload.auth_time > nowSeconds + CLOCK_TOLERANCE_SECONDS) {
     throw new Error('ID token has no valid auth_time');
   }
-  // メールアドレスが未確認のアカウントは、画面と同じく家計データに触れさせない（#164）
-  if (payload.email_verified !== true) throw new Error('Email address is not verified');
   return payload.sub;
 };
 

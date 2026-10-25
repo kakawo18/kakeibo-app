@@ -8,7 +8,6 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { verifiedFirestore } from '@/test/emulator';
 import { Firestore, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { testSettings } from '@/test/fixtures';
 import {
@@ -31,7 +30,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await env.clearFirestore();
-  db = verifiedFirestore(env, UID);
+  db = env.authenticatedContext(UID).firestore() as unknown as Firestore;
   await assertSucceeds(setDoc(settingsRef(), serializeSettings(testSettings)));
 });
 

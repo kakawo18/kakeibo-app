@@ -7,7 +7,6 @@
  * - 旧データ: 必須項目が欠けたドキュメントは飛ばす
  * - 設定: 無ければ初期設定を作る（取引の有無で既定を切り替え、既にあれば上書きしない）
  * - 書き込みの形: アプリが書かないフィールド・長すぎる文字列・未知のパスは拒否する（#163）
- * - メールアドレスが未確認のアカウントは、自分のデータでも読み書きできない（#164）
  */
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -17,7 +16,6 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { verifiedFirestore } from '@/test/emulator';
 import {
   Firestore,
   Timestamp,
@@ -61,8 +59,8 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await env.clearFirestore();
-  db = verifiedFirestore(env, UID);
-  otherDb = verifiedFirestore(env, 'bob');
+  db = env.authenticatedContext(UID).firestore() as unknown as Firestore;
+  otherDb = env.authenticatedContext('bob').firestore() as unknown as Firestore;
 });
 
 // 注: 購読を解除しても Listen の通信はしばらく残り、次のテストの clearFirestore と重なると
@@ -422,28 +420,6 @@ describe('書き込みの形と大きさ（firestore.rules。#163）', () => {
     await assertFails(setDoc(doc(db, 'users', UID), { data: 'x' }));
     await assertFails(setDoc(doc(db, 'users', UID, 'settings', 'app', 'nested', 'x'), { data: 'x' }));
     await assertFails(getDoc(doc(db, 'users', UID, 'junk', 'x')));
-  });
-});
-
-describe('メールアドレスが未確認のアカウント（firestore.rules。#164）', () => {
-  it('自分のデータでも読み書きできない', async () => {
-    // email_verified を持たないトークン（確認の仕組みを入れる前に登録したアカウントや、他人のアドレスで登録したもの）
-    const unverified = env.authenticatedContext('carol').firestore() as unknown as Firestore;
-    await env.withSecurityRulesDisabled(async (context) => {
-      const admin = context.firestore() as unknown as Firestore;
-      await setDoc(doc(admin, 'transactions', 'c1'), { userId: 'carol', type: 'expense', amount: 1, category: '食費', date: Timestamp.now() });
-      await setDoc(doc(admin, 'users', 'carol', 'settings', 'app'), serializeSettings(testSettings));
-    });
-
-    await assertFails(getDoc(doc(unverified, 'transactions', 'c1')));
-    await assertFails(getDocs(query(collection(unverified, 'transactions'), where('userId', '==', 'carol'))));
-    await assertFails(createTransaction(unverified, 'carol', input()));
-    await assertFails(deleteTransaction(unverified, 'c1'));
-    await assertFails(getDoc(doc(unverified, 'users', 'carol', 'settings', 'app')));
-    await assertFails(patchSettings(unverified, 'carol', { monthlyBudget: 1 }));
-    await assertFails(
-      createRecurringTransaction(unverified, 'carol', { name: '家賃', amount: 1, category: '固定費', dayOfMonth: 1, isEnabled: true })
-    );
   });
 });
 

@@ -58,8 +58,6 @@ const firebaseConfig = {
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
-// 確認メール・パスワード再設定のメールを日本語で送る（#164）
-auth.languageCode = 'ja';
 
 /**
  * Firestore を端末の永続キャッシュ（IndexedDB）付きで作る（#126）

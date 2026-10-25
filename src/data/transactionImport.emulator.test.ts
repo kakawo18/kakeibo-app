@@ -4,7 +4,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { RulesTestEnvironment, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { verifiedFirestore } from '@/test/emulator';
 import { Firestore, collection, getDocs, query, where } from 'firebase/firestore';
 import { TransactionInput } from '@/types';
 import { ImportWriteError, writeTransactionsInBatches } from '@/data/transactionImport';
@@ -21,7 +20,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await env.clearFirestore();
-  db = verifiedFirestore(env, UID);
+  db = env.authenticatedContext(UID).firestore() as unknown as Firestore;
 });
 afterAll(async () => {
   await env?.cleanup();
