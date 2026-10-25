@@ -50,7 +50,7 @@ Vercel + Firebase 構成。`main` への push で Vercel が本番自動デプ�
 ## Firebase 側の必須設定
 
 - **Authorized domains**: Firebase Console → Authentication → Settings → Authorized domains に、Vercel が発行した本番ドメイン（例: `kakeibo-app-xxxx.vercel.app`）とカスタムドメインを追加する。追加しないとデプロイ先でログインできない。確認メールのリンクの戻り先（`/auth/email-link`）もこのドメインなので、無いとリンクを送れない（`auth/unauthorized-continue-uri`）。
-- **メールリンク**: Authentication → Sign-in method →「メール/パスワード」を開き、「メールリンク（パスワードなしでログイン）」を有効にする。新規登録とパスワードの再設定はメールのリンクで行う（v6.9.0 から）。無効だと「確認メールを送る」が失敗する（`auth/operation-not-allowed`）。無料プラン（Spark）では、このリンクのメールは**プロジェクト全体で1日5通まで**（Blaze は 25,000通。[Authentication の制限](https://firebase.google.com/docs/auth/limits)）。動作確認で送りすぎるとその日は送れなくなる（`auth/quota-exceeded`）。既存アカウントの「メールアドレスの確認」のメールは別枠（1日1,000通）。
+- **メールリンク**: Authentication → Sign-in method →「メール/パスワード」を開き、「メールリンク（パスワードなしでログイン）」を有効にする。新規登録とパスワードの再設定はメールのリンクで行う（v6.9.0 から）。無効だと「確認メールを送る」が失敗する（`auth/operation-not-allowed`）。
 - **メール列挙保護（推奨）**: Authentication → Settings →「ユーザー アクション」の「メール列挙保護」を有効にする。新しいプロジェクトでは既定で有効。
 - **Firestore セキュリティルール**: ルールはリポジトリの `firestore.rules` で管理する。**このファイルを編集したら必ず反映すること**（反映しないと本番のルールは古いままになる）。
 

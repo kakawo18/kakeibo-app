@@ -7,27 +7,6 @@ import { Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { auth, db, clearLocalFirestoreCache } from '@/lib/firebase';
 
-/**
- * ID トークンがメールアドレス確認済み（email_verified）を持つか
- *
- * ルールが見るのはトークンの email_verified で、User.emailVerified ではない。起動時に Firebase は
- * アカウントの情報を読み直す（確認済みなら emailVerified が true になる）が、トークンは取り直さない。
- * 確認より前に発行されたトークン（有効期限は1時間）のまま購読すると permission-denied になるので、
- * 食い違っていればトークンを取り直す。確認のリンクから別のタブでアプリを開いたときなどに起きる。
- * オフラインで取り直せないときは端末の情報を使う（キャッシュから表示でき、通信が戻れば取り直せる）
- */
-const hasVerifiedToken = async (user: User): Promise<boolean> => {
-  try {
-    const { claims } = await user.getIdTokenResult();
-    if (claims.email_verified === true) return true;
-    if (!user.emailVerified) return false;
-    const refreshed = await user.getIdTokenResult(true);
-    return refreshed.claims.email_verified === true;
-  } catch {
-    return user.emailVerified;
-  }
-};
-
 /** 未送信の変更が送れるのを待つ時間。これを過ぎたら未送信があるとみなす */
 const PENDING_WRITES_WAIT_MS = 1500;
 
@@ -70,12 +49,6 @@ interface AuthContextType {
    * 確認済みになっていれば ID トークンも取り直す（ルールが見る email_verified はトークンに入っている）
    */
   refreshEmailVerification: () => Promise<boolean>;
-  /**
-   * トークンを取り直してページを読み込み直す（読み込みが permission-denied になったとき）
-   *
-   * Firestore は、開いている通信に古いトークンを使い続けることがあるので、読み込み直して張り直す
-   */
-  reloadWithFreshToken: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -101,23 +74,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // トークンの確認は非同期なので、その間にログアウト・別のユーザーへの切り替えが起きたら古い結果を捨てる
-    let generation = 0;
-    const unsubscribe = onAuthStateChanged(auth, (next) => {
-      const current = ++generation;
-      if (!next) {
-        setUser(null);
-        setEmailVerified(false);
-        setLoading(false);
-        return;
-      }
-      // 確認済みかが決まるまで loading のままにする（確認の画面が一瞬出たり、古いトークンで購読したりしない）
-      void hasVerifiedToken(next).then((verified) => {
-        if (current !== generation) return;
-        setUser(next);
-        setEmailVerified(verified);
-        setLoading(false);
-      });
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setEmailVerified(user?.emailVerified ?? false);
+      setLoading(false);
     });
 
     return unsubscribe;
@@ -127,18 +87,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const current = auth.currentUser;
     if (!current) return false;
     await current.reload();
-    const verified = await hasVerifiedToken(current);
-    setEmailVerified(verified);
-    return verified;
-  }, []);
-
-  const reloadWithFreshToken = useCallback(async () => {
-    try {
-      await auth.currentUser?.getIdToken(true);
-    } catch {
-      // 取り直せなくても読み込み直す（オフラインなら、戻ってから再読み込みすればよい）
-    }
-    window.location.reload();
+    if (current.emailVerified) await current.getIdToken(true);
+    setEmailVerified(current.emailVerified);
+    return current.emailVerified;
   }, []);
 
   /**
@@ -163,10 +114,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       verifiedUser,
       loading,
       refreshEmailVerification,
-      reloadWithFreshToken,
       logout,
     }),
-    [user, verifiedUser, loading, refreshEmailVerification, reloadWithFreshToken, logout]
+    [user, verifiedUser, loading, refreshEmailVerification, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

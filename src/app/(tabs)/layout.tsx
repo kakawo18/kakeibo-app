@@ -95,7 +95,7 @@ const LoadErrorState = ({
 };
 
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
-  const { user, verifiedUser, loading: authLoading, logout, reloadWithFreshToken } = useAuth();
+  const { user, verifiedUser, loading: authLoading, logout } = useAuth();
   // 設定のロード前は rules が空になり、投資や給与収入の判定が全て false になる。
   // 集計が静かにずれるので、取引と設定の両方が揃うまで中身を描画しない。
   const { loading: settingsLoading, error: settingsError, retry: retrySettings } = useSettings();
@@ -140,11 +140,6 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
       <LoadErrorState
         error={loadError}
         onRetry={() => {
-          // ルールに拒否されたときは、購読し直しても古いトークンのままなので取り直して読み込み直す
-          if (errorCode(loadError) === 'permission-denied') {
-            void reloadWithFreshToken();
-            return;
-          }
           if (settingsError) retrySettings();
           if (transactionsError) retryTransactions();
         }}
