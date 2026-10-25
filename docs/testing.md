@@ -53,6 +53,7 @@ CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテス�
 | カテゴリの改名・削除 | 過去の取引の集計は変わらない（以前の名前・アーカイブ） | §3.1 | `categorySettings.test.ts` |
 | 編集 | メモだけ直しても取引タイプ・支出に含めるかは変わらない | §2.3、#99 | `transactionRules.test.ts` resolveFlagsOnEdit |
 | 定期取引の記録 | 定期取引 ID と対象月で記録済みを判定し、同じ月は1件にまとまる | §8、#101 | `recurring.test.ts` |
+| 定期取引の毎月の合計 | 有効なものだけを足し、役割で支出・投資・立替などに分ける。内訳は今のカテゴリ名でまとめる | §8.4 | `recurring.test.ts` summarizeRecurring |
 | CSV の往復 | 改行入りのメモ・取引タイプ・支出に含めるかを保ったまま戻せる | §11、#99 #102 | `csvUtils.test.ts` |
 | 保存形式 | 作成と部分更新を分け、更新では undefined = 変更しない / 空文字 = 項目を消す | `AGENTS.md`、#98 | `src/data/*.test.ts`、`*.emulator.test.ts` |
 

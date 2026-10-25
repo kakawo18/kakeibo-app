@@ -11,7 +11,8 @@
  * 2. 定期取引の通知
  * 3. 収支バンド: 今月の収支（ヒーロー数値）| 収入 | 支出
  * 4. KPIタイル: 貯蓄率 / 獲得ポイント / 年間投資額
- * 5. チャート: 支出内訳・収入内訳・支出ペース・カテゴリ別推移
+ * 5. 毎月の定期取引の合計（押すと設定タブの内訳へ）
+ * 6. チャート: 支出内訳・収入内訳・支出ペース・カテゴリ別推移
  *
  * 表示する数値は useDashboardData、収支バンドは MonthSummaryCard、KPI は KpiTiles（#124）。
  * ヘッダー・タブ・認証ガードは (tabs)/layout.tsx が持つ。
@@ -26,7 +27,11 @@ import { useMediaQuery } from '@mantine/hooks';
 import { useTransactions } from '@/contexts/TransactionsContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { TransactionForm, AddTransactionFab } from '@/features/transactions';
-import { RecurringTransactionNotice, RecurringTransactionConfirm } from '@/features/recurring';
+import {
+  RecurringTransactionNotice,
+  RecurringTransactionConfirm,
+  RecurringSummaryCard,
+} from '@/features/recurring';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
 import { formatMonthLocal } from '@/utils/dateUtils';
@@ -163,6 +168,9 @@ export function DashboardContent() {
           onOpenCardRewards={() => setCardRewardsOpened(true)}
           onOpenInvestmentHistory={() => setInvestmentHistoryOpened(true)}
         />
+
+        {/* 毎月の定期取引の合計（表示中の月によらない） */}
+        <RecurringSummaryCard />
 
         {/* ============================================================
             チャートセクション
