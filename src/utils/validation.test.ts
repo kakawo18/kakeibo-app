@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_AMOUNT, MAX_NAME_LENGTH, validateAmount, validateName } from '@/utils/validation';
+import {
+  MAX_AMOUNT,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_NAME_LENGTH,
+  validateAmount,
+  validateDescription,
+  validateName,
+} from '@/utils/validation';
 
 describe('validateName（#117）', () => {
   it('Firestore ルールの上限（50文字）ちょうどまでは通す', () => {
@@ -14,6 +21,18 @@ describe('validateName（#117）', () => {
   });
   it('前後の空白は数えない', () => {
     expect(validateName(` ${'あ'.repeat(50)} `, 'カテゴリ名')).toBeNull();
+  });
+});
+
+describe('validateDescription（#163）', () => {
+  it('Firestore ルールの上限（200文字）ちょうどまでは通し、空も通す', () => {
+    expect(MAX_DESCRIPTION_LENGTH).toBe(200);
+    expect(validateDescription('あ'.repeat(200))).toBeNull();
+    expect(validateDescription('')).toBeNull();
+  });
+  it('201文字は保存前にエラーにする（前後の空白は数えない）', () => {
+    expect(validateDescription('あ'.repeat(201))).toBe('メモは200文字以内にしてください');
+    expect(validateDescription(` ${'あ'.repeat(200)} `)).toBeNull();
   });
 });
 

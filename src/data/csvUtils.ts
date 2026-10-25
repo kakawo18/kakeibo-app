@@ -1,7 +1,7 @@
 import { Transaction, TransactionInput, TransactionType } from '@/types';
 import { formatDate } from '@/utils/dateUtils';
 import { TransactionFlags, TransactionRules } from '@/domain/transactionRules';
-import { MAX_AMOUNT, MAX_NAME_LENGTH } from '@/utils/validation';
+import { MAX_AMOUNT, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH } from '@/utils/validation';
 
 // Excel/スプレッドシートが数式として解釈してしまう先頭文字
 // （クォートしても評価されるため、別途無害化が必要）
@@ -159,8 +159,6 @@ export const exportToCSV = (transactions: Transaction[]): void => {
 export const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
 /** 一度に取り込む行数の上限 */
 export const MAX_IMPORT_ROWS = 5000;
-/** メモの最大文字数（超過分は切り詰める） */
-const MAX_DESCRIPTION_LENGTH = 200;
 /** 受け付ける日付の範囲 */
 const MIN_DATE = new Date('1970-01-01').getTime();
 const MAX_DATE = new Date('2100-12-31').getTime();

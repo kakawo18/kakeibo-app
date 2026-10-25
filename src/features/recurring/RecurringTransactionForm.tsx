@@ -16,7 +16,7 @@ import { RecurringTransaction } from '@/types';
 import { useSettings } from '@/contexts/SettingsContext';
 import { ResponsiveSelect } from '@/components/forms/ResponsiveSelect';
 import { getInputStyles } from '@/components/forms/formStyles';
-import { validateAmount } from '@/utils/validation';
+import { validateAmount, validateName } from '@/utils/validation';
 import { activeCategories } from '@/domain/categorySettings';
 
 interface RecurringTransactionFormProps {
@@ -48,12 +48,14 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
       isEnabled: true,
     },
     validate: {
-      name: (value) => (!value || value.trim() === '' ? '名前を入力してください' : null),
+      name: (value) => validateName(value, '名前'),
       amount: (value) => validateAmount(value),
       category: (value) => (!value || value.trim() === '' ? 'カテゴリを選択してください' : null),
       dayOfMonth: (value) => {
         const num = Number(value);
-        if (!value || num < 1 || num > 31) return '実行日は1〜31の範囲で入力してください';
+        if (!value || !Number.isInteger(num) || num < 1 || num > 31) {
+          return '実行日は1〜31の範囲で入力してください';
+        }
         return null;
       },
     },
@@ -216,6 +218,7 @@ export const RecurringTransactionForm: React.FC<RecurringTransactionFormProps> =
             placeholder="1〜31"
             min={1}
             max={31}
+            allowDecimal={false}
             required
             {...form.getInputProps('dayOfMonth')}
             styles={inputStyles}
