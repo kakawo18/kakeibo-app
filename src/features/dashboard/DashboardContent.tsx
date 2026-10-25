@@ -11,7 +11,7 @@
  * 2. 定期取引の通知
  * 3. 収支バンド: 今月の収支（ヒーロー数値）| 収入 | 支出
  * 4. KPIタイル: 貯蓄率 / 獲得ポイント / 年間投資額
- * 5. 毎月の定期取引の合計（押すと設定タブの内訳へ）
+ * 5. 毎月の定期取引の合計（KPI と同じ形のタイル。押すと設定タブの内訳へ）
  * 6. チャート: 支出内訳・収入内訳・支出ペース・カテゴリ別推移
  *
  * 表示する数値は useDashboardData、収支バンドは MonthSummaryCard、KPI は KpiTiles（#124）。
@@ -30,7 +30,7 @@ import { TransactionForm, AddTransactionFab } from '@/features/transactions';
 import {
   RecurringTransactionNotice,
   RecurringTransactionConfirm,
-  RecurringSummaryCard,
+  useRecurringSummary,
 } from '@/features/recurring';
 import { SwipeArea } from '@/components/ui/SwipeArea';
 import { VersionDisplay } from '@/components/ui/VersionDisplay';
@@ -68,6 +68,7 @@ export function DashboardContent() {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const router = useRouter();
   const { selectedMonth, selectedYear, goPreviousMonth, goNextMonth } = useSelectedMonth();
+  const recurring = useRecurringSummary();
 
   // ------------------------------------------------------------
   // データ計算
@@ -163,14 +164,18 @@ export function DashboardContent() {
         <KpiTiles
           savingsData={savingsData}
           monthlyCardPoints={monthlyCardPoints}
+          // 読み込み中・失敗・未登録のときは出さない（設定タブで案内する）
+          recurringTotal={
+            recurring.loading || recurring.error || recurring.summary.count === 0
+              ? null
+              : recurring.summary.total
+          }
           isMobile={Boolean(isMobile)}
           onOpenSavingsRate={() => setSavingsRateDetailOpened(true)}
           onOpenCardRewards={() => setCardRewardsOpened(true)}
           onOpenInvestmentHistory={() => setInvestmentHistoryOpened(true)}
+          onOpenRecurring={() => router.push('/settings')}
         />
-
-        {/* 毎月の定期取引の合計（表示中の月によらない） */}
-        <RecurringSummaryCard />
 
         {/* ============================================================
             チャートセクション
