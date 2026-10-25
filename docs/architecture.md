@@ -15,13 +15,12 @@ src/
 │   │   ├── history/    # 履歴（/history）リスト⇄カレンダー
 │   │   ├── review/     # 年間振り返り（/review）
 │   │   └── settings/   # 設定（/settings）
-│   ├── auth/email-link/ # 確認メールのリンクを開く画面（/auth/email-link。新規登録・パスワードの再設定）
 │   ├── oauth/authorize/ # Claude 連携の同意画面（/oauth/authorize）
 │   ├── api/            # Route Handler: mcp（MCP サーバー）・oauth/authorize・oauth/token
 │   ├── .well-known/    # OAuth のメタデータ（保護リソース・認可サーバー）
 │   └── globals.css     # デザイントークン（CSS 変数）と "Quiet Ledger" スタイル
 ├── features/           # 機能ごとの画面（#124）。外からは各機能の index.ts だけを import する
-│   ├── auth/           # LoginForm・EmailLinkCompletion（リンクでログインしてパスワードを設定）・EmailVerificationGate（未確認のアカウントに確認を求める）
+│   ├── auth/           # LoginForm
 │   ├── dashboard/      # ホーム: DashboardContent・useDashboardData（表示する数値の組み立て）・MonthSummaryCard・KpiTiles・内訳/ペース/推移グラフ・KPI の詳細モーダル
 │   ├── transactions/   # 取引の入力フォーム・一覧・行・カレンダー・追加ボタン（ホームと履歴で使う）
 │   ├── recurring/      # 定期取引の管理・登録・記録の確認・通知

@@ -12,7 +12,6 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { verifiedFirestore } from '@/test/emulator';
 import {
   Firestore,
   Timestamp,
@@ -43,7 +42,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await env.clearFirestore();
-  db = verifiedFirestore(env, UID);
+  db = env.authenticatedContext(UID).firestore() as unknown as Firestore;
 });
 
 afterAll(async () => {
@@ -142,8 +141,8 @@ describe('定期取引の更新（#98）', () => {
 
 describe('定期取引の記録（#101）', () => {
   it('2つの端末が同じ月を同時に記録しても、取引は1件になる（後の内容が残る）', async () => {
-    const deviceA = verifiedFirestore(env, UID);
-    const deviceB = verifiedFirestore(env, UID);
+    const deviceA = env.authenticatedContext(UID).firestore() as unknown as Firestore;
+    const deviceB = env.authenticatedContext(UID).firestore() as unknown as Firestore;
     const id = recurringRecordId('rent', '2026-09');
     const record = (amount: number) => ({
       ...toTransactionCreateData({
@@ -176,7 +175,7 @@ describe('定期取引の記録（#101）', () => {
         userId: UID, createdAt: now(), updatedAt: now(),
       })
     );
-    const mallory = verifiedFirestore(env, 'mallory');
+    const mallory = env.authenticatedContext('mallory').firestore() as unknown as Firestore;
     await assertFails(
       setDoc(doc(mallory, 'transactions', id), {
         ...toTransactionCreateData({ type: 'expense', amount: 999, category: '固定費', date: new Date() }),

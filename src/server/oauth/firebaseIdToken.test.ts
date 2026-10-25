@@ -4,7 +4,6 @@
  * Firebase が公開している手順（第三者の JWT ライブラリでの検証）どおりに確かめる:
  * RS256・公開鍵の kid・aud = プロジェクト ID・iss = https://securetoken.google.com/<プロジェクト ID>・
  * exp が未来・iat が過去・sub（uid）が空でない・auth_time が過去
- * に加えて、メールアドレスが確認済み（email_verified。#164）
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import { SignJWT, UnsecuredJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose';
@@ -34,7 +33,6 @@ const sign = (claims: Record<string, unknown> = {}, header: { kid?: string } = {
     iat: seconds - 60,
     exp: seconds + 3000,
     auth_time: seconds - 60,
-    email_verified: true,
     ...claims,
   };
   Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
@@ -56,11 +54,6 @@ describe('verifyFirebaseIdToken', () => {
   it('期限切れ・未来に発行されたトークンは拒否する', async () => {
     await expect(verify(await sign({ iat: seconds - 7200, auth_time: seconds - 7200, exp: seconds - 3600 }))).rejects.toThrow();
     await expect(verify(await sign({ iat: seconds + 600 }))).rejects.toThrow();
-  });
-
-  it('メールアドレスが未確認のアカウントのトークンは拒否する（#164）', async () => {
-    await expect(verify(await sign({ email_verified: false }))).rejects.toThrow();
-    await expect(verify(await sign({ email_verified: undefined }))).rejects.toThrow();
   });
 
   it('uid（sub）が無い・ログイン時刻（auth_time）が無いか未来のトークンは拒否する', async () => {

@@ -36,19 +36,7 @@ const confirmDiscardPendingWrites = (): Promise<boolean> =>
 
 interface AuthContextType {
   user: User | null;
-  /**
-   * メールアドレスを確認済みのユーザー（#164）。未ログイン・未確認なら null
-   *
-   * firestore.rules は確認済みのユーザーにしか家計データを読み書きさせないので、
-   * データの購読（各 Context）はこちらを使い、未確認の間は購読しない
-   */
-  verifiedUser: User | null;
   loading: boolean;
-  /**
-   * 確認メールのリンクを開いた後に呼ぶ。サーバーから最新の状態を読み直し、
-   * 確認済みになっていれば ID トークンも取り直す（ルールが見る email_verified はトークンに入っている）
-   */
-  refreshEmailVerification: () => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
@@ -69,27 +57,15 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  // User の emailVerified は reload() で書き換わるだけで再描画されないので、別に持つ
-  const [emailVerified, setEmailVerified] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
-      setEmailVerified(user?.emailVerified ?? false);
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
-
-  const refreshEmailVerification = useCallback(async () => {
-    const current = auth.currentUser;
-    if (!current) return false;
-    await current.reload();
-    if (current.emailVerified) await current.getIdToken(true);
-    setEmailVerified(current.emailVerified);
-    return current.emailVerified;
   }, []);
 
   /**
@@ -106,17 +82,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     window.location.reload();
   }, []);
 
-  const verifiedUser = user && emailVerified ? user : null;
-
   const value = useMemo(
     () => ({
       user,
-      verifiedUser,
       loading,
-      refreshEmailVerification,
       logout,
     }),
-    [user, verifiedUser, loading, refreshEmailVerification, logout]
+    [user, loading, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
