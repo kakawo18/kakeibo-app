@@ -5,22 +5,15 @@
  * トークンの無い・無効なリクエストには 401 と、保護リソースのメタデータの場所を返す。
  * MCP_ENABLED=1 でない環境では 404（開発環境のエミュレータ接続時を除く）。
  */
-import { createMcpHandler, withMcpAuth } from 'mcp-handler';
-import { registerKakeiboTools } from '@/server/mcp/tools';
-import { KAKEIBO_INSTRUCTIONS } from '@/server/mcp/instructions';
+import { withMcpAuth } from 'mcp-handler';
+import { kakeiboMcpHandler } from '@/server/mcp/handler';
 import { verifyMcpToken } from '@/server/oauth/verifyMcpToken';
 import { isOAuthAvailable, notFound } from '@/server/oauth/availability';
-import packageJson from '../../../../package.json';
 
 // Admin SDK は Edge ランタイムでは動かない
 export const runtime = 'nodejs';
 
-const handler = createMcpHandler((server) => registerKakeiboTools(server), {
-  serverInfo: { name: 'kakeibo', version: packageJson.version },
-  instructions: KAKEIBO_INSTRUCTIONS,
-});
-
-const authHandler = withMcpAuth(handler, verifyMcpToken, {
+const authHandler = withMcpAuth(kakeiboMcpHandler, verifyMcpToken, {
   required: true,
   requiredScopes: ['kakeibo.read'],
   // メタデータの URL は Host ヘッダーから組み立てない（仕様書 5.2）
