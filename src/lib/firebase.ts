@@ -117,12 +117,16 @@ if (typeof window !== 'undefined' && recaptchaSiteKey) {
 }
 
 // ローカル開発用: NEXT_PUBLIC_FIREBASE_EMULATOR=1 のときエミュレータに接続
+// ポートの既定は firebase.json の値。E2E テストは開発用のエミュレータとぶつからないよう
+// 別のポート（firebase.e2e.json）を使い、NEXT_PUBLIC_FIREBASE_EMULATOR_*_PORT で渡す。
 if (
   process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === '1' &&
   typeof window !== 'undefined'
 ) {
-  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  const authPort = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_AUTH_PORT || '9099';
+  const firestorePort = Number(process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_FIRESTORE_PORT || '8080');
+  connectAuthEmulator(auth, `http://127.0.0.1:${authPort}`, { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', firestorePort);
 }
 
 export default app;
