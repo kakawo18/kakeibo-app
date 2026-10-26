@@ -30,7 +30,7 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 ## 変更後に必ず通すチェック
 
-コミット前に `npm run lint`・`npm run type-check`・`npm test` を通すこと（CI でも同じものが走る: `.github/workflows/ci.yml`）。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する。
+コミット前に `npm run lint`・`npm run type-check`・`npm test` を通すこと（CI でも同じものと `npm run build` が走る: `.github/workflows/ci.yml`）。ランタイム挙動を変えた場合は `npm run dev` で実際に動作を確認する。
 
 ### テスト
 
