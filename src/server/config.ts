@@ -10,6 +10,12 @@ import 'server-only';
 /** MCP_ENABLED=1 のときだけ Claude 連携のエンドポイントを有効にする */
 export const isMcpEnabled = (): boolean => process.env.MCP_ENABLED === '1';
 
+/**
+ * MCP_WRITE_ENABLED=1 のときだけ、Claude からの取引の追加・編集を有効にする
+ * （docs/claude-connector/書き込み仕様書.md 8.4 節）。無ければ v6.11 と同じく読み取りだけ
+ */
+export const isMcpWriteEnabled = (): boolean => process.env.MCP_WRITE_ENABLED === '1';
+
 const required = (name: string): string => {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`${name} is not set`);

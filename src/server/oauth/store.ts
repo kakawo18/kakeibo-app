@@ -115,6 +115,8 @@ export const issueRefreshToken = async (grant: RefreshGrant, now: Date = new Dat
 export interface ActiveRefreshToken {
   uid: string;
   familyId: string;
+  /** 最初に許可した scope（リフレッシュで広げさせない） */
+  scope: string;
   /** 接続を最初に許可した時刻（ミリ秒）。connectedAt の無い古いドキュメントは createdAt */
   connectedAtMs: number;
 }
@@ -134,6 +136,7 @@ export const findActiveRefreshToken = async (
   return {
     uid: data.uid,
     familyId: data.familyId,
+    scope: data.scope,
     connectedAtMs: ((data.connectedAt ?? data.createdAt) as Timestamp).toMillis(),
   };
 };

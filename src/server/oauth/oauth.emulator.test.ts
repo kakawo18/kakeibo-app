@@ -251,6 +251,47 @@ describe('リフレッシュトークン（grant_type=refresh_token）', () => {
   });
 });
 
+describe('書き込みの scope（書き込み仕様書 8章）', () => {
+  it('書き込みが有効なら、scope を省いた同意で読み取りと書き込みの両方が与えられる', async () => {
+    const now = new Date();
+    const response = await handleAuthorizeApproval({ idToken: 'id-token', query: query() }, config, {
+      verifyIdToken: loggedIn(alice, now),
+      scopes: ['kakeibo.read', 'kakeibo.write'],
+      now,
+    });
+    const code = new URL((response.body as { redirectTo: string }).redirectTo).searchParams.get('code')!;
+
+    const tokens = await exchange(code);
+
+    expect(tokens.body.scope).toBe('kakeibo.read kakeibo.write');
+    expect((await verifyAccessToken(tokens.body.access_token as string, config)).scopes).toEqual([
+      'kakeibo.read',
+      'kakeibo.write',
+    ]);
+    expect((await refresh(tokens.body.refresh_token as string)).body.scope).toBe('kakeibo.read kakeibo.write');
+  });
+
+  it('読み取りだけの接続は、リフレッシュで書き込みを足せない。拒否されても同じトークンで更新できる', async () => {
+    const first = (await exchange(await codeFor(alice))).body as Record<string, string>;
+    expect(first.scope).toBe('kakeibo.read');
+
+    const widened = await handleTokenRequest(
+      new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: first.refresh_token,
+        client_id: 'kakeibo-claude-test',
+        scope: 'kakeibo.read kakeibo.write',
+      }),
+      config,
+      new Date(),
+      { lookupAccount }
+    );
+
+    expect(widened.body).toMatchObject({ error: 'invalid_scope' });
+    expect(await refresh(first.refresh_token)).toMatchObject({ status: 200, body: { scope: 'kakeibo.read' } });
+  });
+});
+
 describe('Firebase の利用者の変化への追従（リフレッシュのとき）', () => {
   it('接続を作った後にパスワードが変わったら、その接続のトークンをすべて消す。ほかの利用者の接続は残る', async () => {
     const connectedAt = new Date(Date.now() - 60 * 60 * 1000);

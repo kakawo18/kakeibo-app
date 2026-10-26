@@ -5,12 +5,13 @@
  * ここでクエリをもう一度検証する。ID トークンを Cookie ではなく本文で受け取るので CSRF は成り立たない。
  */
 import 'server-only';
-import type { McpConfig } from '../config';
+import { type McpConfig, isMcpWriteEnabled } from '../config';
 import { isDevBypass } from './verifyMcpToken';
 import {
   CLAUDE_REDIRECT_URI,
   DEV_REDIRECT_URI,
   buildRedirect,
+  supportedScopes,
   validateAuthorizeParams,
 } from './params';
 import { issueAuthorizationCode } from './store';
@@ -40,12 +41,15 @@ export const handleAuthorizeApproval = async (
   config: McpConfig,
   options: {
     redirectUris?: readonly string[];
+    /** 与えられる scope（既定は MCP_WRITE_ENABLED で決まる） */
+    scopes?: readonly string[];
     verifyIdToken?: (idToken: string) => Promise<VerifiedIdToken>;
     now?: Date;
   } = {}
 ): Promise<AuthorizeResponse> => {
   const {
     redirectUris = allowedRedirectUris(),
+    scopes = supportedScopes(isMcpWriteEnabled()),
     verifyIdToken = (idToken: string) => verifyFirebaseIdToken(idToken),
     now = new Date(),
   } = options;
@@ -57,6 +61,7 @@ export const handleAuthorizeApproval = async (
     clientId: config.clientId,
     resource: config.resource,
     redirectUris,
+    scopes,
   });
   if (!validation.ok) {
     return validation.fatal

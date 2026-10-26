@@ -10,6 +10,7 @@ import type { McpConfig } from '@/server/config';
 import { handleTokenRequest } from '@/server/oauth/tokenEndpoint';
 import {
   consumeAuthorizationCode,
+  deleteExpired,
   findActiveRefreshToken,
   revokeFamily,
   rotateRefreshToken,
@@ -87,7 +88,7 @@ describe('リフレッシュのときの Firebase の利用者の確認', () => 
   const connectedAtMs = Date.now() - 60 * 60 * 1000;
 
   beforeEach(() => {
-    vi.mocked(findActiveRefreshToken).mockResolvedValue({ uid: 'alice', familyId: 'family-1', connectedAtMs });
+    vi.mocked(findActiveRefreshToken).mockResolvedValue({ uid: 'alice', familyId: 'family-1', scope: 'kakeibo.read', connectedAtMs });
   });
 
   it('利用者の状態を確かめられなければ 503。接続は消さず、トークンも使用済みにしない', async () => {
@@ -118,5 +119,42 @@ describe('リフレッシュのときの Firebase の利用者の確認', () => 
 
     expect(revokeFamily).not.toHaveBeenCalled();
     expect(rotateRefreshToken).toHaveBeenCalledOnce();
+  });
+});
+
+describe('リフレッシュの scope（書き込み仕様書 8.1 節）', () => {
+  const connectedAtMs = Date.now() - 60 * 60 * 1000;
+
+  beforeEach(() => {
+    lookupAccount.mockResolvedValue({ exists: true, disabled: false, validSinceMs: connectedAtMs - 1000 });
+  });
+
+  it('読み取りだけの接続で書き込みを求めると、トークンを使用済みにせずに invalid_scope', async () => {
+    vi.mocked(findActiveRefreshToken).mockResolvedValue({ uid: 'alice', familyId: 'f', scope: 'kakeibo.read', connectedAtMs });
+
+    const response = await request({ grant_type: 'refresh_token', refresh_token: randomToken(), scope: 'kakeibo.read kakeibo.write' });
+
+    expect(response.body).toMatchObject({ error: 'invalid_scope' });
+    expect(rotateRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('知らない scope は保存先を引かずに invalid_scope', async () => {
+    const response = await request({ grant_type: 'refresh_token', refresh_token: randomToken(), scope: 'kakeibo.admin' });
+
+    expect(response.body).toMatchObject({ error: 'invalid_scope' });
+    expect(findActiveRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('狭めて求めれば、アクセストークンはその scope になり、リフレッシュトークンは元の scope のまま', async () => {
+    const grant = { uid: 'alice', clientId: 'kakeibo-claude-test', scope: 'kakeibo.read kakeibo.write' };
+    vi.mocked(findActiveRefreshToken).mockResolvedValue({ uid: 'alice', familyId: 'f', scope: grant.scope, connectedAtMs });
+    vi.mocked(rotateRefreshToken).mockResolvedValue({ ok: true, grant, refreshToken: randomToken() });
+    vi.mocked(deleteExpired).mockResolvedValue(0);
+
+    const narrowed = await request({ grant_type: 'refresh_token', refresh_token: randomToken(), scope: 'kakeibo.read' });
+    const full = await request({ grant_type: 'refresh_token', refresh_token: randomToken() });
+
+    expect(narrowed).toMatchObject({ status: 200, body: { scope: 'kakeibo.read' } });
+    expect(full).toMatchObject({ status: 200, body: { scope: 'kakeibo.read kakeibo.write' } });
   });
 });

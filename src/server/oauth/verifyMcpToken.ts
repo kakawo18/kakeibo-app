@@ -7,7 +7,8 @@
  */
 import 'server-only';
 import type { AuthInfo } from '@modelcontextprotocol/server';
-import { getMcpConfig } from '../config';
+import { getMcpConfig, isMcpWriteEnabled } from '../config';
+import { supportedScopes } from './params';
 import { verifyAccessToken } from './accessToken';
 
 /**
@@ -47,7 +48,12 @@ export const verifyMcpToken = async (
   }
   const devUid = process.env.MCP_DEV_UID?.trim();
   if (isDevBypass() && devUid) {
-    return { token: bearerToken ?? 'dev', clientId: 'dev', scopes: ['kakeibo.read'], extra: { uid: devUid } };
+    return {
+      token: bearerToken ?? 'dev',
+      clientId: 'dev',
+      scopes: supportedScopes(isMcpWriteEnabled()),
+      extra: { uid: devUid },
+    };
   }
   return undefined;
 };

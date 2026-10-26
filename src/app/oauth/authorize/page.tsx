@@ -8,10 +8,10 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { ConsentError, ConsentScreen } from '@/features/claude-connect';
-import { getMcpConfig } from '@/server/config';
+import { getMcpConfig, isMcpWriteEnabled } from '@/server/config';
 import { isOAuthAvailable } from '@/server/oauth/availability';
 import { allowedRedirectUris } from '@/server/oauth/authorizeEndpoint';
-import { buildRedirect, validateAuthorizeParams } from '@/server/oauth/params';
+import { WRITE_SCOPE, buildRedirect, supportedScopes, validateAuthorizeParams } from '@/server/oauth/params';
 
 export const metadata: Metadata = {
   title: 'Claude との接続 | 家計簿',
@@ -31,6 +31,7 @@ export default async function AuthorizePage({
     clientId: config.clientId,
     resource: config.resource,
     redirectUris: allowedRedirectUris(),
+    scopes: supportedScopes(isMcpWriteEnabled()),
   });
 
   if (!validation.ok && validation.fatal) return <ConsentError message={validation.message} />;
@@ -54,6 +55,7 @@ export default async function AuthorizePage({
     <ConsentScreen
       query={plainQuery}
       redirectHost={new URL(request.redirectUri).host}
+      canWrite={request.scope.split(' ').includes(WRITE_SCOPE)}
       cancelUrl={buildRedirect(request.redirectUri, {
         error: 'access_denied',
         state: request.state,

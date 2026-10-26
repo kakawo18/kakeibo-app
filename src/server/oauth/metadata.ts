@@ -6,8 +6,8 @@
  * 省くと PKCE 非対応とみなされて接続が止まる。クライアント登録は事前登録だけなので、
  * registration_endpoint と client_id_metadata_document_supported は載せない（仕様書 5.4）。
  */
-import type { McpConfig } from '../config';
-import { SCOPE } from './params';
+import { type McpConfig, isMcpWriteEnabled } from '../config';
+import { supportedScopes } from './params';
 
 export const authorizationServerMetadata = (config: Pick<McpConfig, 'origin'>) => ({
   issuer: config.origin,
@@ -17,6 +17,6 @@ export const authorizationServerMetadata = (config: Pick<McpConfig, 'origin'>) =
   grant_types_supported: ['authorization_code', 'refresh_token'],
   code_challenge_methods_supported: ['S256'],
   token_endpoint_auth_methods_supported: ['none'],
-  scopes_supported: [SCOPE],
+  scopes_supported: supportedScopes(isMcpWriteEnabled()),
   authorization_response_iss_parameter_supported: true,
 });
