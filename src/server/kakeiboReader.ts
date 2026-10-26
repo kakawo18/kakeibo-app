@@ -5,7 +5,7 @@
  * - どの関数も uid を最初の引数で受け取る。uid はトークンの検証結果からだけ渡すこと
  * - 取引のクエリは最初に userId で絞り、読んだ結果の userId ももう一度確かめる
  * - 設定と定期取引は users/{uid}/ の下だけを読む
- * Firestore を読むサーバーのコードは、このファイルの外に置かない。
+ * Firestore を読むサーバーのコードは、このファイルの外に置かない（書き込みは kakeiboWriter.ts）。
  */
 import 'server-only';
 import { Query, QueryDocumentSnapshot, Timestamp } from 'firebase-admin/firestore';
@@ -52,6 +52,18 @@ export const readTransactions = async (uid: string, range: DateRange): Promise<T
     .orderBy('date', 'desc')
     .get();
   return toOwnTransactions(uid, snapshot.docs);
+};
+
+/**
+ * uid の取引を ID で1件読む。無いとき・他人の取引のときはどちらも null
+ * （他人の取引の ID が存在するかどうかを、結果の違いから知られないようにする）
+ */
+export const readTransaction = async (uid: string, id: string): Promise<Transaction | null> => {
+  if (!uid) throw new Error('uid is required');
+  const snapshot = await adminDb().collection('transactions').doc(id).get();
+  const data = snapshot.data();
+  if (!data || data.userId !== uid) return null;
+  return fromTransactionDoc(snapshot.id, data);
 };
 
 /** 最も古い取引と最も新しい取引の日付。取引が無ければ null */

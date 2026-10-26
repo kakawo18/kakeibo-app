@@ -3,7 +3,9 @@ import { deleteField, Timestamp } from 'firebase/firestore';
 import {
   fromTransactionDoc,
   toTransactionCreateData,
+  toTransactionCreateFields,
   toTransactionUpdateData,
+  toTransactionUpdateFields,
 } from '@/data/transactionSerializer';
 
 const isDelete = (value: unknown) =>
@@ -64,6 +66,28 @@ describe('toTransactionUpdateData（#98: 省略 = 変更しない、空 = 消す
 
   it('メモは空文字で上書きする（従来どおり）', () => {
     expect(toTransactionUpdateData({ description: '  ' }).description).toBe('');
+  });
+});
+
+describe('SDK に依存しない形（Claude 連携のサーバーが Admin SDK で書くときに使う）', () => {
+  it('作成: 日時は Date のまま、それ以外はクライアント SDK の形と同じ', () => {
+    const input = {
+      type: 'expense' as const, amount: 1_000, category: '食費', subcategory: ' 外食 ',
+      paymentMethod: '', date: new Date(2026, 2, 1), description: ' メモ ',
+    };
+    const { date, ...rest } = toTransactionCreateFields(input);
+    const { date: timestamp, ...clientRest } = toTransactionCreateData(input);
+
+    expect(date).toEqual(new Date(2026, 2, 1));
+    expect(timestamp.toDate()).toEqual(date);
+    expect(rest).toEqual(clientRest);
+  });
+
+  it('更新: 消す項目は null、省略した項目はキーごと無い', () => {
+    expect(toTransactionUpdateFields({ subcategory: '', paymentMethod: ' ', amount: 5 })).toEqual({
+      amount: 5, subcategory: null, paymentMethod: null,
+    });
+    expect(toTransactionUpdateFields({ date: new Date(2026, 2, 1) })).toEqual({ date: new Date(2026, 2, 1) });
   });
 });
 

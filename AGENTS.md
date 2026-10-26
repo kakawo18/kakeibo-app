@@ -70,7 +70,7 @@ npm run test:e2e            # Playwright で画面の主要な流れを検証（
 
 - `.env.local` は**コミットしない**（`.gitignore` 済み）。クライアントに出してよい値は `NEXT_PUBLIC_*` のみ。`next.config.ts` の `env` は使わない（`NEXT_PUBLIC_` 無しでもバンドルに埋め込まれるため、秘密情報の混入に気づけない）。
 - **画面からの Firestore のアクセス制御は `firestore.rules` だけで担保している**（クライアント直結で、画面用のサーバー側の API 層は無い）。
-- **例外は Claude 連携のサーバー（`src/server/`）で、Admin SDK は `firestore.rules` を通らない。** 利用者のデータを読むのは `src/server/kakeiboReader.ts` の関数だけにし、必ず uid（トークンの検証結果から得たもの）で絞る。uid をツールの入力から受け取らない。認可コードとリフレッシュトークン（`oauthAuthorizationCodes` / `oauthRefreshTokens`）はクライアントから一切触れないようルールで拒否している。詳細は `docs/claude-connector/仕様書.md` の 7.2 と 8章。
+- **例外は Claude 連携のサーバー（`src/server/`）で、Admin SDK は `firestore.rules` を通らない。** 利用者のデータを読むのは `src/server/kakeiboReader.ts`、書くのは `src/server/kakeiboWriter.ts` の関数だけにし、必ず uid（トークンの検証結果から得たもの）で絞る。書き込みはルールを通らないので、ルールと同じ形・上限で書く（`docs/claude-connector/書き込み仕様書.md` 6章）。uid をツールの入力から受け取らない。認可コードとリフレッシュトークン（`oauthAuthorizationCodes` / `oauthRefreshTokens`）はクライアントから一切触れないようルールで拒否している。詳細は `docs/claude-connector/仕様書.md` の 7.2 と 8章。
 - 画面のデータの置き場所: 取引はトップレベル `transactions`（`userId` フィールドで所有者判定）、設定と定期取引は `users/{uid}/` 配下。**コレクション構成を変えたら必ず `firestore.rules` も更新し、`firebase deploy --only firestore:rules` で反映する。**
 - 取引の更新・削除はクライアント側で所有者チェックをしていない。所有者の検証はルール側の責務。
 - 本番デプロイ先ドメインは Firebase Console の Authentication → Authorized domains に追加が必要。
