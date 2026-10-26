@@ -25,6 +25,25 @@ jobs:
       - run: npm run type-check
       - run: npm test
 
+  # 本番ビルドが通るかを、Vercel のデプロイより前に PR で確かめる。
+  # Firebase の環境変数は渡さない（src/lib/firebase.ts がプレースホルダーで初期化する）
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm ci
+      - run: npm run build
+
   # Firestore エミュレータで、保存形式と firestore.rules を実際に通す
   emulator:
     runs-on: ubuntu-latest

@@ -10,7 +10,7 @@ npm test                # 純関数の単体テスト（Firebase の認証情報
 npm run test:emulator   # Firestore エミュレータで保存形式とルールを検証（Java 21 が必要）
 ```
 
-CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテストが走る。
+CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテストと本番ビルド（`npm run build`）が走る。
 
 ## テスト用の架空データ
 
