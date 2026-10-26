@@ -13,12 +13,13 @@
 import 'server-only';
 import { createMcpHandler } from 'mcp-handler';
 import { registerKakeiboTools } from './tools';
-import { KAKEIBO_INSTRUCTIONS } from './instructions';
+import { kakeiboInstructions } from './instructions';
+import { isMcpWriteEnabled } from '../config';
 import packageJson from '../../../package.json';
 
 export const kakeiboMcpHandler = createMcpHandler((server) => registerKakeiboTools(server), {
   serverInfo: { name: 'kakeibo', version: packageJson.version },
-  instructions: KAKEIBO_INSTRUCTIONS,
+  instructions: kakeiboInstructions(isMcpWriteEnabled()),
   capabilities: { tools: { listChanged: false } },
   maxSubscriptions: 0,
 });
