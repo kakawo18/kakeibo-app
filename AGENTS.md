@@ -96,10 +96,35 @@ npm run test:e2e            # Playwright で画面の主要な流れを検証（
 
 - `main` が常に本番。`develop` のような長く続く統合ブランチは作らず、PR を `main` にマージした時点でリリースになる。
 - **1 つの PR に 1 つのブランチ。** 作業のたびに最新の `main` から切り、マージ済みのブランチを次の作業に使い回さない。名前は `<type>/<短い説明>`（例: `fix/123-duplicate-items`、`ci/add-build-job`）を基本とする。
-- マージの前に、CI（`.github/workflows/ci.yml`）が通っていることを確かめる。登録・ログイン・取引の入力など画面の流れに関わる変更では、PR に `e2e` ラベルを付けて E2E テストも通す（マージ後の `main` では毎回走るが、その時点で本番にはもう出ている）。画面や挙動が変わる変更は、PR ごとに作られる Vercel のプレビュー URL で実際に操作してから出す。これがリリース前の確認で、ステージング環境は別に持たない。プレビューも本番と同じ Firebase につながるので、確かめるときはテスト用のアカウントを使い、本番の家計データを書き換えない。
+- マージの前に、CI（`.github/workflows/ci.yml`）が通っていることを確かめる。登録・ログイン・取引の入力など画面の流れに関わる変更では、PR に `e2e` ラベルを付けて E2E テストも通す（付けるかどうかは下の「`e2e` ラベルを付ける PR」で決める。マージ後の `main` では毎回走るが、その時点で本番にはもう出ている）。画面や挙動が変わる変更は、PR ごとに作られる Vercel のプレビュー URL で実際に操作してから出す。これがリリース前の確認で、ステージング環境は別に持たない。プレビューも本番と同じ Firebase につながるので、確かめるときはテスト用のアカウントを使い、本番の家計データを書き換えない。
 - マージはマージコミットで行う（squash しない）。コミットの本文に書いた経緯を残すため。
 - マージしたらブランチを消す（GitHub の Settings → General の「Automatically delete head branches」で自動にできる）。
 - 本番で不具合が出たら、まず Vercel で前のデプロイに戻し（`docs/deployment.md` の「更新とロールバック」）、直しはいつもどおり新しいブランチの PR で入れる。
+
+### `e2e` ラベルを付ける PR
+
+PR を作るエージェントは、利用者に言われなくても**変更したファイルからラベルの要否を判断し**、必要なら作成時に付ける（`gh pr create --label e2e`、作成後なら `gh pr edit <番号> --add-label e2e`）。PR の本文の「確認方法」に、付けた／付けなかった理由を1行書く。後から足したコミットで条件に当てはまるようになったら、その時点で付ける。
+
+E2E が確かめているのは、登録・ログイン・ログアウト、取引の追加・編集・削除、ダッシュボードへの反映（一覧は `docs/testing.md`）。これを壊しうる変更なら付ける。
+
+**付ける**（どれか1つでも当てはまれば）:
+
+- `src/features/auth/`・`src/features/transactions/`・`src/features/dashboard/` の変更
+- 画面全体にかかる部分: `src/app/` の `layout.tsx`・`(tabs)/` の画面、`src/contexts/`、`src/components/`（フォーム・ナビ・共通 UI）、`src/hooks/`、`src/app/globals.css`
+- 保存と読み込み: `src/data/`、`src/lib/firebase.ts`、`firestore.rules`、`firestore.indexes.json`
+- 取引の保存内容が変わる `src/domain/` の変更（`deriveTransactionFlags` など、保存するフラグを決める関数）
+- 実行環境: `next.config.ts`（CSP・ヘッダー）、`package.json` / `package-lock.json` の依存の更新（Next.js・React・Mantine・Firebase・framer-motion など画面で使うもの。Dependabot の PR も含む）
+- E2E そのもの: `e2e/`、`playwright.config.ts`、`firebase.e2e.json`、`.github/workflows/e2e.yml`
+
+**付けない**:
+
+- ドキュメントだけ（`docs/`・`*.md`）、コメントだけの変更
+- 集計・表示の計算だけの `src/domain/` の変更と、単体テスト・エミュレータのテストだけの変更
+- Claude 連携のサーバー側（`src/server/`・`src/app/api/`・`src/app/oauth/`）だけの変更（E2E の対象外）
+- 他の機能（`recurring` / `review` / `settings` / `import-export` / `claude-connect`）の中だけで閉じた変更
+- E2E 以外の CI 設定（`.github/workflows/ci.yml` など）、devDependencies だけの更新
+
+迷ったら付ける（かかるのは CI の時間だけで、付け忘れて壊すと本番に出てから気づくことになる）。
 
 <!-- BEGIN:nextjs-agent-rules -->
 

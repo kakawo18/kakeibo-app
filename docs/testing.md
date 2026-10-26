@@ -12,7 +12,7 @@ npm run test:e2e        # Playwright で画面の主要な流れを検証（Java
 ```
 
 CI（`.github/workflows/ci.yml`）で lint・型チェック・両方のテストと本番ビルド（`npm run build`）が走る。
-E2E テスト（`.github/workflows/e2e.yml`）は、PR に `e2e` ラベルを付けたときと `main` へのマージ後に走る。
+E2E テスト（`.github/workflows/e2e.yml`）は、PR に `e2e` ラベルを付けたときと `main` へのマージ後に走る。どの PR にラベルを付けるかは `AGENTS.md` の「`e2e` ラベルを付ける PR」に書いている。
 
 ## E2E テストで確かめていること
 
