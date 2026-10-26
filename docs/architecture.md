@@ -87,7 +87,7 @@ Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化し�
 
 ## Claude 連携（サーバー側）
 
-Claude のチャットから家計簿を読み取り専用で検索・集計できるようにする MCP サーバーと、そのための OAuth の認可サーバーを、同じ Next.js アプリの Route Handler として置いている。仕様と設計の理由は `docs/claude-connector/仕様書.md`、作業と確認の手順は `docs/claude-connector/手順書.md`。
+Claude のチャットから家計簿を読み取り専用で検索・集計できるようにする MCP サーバーと、そのための OAuth の認可サーバーを、同じ Next.js アプリの Route Handler として置いている。全体像は `docs/claude-connector/README.md`。仕様と設計の理由は `docs/claude-connector/仕様書.md`、作業と確認の手順は `docs/claude-connector/手順書.md`。
 
 ```
 app（route.ts・oauth/authorize/page.tsx）─→ server ─→ data（変換だけ）・domain ─→ utils / types
