@@ -1,6 +1,6 @@
 # Claude 連携のしくみ（概要）
 
-家計簿を claude.ai（Web・デスクトップ・スマホ）のチャットから読み取れるようにする機能の、全体像をまとめる。細かい決まりと設計の理由は[仕様書](./仕様書.md)、作り方・運用・つまずいた点は[手順書](./手順書.md)にある。この文書の内容は v6.11.1 の時点のものである。
+家計簿を claude.ai（Web・デスクトップ・スマホ）のチャットから読み取れるようにする機能の、全体像をまとめる。細かい決まりと設計の理由は[仕様書](./仕様書.md)、作り方・運用・つまずいた点は[手順書](./手順書.md)にある。この文書の内容は v6.11.2 の時点のものである。
 
 ## 1. 何ができるか
 
@@ -88,7 +88,7 @@ Claude にパスワードを渡さずに読み取りの許可だけを渡すた�
 | `src/app/api/mcp/route.ts` | MCP サーバーの入り口 |
 | `src/app/oauth/authorize/page.tsx`・`src/app/api/oauth/*` | 同意画面とトークンの発行・接続の確認と解除 |
 | `src/app/.well-known/*` | Claude が接続方法を見つけるための案内（メタデータ） |
-| `src/server/mcp/` | ツールの定義（`tools.ts`）と結果の組み立て（`summaries.ts`） |
+| `src/server/mcp/` | MCP サーバーの設定（`handler.ts`）、ツールの定義（`tools.ts`）と結果の組み立て（`summaries.ts`） |
 | `src/server/oauth/` | 認可サーバーの部品（コード・トークン・検証・掃除） |
 | `src/server/kakeiboReader.ts` | uid で絞った Firestore の読み出し |
 | `src/features/claude-connect/` | 同意画面と、設定画面の「Claude との接続」欄 |
