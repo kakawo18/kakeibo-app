@@ -90,6 +90,15 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 - `main` へ直接コミットしない。フィーチャーブランチで作業し PR を作る。
 - push で Vercel が自動デプロイ（本番 = `main`、PR = プレビュー）。
 
+### ブランチ運用（GitHub Flow）
+
+- `main` が常に本番。`develop` のような長く続く統合ブランチは作らず、PR を `main` にマージした時点でリリースになる。
+- **1 つの PR に 1 つのブランチ。** 作業のたびに最新の `main` から切り、マージ済みのブランチを次の作業に使い回さない。名前は `<type>/<短い説明>`（例: `fix/123-duplicate-items`、`ci/add-build-job`）を基本とする。
+- マージの前に、CI（`.github/workflows/ci.yml`）が通っていることを確かめる。画面や挙動が変わる変更は、PR ごとに作られる Vercel のプレビュー URL で実際に操作してから出す。これがリリース前の確認で、ステージング環境は別に持たない。プレビューも本番と同じ Firebase につながるので、確かめるときはテスト用のアカウントを使い、本番の家計データを書き換えない。
+- マージはマージコミットで行う（squash しない）。コミットの本文に書いた経緯を残すため。
+- マージしたらブランチを消す（GitHub の Settings → General の「Automatically delete head branches」で自動にできる）。
+- 本番で不具合が出たら、まず Vercel で前のデプロイに戻し（`docs/deployment.md` の「更新とロールバック」）、直しはいつもどおり新しいブランチの PR で入れる。
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know
