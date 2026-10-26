@@ -1,0 +1,50 @@
+name: E2E
+
+# 画面を実際に操作して主要な流れ（登録・ログイン・取引の追加/編集/削除）を確かめる。
+# 時間がかかるので、PR では e2e ラベルを付けたときだけ走らせる。main へのマージ後は毎回走らせ、
+# ラベルを付け忘れて壊れた場合も気づけるようにする（その時点で本番にはもう出ているので、
+# 落ちたら Vercel で前のデプロイに戻す。AGENTS.md の「ブランチ運用」）。
+# Firebase は Auth と Firestore のエミュレータだけを使い、本番の認証情報は使わない。
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    # ラベルが無い PR ではジョブを飛ばす（ワークフローごと止めずに skipped として残すので、
+    # 必須のチェックにしてもマージを止めない）。別のラベルを付けたときは走らせ直さない
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'e2e') &&
+       (github.event.action != 'labeled' || github.event.label.name == 'e2e'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:emulator": "npx --yes firebase-tools@13 emulators:exec --only firestore --project demo-kakeibo \"vitest run -c vitest.emulator.config.ts\"",
+    "test:e2e": "npx --yes firebase-tools@13 emulators:exec -c firebase.e2e.json --only auth,firestore --project demo-kakeibo \"playwright test\"",
     "build:analyze": "ANALYZE=true npm run build",
     "postinstall": "npm run type-check"
   },
@@ -44,6 +45,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@firebase/rules-unit-testing": "^4.0.1",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

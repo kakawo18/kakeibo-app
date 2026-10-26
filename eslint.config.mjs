@@ -11,7 +11,18 @@ const eslintConfig = [
       "out/**",
       "next-env.d.ts",
       "public/sw.js",
+      // Playwright の結果（トレースに含まれる画面のスクリプトなど）
+      "test-results/**",
+      "playwright-report/**",
+      "blob-report/**",
     ],
+  },
+  {
+    // Playwright のフィクスチャは use() で値を渡すが、React のフックではない
+    files: ["e2e/**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
   },
   {
     rules: {

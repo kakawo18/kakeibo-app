@@ -22,6 +22,7 @@ npm run lint                # ESLint
 npm run type-check          # tsc --noEmit
 npm test                    # Vitest（会計・集計の回帰テスト）
 npm run test:emulator       # Firestore エミュレータで保存形式とルールを検証（Java が必要）
+npm run test:e2e            # Playwright で画面の主要な流れを検証（エミュレータ + 本番ビルド。Java が必要）
 ```
 
 - 実行には `.env.local`（Firebase 設定）が必要。`.env.example` をコピーして埋める（手順は `docs/setup.md`）。
@@ -34,13 +35,14 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 ### テスト
 
-- 対象は React・Firebase に依存しない純関数（`src/domain/` の集計・ルール・税計算、`src/data/csvUtils.ts`、`src/utils/` の日付・入力チェックなど）。画面のテストは無い。
+- 対象は React・Firebase に依存しない純関数（`src/domain/` の集計・ルール・税計算、`src/data/csvUtils.ts`、`src/utils/` の日付・入力チェックなど）。画面は E2E テスト（下記）で主要な流れだけを確かめる。
 - 代表的な会計ケースの期待値と根拠は `docs/testing.md` の表にまとめている。会計ルールを足したら表にも1行足す。
 - テストは対象ファイルの隣に `*.test.ts` で置く（例: `src/domain/calculations.test.ts`）。
 - 架空データは `src/test/fixtures.ts` の `testSettings`・`testRules`・`tx()` を使う。役割ごとのカテゴリを一通り用意してある。**本番の家計データをテストに入れない**。
 - タイムゾーンは `vitest.config.ts` で `Asia/Tokyo` に固定している（月の判定がローカル時刻に依存するため）。
 - 不具合を直すときは、先に再現するテストを書いてから直す。**既知の不具合の挙動を正しい仕様としてテストに固定しない**。
 - Firestore への書き込み（保存形式・`deleteField`・ルール）が絡む変更は、`*.emulator.test.ts` にエミュレータのテストを書く。`npm run test:emulator` が Firebase CLI（`npx firebase-tools`）でエミュレータを起動し、`firestore.rules` を読み込んで実行する。Java 21 が必要。CI でも別ジョブで走る。
+- **E2E テスト**は `e2e/*.spec.ts`（Playwright）。`npm run test:e2e` が Auth と Firestore のエミュレータを `firebase.e2e.json` のポート（9199 / 8180。開発用の `firebase.json` とは別）で起動し、エミュレータにつなぐ設定で本番ビルドしたアプリを 3100 番で動かして、デスクトップとモバイルの幅で操作する。本番ビルドは `.next` に出るので、手元の `npm run build` の成果物は上書きされる。テストごとに新しいアカウントを作り、本番の Firebase への通信は `e2e/fixtures.ts` で遮断している。対象は登録・ログイン・取引の追加/編集/削除などの主要な流れだけで、金額の細かい正しさは単体テストで確かめる。CI（`.github/workflows/e2e.yml`）では、PR に `e2e` ラベルを付けたときと、`main` へのマージ後に走る。
 - Firestore の操作と変換は `src/data/` にまとめる。読み書きは `*Repository.ts`（`transactionRepository` / `recurringTransactionRepository` / `settingsRepository`。`db` を引数で受け取る）、保存形式の変換は `*Serializer.ts`。Context は状態の配布と購読の開始・解除だけを持ち、`collection` / `doc` / `onSnapshot` などを直接呼ばない。**作成と部分更新は別の関数**にし、更新では「undefined = 変更しない / 空文字 = 項目を消す（`deleteField`）」とする。
 - Repository の契約（購読・作成・更新・削除・旧データ・ルール）は `src/data/repositories.emulator.test.ts` で検証している。関数を足したらここにもテストを足す。
 
@@ -94,7 +96,7 @@ npm run test:emulator       # Firestore エミュレータで保存形式とル�
 
 - `main` が常に本番。`develop` のような長く続く統合ブランチは作らず、PR を `main` にマージした時点でリリースになる。
 - **1 つの PR に 1 つのブランチ。** 作業のたびに最新の `main` から切り、マージ済みのブランチを次の作業に使い回さない。名前は `<type>/<短い説明>`（例: `fix/123-duplicate-items`、`ci/add-build-job`）を基本とする。
-- マージの前に、CI（`.github/workflows/ci.yml`）が通っていることを確かめる。画面や挙動が変わる変更は、PR ごとに作られる Vercel のプレビュー URL で実際に操作してから出す。これがリリース前の確認で、ステージング環境は別に持たない。プレビューも本番と同じ Firebase につながるので、確かめるときはテスト用のアカウントを使い、本番の家計データを書き換えない。
+- マージの前に、CI（`.github/workflows/ci.yml`）が通っていることを確かめる。登録・ログイン・取引の入力など画面の流れに関わる変更では、PR に `e2e` ラベルを付けて E2E テストも通す（マージ後の `main` では毎回走るが、その時点で本番にはもう出ている）。画面や挙動が変わる変更は、PR ごとに作られる Vercel のプレビュー URL で実際に操作してから出す。これがリリース前の確認で、ステージング環境は別に持たない。プレビューも本番と同じ Firebase につながるので、確かめるときはテスト用のアカウントを使い、本番の家計データを書き換えない。
 - マージはマージコミットで行う（squash しない）。コミットの本文に書いた経緯を残すため。
 - マージしたらブランチを消す（GitHub の Settings → General の「Automatically delete head branches」で自動にできる）。
 - 本番で不具合が出たら、まず Vercel で前のデプロイに戻し（`docs/deployment.md` の「更新とロールバック」）、直しはいつもどおり新しいブランチの PR で入れる。
