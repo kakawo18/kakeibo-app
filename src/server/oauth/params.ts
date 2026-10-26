@@ -7,7 +7,35 @@
  */
 import { CHALLENGE_PATTERN } from './pkce';
 
-export const SCOPE = 'kakeibo.read';
+/** 読み取り（v1 から）。MCP の受け口はこれを必須にする */
+export const READ_SCOPE = 'kakeibo.read';
+/** 取引の追加と編集（docs/claude-connector/書き込み仕様書.md 8章）。MCP_WRITE_ENABLED=1 のときだけ出す */
+export const WRITE_SCOPE = 'kakeibo.write';
+
+/** 認可サーバーが今与えられる scope */
+export const supportedScopes = (writeEnabled: boolean): string[] =>
+  writeEnabled ? [READ_SCOPE, WRITE_SCOPE] : [READ_SCOPE];
+
+const splitScope = (scope: string | undefined): string[] => (scope ?? '').split(' ').filter(Boolean);
+
+/**
+ * 認可リクエストの scope から、与える scope を決める。知らない scope があれば null
+ *
+ * 省略なら今与えられるすべて。指定があればそれに kakeibo.read を足す（受け口が kakeibo.read を必須にするため）。
+ * 並びは supported の順にそろえる。
+ */
+export const grantScope = (requested: string | undefined, supported: readonly string[]): string | null => {
+  const list = splitScope(requested);
+  if (list.some((s) => !supported.includes(s))) return null;
+  const granted = new Set(list.length > 0 ? [READ_SCOPE, ...list] : supported);
+  return supported.filter((s) => granted.has(s)).join(' ');
+};
+
+/** リフレッシュで指定された scope が、最初に許可した scope の範囲内か（省略は範囲内。RFC 6749 6章） */
+export const isWithinScope = (requested: string | undefined, granted: string): boolean => {
+  const allowed = splitScope(granted);
+  return splitScope(requested).every((s) => allowed.includes(s));
+};
 
 /** claude.ai（Web・デスクトップ・スマホ）のコールバック */
 export const CLAUDE_REDIRECT_URI = 'https://claude.ai/api/mcp/auth_callback';
@@ -35,13 +63,15 @@ type QueryValue = string | string[] | undefined;
 const single = (value: QueryValue): string | undefined | null =>
   Array.isArray(value) ? null : value;
 
-/** scope の指定が kakeibo.read だけか（省略なら kakeibo.read） */
-export const isAllowedScope = (scope: string | undefined): boolean =>
-  !scope || scope.split(' ').filter(Boolean).every((s) => s === SCOPE);
-
 export const validateAuthorizeParams = (
   query: Record<string, QueryValue>,
-  expected: { clientId: string; resource: string; redirectUris: readonly string[] }
+  expected: {
+    clientId: string;
+    resource: string;
+    redirectUris: readonly string[];
+    /** 与えられる scope（省略なら kakeibo.read だけ） */
+    scopes?: readonly string[];
+  }
 ): AuthorizeValidation => {
   const clientId = single(query.client_id);
   const redirectUri = single(query.redirect_uri);
@@ -67,9 +97,11 @@ export const validateAuthorizeParams = (
   if (!codeChallenge || !CHALLENGE_PATTERN.test(codeChallenge)) {
     return fail('invalid_request', 'code_challenge is invalid');
   }
-  const scope = single(query.scope);
-  if (scope === null || !isAllowedScope(scope)) {
-    return fail('invalid_scope', `only ${SCOPE} is supported`);
+  const supported = expected.scopes ?? [READ_SCOPE];
+  const requestedScope = single(query.scope);
+  const scope = requestedScope === null ? null : grantScope(requestedScope, supported);
+  if (scope === null) {
+    return fail('invalid_scope', `supported scopes: ${supported.join(' ')}`);
   }
   const resource = single(query.resource);
   if (resource === null || (resource !== undefined && resource !== expected.resource)) {
@@ -78,7 +110,7 @@ export const validateAuthorizeParams = (
 
   return {
     ok: true,
-    request: { clientId, redirectUri, codeChallenge, scope: SCOPE, resource: expected.resource, state },
+    request: { clientId, redirectUri, codeChallenge, scope, resource: expected.resource, state },
   };
 };
 

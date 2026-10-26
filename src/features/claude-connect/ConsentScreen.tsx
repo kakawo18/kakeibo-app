@@ -23,6 +23,8 @@ interface ConsentScreenProps {
   query: Record<string, string>;
   /** 許可した後に戻る先のホスト名（claude.ai） */
   redirectHost: string;
+  /** 取引の追加と編集も許可するか（scope に kakeibo.write を含む。docs/claude-connector/書き込み仕様書.md 8.2 節） */
+  canWrite?: boolean;
   /** キャンセルしたときに戻る URL（error=access_denied 付き） */
   cancelUrl: string;
 }
@@ -34,7 +36,7 @@ interface ConsentScreenProps {
  */
 const FRESH_LOGIN_MS = 3 * 60 * 1000;
 
-export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHost, cancelUrl }) => {
+export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHost, canWrite = false, cancelUrl }) => {
   const { user, loading } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +139,9 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
               <Title order={1} size="h3">Claude との接続</Title>
             </Group>
             <Text size="sm" c="dimmed">
-              Claude が、この家計簿のデータを読み取ろうとしています。
+              {canWrite
+                ? 'Claude が、この家計簿のデータの読み取りと、取引の記録をしようとしています。'
+                : 'Claude が、この家計簿のデータを読み取ろうとしています。'}
             </Text>
           </Stack>
 
@@ -150,9 +154,12 @@ export const ConsentScreen: React.FC<ConsentScreenProps> = ({ query, redirectHos
             >
               <List.Item>取引の検索と、月・年ごとの集計の読み取り</List.Item>
               <List.Item>カテゴリ・支払方法・月間予算・定期取引の読み取り</List.Item>
+              {canWrite && <List.Item>取引の追加と、金額・メモなどの編集</List.Item>}
             </List>
             <Text size="sm" c="dimmed" mt={8}>
-              取引や設定の追加・変更・削除はできません。
+              {canWrite
+                ? '取引の削除と、設定の変更はできません。記録と編集の前に、Claude が内容を見せて確認を求めます。'
+                : '取引や設定の追加・変更・削除はできません。'}
             </Text>
           </Box>
 

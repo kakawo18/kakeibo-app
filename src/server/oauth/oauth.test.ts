@@ -8,6 +8,9 @@ import { challengeOf, verifyPkce } from '@/server/oauth/pkce';
 import {
   CLAUDE_REDIRECT_URI,
   buildRedirect,
+  grantScope,
+  isWithinScope,
+  supportedScopes,
   validateAuthorizeParams,
 } from '@/server/oauth/params';
 import { signAccessToken, verifyAccessToken } from '@/server/oauth/accessToken';
@@ -77,10 +80,44 @@ describe('validateAuthorizeParams', () => {
     });
   });
 
+  it('書き込みが有効なら、scope を省くと読み取りと書き込みの両方を与える', () => {
+    const withWrite = { ...expected, scopes: supportedScopes(true) };
+
+    expect(validateAuthorizeParams({ ...valid, scope: undefined }, withWrite)).toMatchObject({
+      ok: true,
+      request: { scope: 'kakeibo.read kakeibo.write' },
+    });
+    expect(validateAuthorizeParams(valid, withWrite)).toMatchObject({ ok: true, request: { scope: 'kakeibo.read' } });
+    expect(validateAuthorizeParams({ ...valid, scope: 'kakeibo.admin' }, withWrite)).toMatchObject({
+      ok: false,
+      error: 'invalid_scope',
+    });
+  });
+
   it('buildRedirect は redirect_uri にクエリを足し、undefined は付けない', () => {
     expect(buildRedirect(CLAUDE_REDIRECT_URI, { code: 'c', state: undefined, iss: 'https://k.example' })).toBe(
       `${CLAUDE_REDIRECT_URI}?code=c&iss=https%3A%2F%2Fk.example`
     );
+  });
+});
+
+describe('scope', () => {
+  const both = supportedScopes(true);
+
+  it('grantScope: 省略ならすべて、指定があれば kakeibo.read を足す。知らない scope は null', () => {
+    expect(supportedScopes(false)).toEqual(['kakeibo.read']);
+    expect(grantScope(undefined, both)).toBe('kakeibo.read kakeibo.write');
+    expect(grantScope('', both)).toBe('kakeibo.read kakeibo.write');
+    expect(grantScope('kakeibo.write', both)).toBe('kakeibo.read kakeibo.write');
+    expect(grantScope('kakeibo.read', both)).toBe('kakeibo.read');
+    expect(grantScope('kakeibo.write', supportedScopes(false))).toBeNull();
+    expect(grantScope('kakeibo.read other', both)).toBeNull();
+  });
+
+  it('isWithinScope: 最初に許可した範囲を超えない（省略は範囲内）', () => {
+    expect(isWithinScope(undefined, 'kakeibo.read')).toBe(true);
+    expect(isWithinScope('kakeibo.read', 'kakeibo.read kakeibo.write')).toBe(true);
+    expect(isWithinScope('kakeibo.read kakeibo.write', 'kakeibo.read')).toBe(false);
   });
 });
 

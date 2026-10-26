@@ -8,7 +8,7 @@ import 'server-only';
 import type { McpConfig } from '../config';
 import { ACCESS_TOKEN_TTL_SECONDS, signAccessToken } from './accessToken';
 import { verifyPkce } from './pkce';
-import { isAllowedScope } from './params';
+import { isWithinScope, supportedScopes } from './params';
 import { isTokenFormat } from './random';
 import {
   consumeAuthorizationCode,
@@ -35,11 +35,16 @@ const oauthError = (error: string, description: string, status = 400): TokenResp
   body: { error, error_description: description },
 });
 
+/**
+ * @param accessScope アクセストークンの scope。リフレッシュで狭めて求められたときだけ grant.scope と違う
+ *   （リフレッシュトークンは最初に許可した scope のまま）
+ */
 const issueTokens = async (
   grant: { uid: string; clientId: string; scope: string },
   refreshToken: string,
   config: McpConfig,
-  now: Date
+  now: Date,
+  accessScope: string = grant.scope
 ): Promise<TokenResponse> => {
   // 発行のついでに期限切れのコードとトークンを消す（TTL の代わり）。失敗しても発行は止めない
   await deleteExpired(now).catch((error: unknown) => {
@@ -48,11 +53,11 @@ const issueTokens = async (
   return {
     status: 200,
     body: {
-      access_token: await signAccessToken(grant, config, now),
+      access_token: await signAccessToken({ ...grant, scope: accessScope }, config, now),
       token_type: 'Bearer',
       expires_in: ACCESS_TOKEN_TTL_SECONDS,
       refresh_token: refreshToken,
-      scope: grant.scope,
+      scope: accessScope,
     },
   };
 };
@@ -101,12 +106,21 @@ const refresh = async (
   if (!token) return oauthError('invalid_request', 'refresh_token is required');
   const resource = form.get('resource');
   if (resource && resource !== config.resource) return oauthError('invalid_target', 'resource does not match');
-  if (!isAllowedScope(form.get('scope') ?? undefined)) return oauthError('invalid_scope', 'scope is not allowed');
+  // 知らない scope は Firestore を読む前に拒否する
+  const requestedScope = form.get('scope') ?? undefined;
+  if (!isWithinScope(requestedScope, supportedScopes(true).join(' '))) {
+    return oauthError('invalid_scope', 'scope is not allowed');
+  }
   if (!isTokenFormat(token)) return oauthError('invalid_grant', 'refresh token is invalid or expired');
 
   // 接続を作った後にパスワードの変更・セッションの失効・アカウントの削除や無効化があれば、接続を消す（#178）。
   // 使用済み・期限切れのトークンはここでは見ず、下のローテーションの判定（再使用の検出など）に任せる
   const active = await findActiveRefreshToken(token, now);
+  // 最初に許可した scope を超えて求めさせない（RFC 6749 6章）。読み取りだけの接続に書き込みを足させないため。
+  // トークンは使用済みにしない（求め方を直せば同じトークンで更新できる）
+  if (active && !isWithinScope(requestedScope, active.scope)) {
+    return oauthError('invalid_scope', 'scope exceeds the originally granted scope');
+  }
   if (active) {
     let account: FirebaseAccountState;
     try {
@@ -132,7 +146,14 @@ const refresh = async (
     return oauthError('invalid_grant', 'refresh token is invalid or expired');
   }
   if (!config.allowedUids.has(result.grant.uid)) return oauthError('invalid_grant', 'access is not allowed');
-  return issueTokens(result.grant, result.refreshToken, config, now);
+  // 猶予の間の再使用など、active で確かめられなかった場合のために、ここでも範囲を確かめる
+  if (!isWithinScope(requestedScope, result.grant.scope)) {
+    return oauthError('invalid_scope', 'scope exceeds the originally granted scope');
+  }
+  const accessScope = requestedScope
+    ? result.grant.scope.split(' ').filter((s) => requestedScope.split(' ').includes(s)).join(' ')
+    : result.grant.scope;
+  return issueTokens(result.grant, result.refreshToken, config, now, accessScope);
 };
 
 export const handleTokenRequest = async (
