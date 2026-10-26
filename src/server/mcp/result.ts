@@ -27,7 +27,8 @@ const text = (value: string): CallToolResult['content'] => [{ type: 'text', text
 export const runTool = async (
   name: string,
   ctx: ServerContext,
-  build: (uid: string) => unknown | Promise<unknown>
+  build: (uid: string) => unknown | Promise<unknown>,
+  failureMessage = '家計簿の読み出しに失敗しました。時間をおいてもう一度試してください。'
 ): Promise<CallToolResult> => {
   try {
     assertJapanTime();
@@ -38,10 +39,7 @@ export const runTool = async (
       return { isError: true, content: text(error.message) };
     }
     console.error(`MCP tool ${name} failed:`, error instanceof Error ? `${error.name}: ${error.message}` : 'unknown error');
-    return {
-      isError: true,
-      content: text('家計簿の読み出しに失敗しました。時間をおいてもう一度試してください。'),
-    };
+    return { isError: true, content: text(failureMessage) };
   }
 };
 

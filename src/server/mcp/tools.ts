@@ -2,7 +2,8 @@
  * Claude 連携のツールの登録（docs/claude-connector/仕様書.md 6章）
  *
  * 各ツールは「入力の検証 → 必要な期間だけ読む（kakeiboReader）→ 組み立て（summaries.ts）」の順に処理する。
- * すべて読み取り専用（readOnlyHint）。対象の利用者はトークンの uid で決まり、入力からは受け取らない。
+ * ここのツールはすべて読み取り専用（readOnlyHint）。対象の利用者はトークンの uid で決まり、入力からは受け取らない。
+ * 記録と編集のツールは writeTools.ts にあり、MCP_WRITE_ENABLED=1 のときだけ登録する。
  * Claude は説明文（description）を読んでツールと引数を選ぶので、説明文も仕様の一部として扱う。
  */
 import 'server-only';
@@ -15,8 +16,10 @@ import {
   readSettings,
   readTransactions,
 } from '../kakeiboReader';
+import { isMcpWriteEnabled } from '../config';
 import { UserFacingError } from '../errors';
 import { runTool } from './result';
+import { registerWriteTools } from './writeTools';
 import {
   DAY_PATTERN,
   MONTH_PATTERN,
@@ -222,4 +225,6 @@ export const registerKakeiboTools = (server: McpServer): void => {
         return buildRecurringList(recurring, transactions, thisMonth);
       })
   );
+
+  if (isMcpWriteEnabled()) registerWriteTools(server);
 };

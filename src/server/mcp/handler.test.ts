@@ -49,3 +49,13 @@ describe('通知の購読（subscriptions/listen）', () => {
     }
   });
 });
+
+describe('記録と編集のツール（書き込み仕様書）', () => {
+  it('MCP_WRITE_ENABLED が無ければ、読み取りのツールだけを出す', async () => {
+    const body = await (await post('tools/list', {})).json();
+    const names: string[] = body.result.tools.map((tool: { name: string }) => tool.name);
+
+    expect(names).toContain('get_kakeibo_overview');
+    expect(names.filter((name) => /transaction$/.test(name) && name !== 'search_transactions')).toEqual([]);
+  });
+});

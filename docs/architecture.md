@@ -87,16 +87,17 @@ Firestore は端末の永続キャッシュ（IndexedDB）付きで初期化し�
 
 ## Claude 連携（サーバー側）
 
-Claude のチャットから家計簿を読み取り専用で検索・集計できるようにする MCP サーバーと、そのための OAuth の認可サーバーを、同じ Next.js アプリの Route Handler として置いている。全体像は `docs/claude-connector/README.md`。仕様と設計の理由は `docs/claude-connector/仕様書.md`、作業と確認の手順は `docs/claude-connector/手順書.md`。
+Claude のチャットから家計簿を検索・集計し、利用者の承認を得て取引を記録・編集できるようにする MCP サーバーと、そのための OAuth の認可サーバーを、同じ Next.js アプリの Route Handler として置いている。全体像は `docs/claude-connector/README.md`。仕様と設計の理由は `docs/claude-connector/仕様書.md`（記録と編集は `書き込み仕様書.md`）、作業と確認の手順は `docs/claude-connector/手順書.md`（同じく `書き込み手順書.md`）。
 
 ```
 app（route.ts・oauth/authorize/page.tsx）─→ server ─→ data（変換だけ）・domain ─→ utils / types
 ```
 
-- `src/server/` はサーバー専用。Admin SDK は `firestore.rules` を通らないので、利用者のデータは `kakeiboReader.ts` の関数で、トークンから得た uid に絞って読む
+- `src/server/` はサーバー専用。Admin SDK は `firestore.rules` を通らないので、利用者のデータは `kakeiboReader.ts`（読み取り）と `kakeiboWriter.ts`（書き込み）の関数で、トークンから得た uid に絞って扱う。書き込みはアプリと同じ保存の形（`transactionSerializer` の `*Fields`）とルールと同じ上限で行う
 - ツールの結果は `server/mcp/summaries.ts` の純関数で組み立て、集計は `src/domain` の関数をそのまま使う（画面と同じ数値になる）
 - 月の判定はローカル時刻で行うので、サーバーは `server/timezone.ts` で日本時間に固定し、集計の前に確かめる
-- 本番では `MCP_ENABLED=1` のときだけ有効（それ以外は 404）
+- 記録と編集は「確認（`preview_*`。何も書かない）→ 記録（確認トークンだけを受け取る）」の2段にしている（`server/mcp/writeTools.ts`）
+- 本番では `MCP_ENABLED=1` のときだけ有効（それ以外は 404）。記録と編集はさらに `MCP_WRITE_ENABLED=1` のときだけ
 
 ## 役割ベースの集計（重要な設計）
 
