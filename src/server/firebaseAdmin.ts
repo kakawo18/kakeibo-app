@@ -4,8 +4,8 @@
  * firebase-admin/auth は読み込まない（Vercel で読み込みに失敗する。ID トークンの検証は
  * oauth/firebaseIdToken.ts。ESLint でも禁止している）。
  *
- * Admin SDK は firestore.rules を通らない。利用者のデータは kakeiboReader.ts の関数で、
- * 必ず uid を指定して読むこと（docs/claude-connector/仕様書.md 7.2）。
+ * Admin SDK は firestore.rules を通らない。利用者のデータは kakeiboReader.ts（読み取り）と
+ * kakeiboWriter.ts（書き込み）の関数で、必ず uid を指定して扱うこと（docs/claude-connector/仕様書.md 7.2）。
  */
 import 'server-only';
 import './timezone';

@@ -8,6 +8,10 @@
  * 以前は1つの関数で両方を扱い、空の任意項目を書き込みから落としていた。
  * updateDoc は書かなかったフィールドを残すので、サブカテゴリや支払方法を
  * 空にして保存しても前の値が復活していた。
+ *
+ * 規則そのものは SDK に依存しない関数（*Fields。日時は Date、消す項目は null）に置き、
+ * クライアント SDK の形にする関数（*Data）はそれを包むだけにしている。Claude 連携のサーバーは
+ * Admin SDK で書くので、*Fields を使って同じ形で保存する（src/server/kakeiboWriter.ts）。
  */
 import { DocumentData, FieldValue, Timestamp, deleteField } from 'firebase/firestore';
 import { Transaction, TransactionInput, TransactionKind, TransactionType } from '@/types';
@@ -35,8 +39,18 @@ export type TransactionUpdateData = Partial<
   paymentMethod?: string | FieldValue;
 };
 
-const toTimestamp = (date: Date | string): Timestamp =>
-  Timestamp.fromDate(date instanceof Date ? date : new Date(date));
+/** SDK に依存しない作成の内容（日時は Date のまま） */
+export type TransactionCreateFields = Omit<TransactionCreateData, 'date'> & { date: Date };
+
+/** SDK に依存しない部分更新の内容（日時は Date、消す項目は null） */
+export type TransactionUpdateFields = Partial<
+  Omit<TransactionCreateFields, 'subcategory' | 'paymentMethod'>
+> & {
+  subcategory?: string | null;
+  paymentMethod?: string | null;
+};
+
+const toDate = (date: Date | string): Date => (date instanceof Date ? date : new Date(date));
 
 /** 前後の空白を除き、空なら undefined */
 const trimmedOrUndefined = (value: string | undefined): string | undefined => {
@@ -44,7 +58,7 @@ const trimmedOrUndefined = (value: string | undefined): string | undefined => {
   return trimmed ? trimmed : undefined;
 };
 
-export const toTransactionCreateData = (input: TransactionInput): TransactionCreateData => {
+export const toTransactionCreateFields = (input: TransactionInput): TransactionCreateFields => {
   const subcategory = trimmedOrUndefined(input.subcategory);
   const paymentMethod = trimmedOrUndefined(input.paymentMethod);
 
@@ -52,7 +66,7 @@ export const toTransactionCreateData = (input: TransactionInput): TransactionCre
     type: input.type,
     amount: input.amount,
     category: input.category,
-    date: toTimestamp(input.date),
+    date: toDate(input.date),
     transactionType: input.transactionType || 'normal',
     affectsExpense: input.affectsExpense !== undefined ? input.affectsExpense : true,
     ...(subcategory ? { subcategory } : {}),
@@ -65,24 +79,29 @@ export const toTransactionCreateData = (input: TransactionInput): TransactionCre
   };
 };
 
-/**
- * 任意の文字列項目の更新値
- * undefined → 変更しない / 空 → 削除 / 値あり → トリムして上書き
- */
-const optionalFieldUpdate = (value: string | undefined): string | FieldValue | undefined => {
-  if (value === undefined) return undefined;
-  return trimmedOrUndefined(value) ?? deleteField();
+export const toTransactionCreateData = (input: TransactionInput): TransactionCreateData => {
+  const fields = toTransactionCreateFields(input);
+  return { ...fields, date: Timestamp.fromDate(fields.date) };
 };
 
-export const toTransactionUpdateData = (
+/**
+ * 任意の文字列項目の更新値
+ * undefined → 変更しない / 空 → 削除（null） / 値あり → トリムして上書き
+ */
+const optionalFieldUpdate = (value: string | undefined): string | null | undefined => {
+  if (value === undefined) return undefined;
+  return trimmedOrUndefined(value) ?? null;
+};
+
+export const toTransactionUpdateFields = (
   updates: Partial<Transaction>
-): TransactionUpdateData => {
-  const data: TransactionUpdateData = {};
+): TransactionUpdateFields => {
+  const data: TransactionUpdateFields = {};
 
   if (updates.type !== undefined) data.type = updates.type;
   if (updates.amount !== undefined) data.amount = updates.amount;
   if (updates.category !== undefined) data.category = updates.category;
-  if (updates.date !== undefined) data.date = toTimestamp(updates.date);
+  if (updates.date !== undefined) data.date = toDate(updates.date);
   if (updates.transactionType !== undefined) data.transactionType = updates.transactionType;
   if (updates.affectsExpense !== undefined) data.affectsExpense = updates.affectsExpense;
 
@@ -95,6 +114,18 @@ export const toTransactionUpdateData = (
   if (updates.description !== undefined) data.description = updates.description.trim();
 
   return data;
+};
+
+export const toTransactionUpdateData = (
+  updates: Partial<Transaction>
+): TransactionUpdateData => {
+  const { date, subcategory, paymentMethod, ...rest } = toTransactionUpdateFields(updates);
+  return {
+    ...rest,
+    ...(date !== undefined ? { date: Timestamp.fromDate(date) } : {}),
+    ...(subcategory !== undefined ? { subcategory: subcategory ?? deleteField() } : {}),
+    ...(paymentMethod !== undefined ? { paymentMethod: paymentMethod ?? deleteField() } : {}),
+  };
 };
 
 /**
